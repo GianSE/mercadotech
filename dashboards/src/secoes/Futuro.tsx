@@ -1,24 +1,12 @@
 import { useMemo } from "react";
 import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi, Leitura } from "../componentes/ui";
-import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
+import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi } from "../componentes/ui";
+import { fmtCompacto, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
 import { opcaoDispersao, opcaoPrevisao } from "../lib/graficos";
 import { num } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
-function correlacao(x: number[], y: number[]) {
-  const n = x.length;
-  const mx = x.reduce((a, b) => a + b, 0) / n;
-  const my = y.reduce((a, b) => a + b, 0) / n;
-  let sxy = 0, sxx = 0, syy = 0;
-  for (let i = 0; i < n; i++) {
-    sxy += (x[i] - mx) * (y[i] - my);
-    sxx += (x[i] - mx) ** 2;
-    syy += (y[i] - my) ** 2;
-  }
-  return sxy / Math.sqrt(sxx * syy);
-}
 
 export default function Futuro() {
   const { cores: c } = useTema();
@@ -35,11 +23,9 @@ export default function Futuro() {
   const modelo = String(p[0]?.modelo ?? "—");
   const acumulado = p.reduce((s, l) => s + num(l, "previsao"), 0);
   const faixa = [p.reduce((s, l) => s + num(l, "inferior"), 0), p.reduce((s, l) => s + num(l, "superior"), 0)];
-  const vencedor = placar.linhas[0];
   const pr = proj.linhas[0];
   const anoTeste = num(retido.linhas[0], "ano_teste");
 
-  const r = useMemo(() => (pares.linhas.length > 2 ? correlacao(pares.linhas.map((l) => num(l, "fluxo")), pares.linhas.map((l) => num(l, "delta"))) : NaN), [pares.linhas]);
 
   const op = useMemo(() => {
     if (!obs.length || !p.length) return { previsao: null, nowcast: null };
@@ -71,11 +57,10 @@ export default function Futuro() {
       <CabecalhoPergunta
         numero={5}
         pergunta="Para onde o mercado vai?"
-        resposta="Para crescimento modesto e positivo, com intervalo declarado: o modelo supera a regra ingênua, mas a faixa cruza o zero adiante de um ano. Estimar o presente é bem mais preciso que prever o futuro."
       />
       <AvisoNacional>Os modelos foram ajustados sobre a série nacional: o filtro de território não se aplica a esta página.</AvisoNacional>
 
-      <Bloco titulo="Saldo mensal: observado e projetado" descricao="Previsão de 18 meses pelo modelo SARIMA escolhido em validação de origem móvel. O número certo é a faixa, não o ponto.">
+      <Bloco titulo="Saldo mensal: observado e projetado">
         <Grade>
           <Kpi destaque rotulo={`Saldo previsto em ${p.length} meses`} valor={fmtSinal(acumulado)} detalhe={<>modelo <span className="font-mono">{modelo}</span></>} />
           <Kpi rotulo="Faixa de 80% do acumulado" valor={`${fmtCompacto(faixa[0])} a ${fmtCompacto(faixa[1])}`} />
@@ -96,7 +81,6 @@ export default function Futuro() {
             ],
             linhas: p,
           }}
-          rodape="A faixa é larga porque saldo mensal de emprego é ruidoso. Ler o ponto isolado como previsão é o erro que este painel evita."
         />
         <CartaoTabela
           titulo="Por que este modelo, e não outro"
@@ -111,18 +95,9 @@ export default function Futuro() {
             linhas: placar.linhas,
           }}
         />
-        {vencedor && (
-          <Leitura>
-            <p>
-              O vencedor erra <strong>{fmtPct(num(vencedor, "ganho"), 1)} menos</strong> que a regra ingênua “igual ao mesmo mês do ano passado”. A regra
-              está na tabela de propósito: a série tem sazonalidade forte, e um modelo que não a superasse estaria só redescobrindo o calendário — um
-              dos candidatos, aliás, fica abaixo dela.
-            </p>
-          </Leitura>
-        )}
       </Bloco>
 
-      <Bloco titulo="Estimar a RAIS antes de ela sair" descricao="A RAIS sai com cerca de um ano de atraso; o CAGED é mensal. Nessa janela, sabe-se quanto o mercado se moveu, mas não de que tamanho ficou — o nowcast estima o estoque corrente a partir do último estoque conhecido e do fluxo já publicado.">
+      <Bloco titulo="Estimar a RAIS antes de ela sair">
         <CartaoGrafico
           titulo="Fluxo do CAGED × variação do estoque da RAIS"
           subtitulo="Cada ponto é um ano · a linha tracejada é a identidade (1:1)"
@@ -131,15 +106,6 @@ export default function Futuro() {
           altura={400}
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "fluxo", rotulo: "Saldo CAGED", formato: fmtSinal, numero: true }, { chave: "delta", rotulo: "Variação RAIS", formato: fmtSinal, numero: true }], linhas: pares.linhas }}
         />
-        {Number.isFinite(r) && (
-          <Leitura>
-            <p>
-              A correlação entre a variação do estoque e o saldo acumulado é de <strong>{fmtDec(r, 2)}</strong> — forte o bastante para estimar, não
-              para somar. O achado defensável não é um modelo sofisticado: é que <strong>o saldo do CAGED acompanha a variação do estoque da RAIS quase
-              1:1</strong>.
-            </p>
-          </Leitura>
-        )}
         <Grade>
           <CartaoTabela
             titulo="Retrospectiva"
@@ -176,10 +142,6 @@ export default function Futuro() {
               <Kpi rotulo="CAGED previsto (resto do ano)" valor={fmtSinal(num(pr, "fluxo_previsto"))} />
               <Kpi destaque rotulo={`Estoque estimado em ${num(pr, "ano")}`} valor={fmtCompacto(num(pr, "estoque_estimado"))} detalhe={`± ${fmtCompacto(num(pr, "margem"))}`} />
             </Grade>
-            <p className="text-[12px] leading-relaxed text-tinta-3">
-              O MTE só publica esse número em {num(pr, "ano") + 1}; quando sair, a projeção vira validação prospectiva. A margem soma em quadratura
-              duas incertezas — o fluxo previsto e a relação fluxo→estoque — e é ordem de grandeza, não intervalo exato.
-            </p>
           </>
         )}
       </Bloco>

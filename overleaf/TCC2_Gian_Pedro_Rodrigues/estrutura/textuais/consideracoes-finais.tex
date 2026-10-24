@@ -21,41 +21,7 @@ As limitações de fonte foram declaradas na \autoref{sec:limitacoes-metodo} e m
 
 Três limitações de método também precisam ficar registradas. A primeira é que a parcela não explicada da decomposição salarial não mede discriminação: ela é um limite superior para o que a discriminação poderia explicar. A segunda é que a tábua de vida de período descreve o risco vigente em um ano, e não a trajetória de uma coorte --- a leitura de permanência precisa dessa ressalva. A terceira é que o Prophet, previsto na proposta, não foi avaliado: a família SARIMA foi adotada e validada, mas a comparação entre as duas abordagens ficou de fora.
 
-\section{Estado Atual do Trabalho e Pendências}
-\label{sec:pendencias}
-
-A migração para a nuvem resolveu duas das pendências registradas na fase local: o bloqueio das bibliotecas de modelagem pela política de integridade de código do Windows, porque os modelos passaram a ser calculados em executores Linux, e a falta de espaço em disco, porque o \textit{data lake} deixou de ser local. Ela também mudou a natureza de uma terceira: não existe mais uma etapa de republicação a cumprir à mão, porque a reconstrução do site com os dados novos é a última etapa do próprio \textit{pipeline}. O \autoref{quadro:pendencias} relaciona o que permanece.
-
-\begin{quadro}[htbp]
-    \centering
-    \caption{Pendências para a versão final}
-    \label{quadro:pendencias}
-    \footnotesize
-    \renewcommand{\arraystretch}{1.3}
-    \begin{tabularx}{\textwidth}{%
-        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
-        >{\raggedright\arraybackslash\hsize=1.38\hsize}X}
-        \toprule
-        \rowcolor{black!8}
-        \textbf{Pendência} & \textbf{Situação} \\
-        \midrule
-        Levar a correção de 2022 para a nuvem &
-        A correção da ingestão parcial de 2022 (\autoref{sec:achados-qualidade}) foi aplicada à camada tratada local, e os agregados da RAIS e do mapa usados nas tabelas deste texto foram reconstruídos sobre ela. A Silver da RAIS publicada, porém, é anterior à correção --- e é ela que alimenta a Gold e o \textit{dashboard}. Como a verificação incremental compara a presença de anos, e não o conteúdo, um ano corrigido não é detectado sozinho: 2022 precisa ser reprocessado sob demanda, pela opção de reprocessamento forçado que a etapa da Silver passou a oferecer, depois da qual a Gold é reconstruída. A diferença está medida: regeradas a partir do repositório, oito das doze tabelas deste texto saem idênticas, e as duas da RAIS que diferem (\autoref{tab:estoque-serie} e \autoref{tab:linhas-camada}) diferem só em 2022, pelos 446.267 vínculos ausentes; essas duas permanecem com os valores corrigidos. No \textit{dashboard}, 2022 aparece sinalizado como subestimado. Afetados até o reprocessamento: os agregados da RAIS desse ano, o \textit{nowcast} e a linha de 2022 da série do hiato. \textbf{Não} afetados: a previsão do saldo mensal, a análise de sobrevivência (calculada sobre 2024), os perfis de município (janela de 2020 a 2025) e a análise de sensibilidade sobre São Paulo, que compara 2007 com 2025. \\
-        Meses novos do CAGED na Silver &
-        A verificação incremental da Silver do CAGED comparava a presença de \textbf{anos}: depois que o primeiro mês de um ano era traduzido, os seguintes nunca eram, porque o ano já constava. Por isso julho e agosto de 2026 estão na Bronze desde 8 de outubro e ainda não na Silver. A verificação foi corrigida para comparar também os meses, e a próxima execução precisa traduzi-los. \\
-        Execução completa da Gold em nuvem &
-        A consolidação das tabelas do CAGED e a unificação das duas gerações, etapa própria do \textit{pipeline}, foram executadas com sucesso em nuvem. Na execução agendada seguinte, as três etapas da Gold que leem a camada tratada falharam depois de 2 a 11 minutos de processamento, e a causa ainda precisa ser identificada no registro da execução. Até uma execução completa, a Gold publicada é a da última execução bem-sucedida. \\
-        Substituição de partições na Silver em nuvem &
-        Nas primeiras execuções em nuvem da Silver do CAGED, os arquivos de cada partição foram gravados fora da pasta da tabela e com nome diferente do usado pela camada migrada --- 505 arquivos na raiz do repositório. Eles não chegaram a ser lidos, porque as consultas leem só a pasta de cada tabela, mas também não atualizaram a camada; e, gravados na pasta certa, teriam contado a partição em dobro (\autoref{sec:publicacao}). A publicação da Silver, nas duas bases, foi refeita para \textbf{substituir} o ano reconstruído: cada partição vira um arquivo com o nome da camada consolidada, e tudo o que existia daquele ano --- inclusive as sobras na raiz --- sai no mesmo \textit{commit}. A substituição do ano inteiro é segura porque a partição é o ano e o mês do arquivo de origem, e não a competência: reconstruir um ano lê todos os arquivos dele. Se algum arquivo de origem falha, nada é publicado. Falta a primeira execução com a correção. \\
-        Verificação de reprodutibilidade da RAIS &
-        O teste de recontagem a partir do dado bruto (\autoref{sec:reprodutibilidade}) foi feito para o CAGED. O equivalente para a RAIS ainda não foi executado. \\
-        Confronto com os painéis oficiais &
-        A comparação dos agregados com os painéis do PDET, prevista na proposta, foi feita de forma pontual e precisa ser sistematizada por unidade federativa e ano. \\
-        \bottomrule
-    \end{tabularx}
-    \\[4pt]
-    Fonte: Autoria própria.
-\end{quadro}
+Duas verificações de qualidade ficaram parciais. O teste de reprodutibilidade a partir do dado bruto (\autoref{sec:reprodutibilidade}) foi feito para o CAGED, e não para a RAIS. E a comparação dos agregados com os painéis oficiais do PDET, prevista na proposta, foi feita de forma pontual, e não sistemática por unidade federativa e ano. A correção da ingestão parcial de 2022, por fim, foi refeita na camada publicada: o reprocessamento em nuvem devolveu à Silver da RAIS todos os vínculos ausentes, menos 1.157, e o estoque de 2022 passou a diferir em 0,08\% do obtido na correção local --- diferença cuja origem não pôde ser isolada, porque a camada local foi desativada, e que não altera nenhuma conclusão.
 
 \section{Trabalhos Futuros}
 

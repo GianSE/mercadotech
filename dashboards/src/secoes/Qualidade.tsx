@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
-import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Leitura, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { useFiltro } from "../lib/filtro";
 import { fmtDec, fmtNum, fmtPct, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoLinhas } from "../lib/graficos";
-import { TextoRemuneracao } from "../lib/narrativa";
 import { coluna, entre, intervalo, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
@@ -38,7 +37,6 @@ export default function Qualidade() {
   const anoSobrevivencia = num(risco.linhas[0], "ano");
   const riscoOrdenado = FAIXAS.map((fx) => risco.linhas.find((l) => l.tempo_de_casa === fx)).filter((l) => l !== undefined);
   const todos = tabua.linhas.find((l) => l.recorte === "todos");
-  const pico = riscoOrdenado.reduce<(typeof riscoOrdenado)[number] | undefined>((m, l) => (!m || num(l, "risco") > num(m, "risco") ? l : m), undefined);
   const giro = useMemo(() => a.map((l) => ({ ano: l.ano, giro: (num(l, "desligados") / num(l, "estoque")) * 100, desligados: l.desligados, estoque: l.estoque })), [a]);
 
   const op = useMemo(
@@ -66,31 +64,21 @@ export default function Qualidade() {
       <CabecalhoPergunta
         numero={3}
         pergunta="O emprego de TI melhorou em qualidade?"
-        resposta="Não em remuneração relativa: o salário medido em salários mínimos está praticamente parado, e o risco de desligamento se concentra no primeiro ano."
       />
-      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`} nota={`Período da RAIS (até 2025). O território vale para a remuneração e o giro; a área de atuação e a sobrevivência são nacionais (a sobrevivência é de ${anoSobrevivencia || "—"}).`}>
+      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2025] }, { rotulo: "Últimos 10 anos", periodo: [2016, 2025] }]} />
       </LinhaFiltros>
 
-      <Bloco titulo="Remuneração em salários mínimos" descricao="Medir em múltiplos do salário mínimo torna a série comparável sem escolher deflator.">
+      <Bloco titulo="Remuneração em salários mínimos">
         <CartaoGrafico
           titulo={`Mediana e média da remuneração · ${f.rotulo}`}
-          subtitulo="RAIS · vínculos de TI, ponderado pelo estoque"
+          subtitulo={`RAIS · ponderado pelo estoque${f.ativo ? " · mediana aproximada no recorte" : ""}`}
           opcao={op.remuneracao}
           carregando={anual.carregando}
           erro={anual.erro}
           altura={320}
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mediana", rotulo: "Mediana", formato: fmtSM, numero: true }, { chave: "media", rotulo: "Média", formato: fmtSM, numero: true }], linhas: a }}
-          rodape={
-            <>
-              A partir de 2023 a fonte traz registros com a conversão para salário mínimo invertida (multiplicada em vez de dividida) —{" "}
-              {fmtNum(a.reduce((s, l) => s + num(l, "descartados"), 0))} deles foram descartados por um teto de 500 salários mínimos.
-              {!f.ativo && " Sem o corte, a média saltaria de 6,17 para 8,84 SM entre 2022 e 2023: uma valorização de 43% que não aconteceu."}
-              {f.ativo && " Com filtro de território, a mediana é a média ponderada das medianas de cada estado — uma aproximação, porque mediana não se soma."}
-            </>
-          }
         />
-        {a.length > 1 && <Leitura><TextoRemuneracao u={a.at(-1)!} inicio={num(a[0], "ano")} /></Leitura>}
         <CartaoGrafico
           titulo="Por área de atuação"
           subtitulo={`RAIS · mediana em salários mínimos, ${ano}`}
@@ -102,7 +90,7 @@ export default function Qualidade() {
         />
       </Bloco>
 
-      <Bloco titulo={`Quanto dura um emprego de tecnologia`} descricao="O giro mede quantos vínculos terminam no ano em relação ao estoque. A tábua de vida de período usa as taxas de um ano só, como numa tábua demográfica: responde como seria a trajetória se as taxas de hoje valessem sempre — não o que aconteceu com quem entrou num ano específico.">
+      <Bloco titulo={`Quanto dura um emprego de tecnologia`}>
         <CartaoGrafico
           titulo={`Giro do mercado · ${f.rotulo}`}
           subtitulo="RAIS · vínculos encerrados no ano em proporção ao estoque"
@@ -139,15 +127,6 @@ export default function Qualidade() {
             tabela={todos ? { colunas: [{ chave: "faixa", rotulo: "Tempo de casa" }, { chave: "valor", rotulo: "Ainda no emprego", formato: (v) => fmtPct(v, 1), numero: true }], linhas: FAIXAS.map((fx) => ({ faixa: ROTULO_FAIXA[fx], valor: num(todos, fx) })) } : undefined}
           />
         </Grade>
-        {pico && riscoOrdenado.length > 1 && (
-          <Leitura>
-            <p>
-              O risco tem pico em <strong>{ROTULO_FAIXA[String(pico.tempo_de_casa)]}</strong> de casa ({fmtPct(num(pico, "risco"), 1)} ao ano) e cai até{" "}
-              {fmtPct(num(riscoOrdenado.at(-1), "risco"), 1)} depois de dez anos: quanto mais o vínculo dura, menos provável que termine. O CAGED não
-              permite esta leitura — ele registra a movimentação, não a duração.
-            </p>
-          </Leitura>
-        )}
         <Grade>
           <CartaoTabela
             titulo="Sobrevivência por grupo"
@@ -177,7 +156,6 @@ export default function Qualidade() {
               ],
               linhas: multi.linhas,
             }}
-            rodape="Não é Cox: o Cox monta o conjunto de risco pela duração observada, e num corte transversal isso suporia que quem tem dez anos de casa estava em risco aos doze meses — onde nunca esteve no ano observado."
           />
         </Grade>
       </Bloco>

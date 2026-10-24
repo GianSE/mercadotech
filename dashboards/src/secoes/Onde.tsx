@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../componentes/Grafico";
-import { Aviso, Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, Leitura, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { UFS, useFiltro } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoMosaico, opcaoRosca } from "../lib/graficos";
-import { TextoLentesEstoque } from "../lib/narrativa";
 import { coluna, entre, intervalo, literal, num, ponderada, rotulos } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
@@ -55,8 +54,6 @@ export default function Onde() {
 
   const fluxo = ordenarLentes(lentesFluxo.linhas);
   const estoque = ordenarLentes(lentesEstoque.linhas);
-  const admFora = num(fluxo.find((l) => l.categoria === FORA), "admissoes");
-  const admDentro = num(fluxo.find((l) => l.categoria === DENTRO), "admissoes");
 
   const op = useMemo(() => {
     const salarioExtra = (linhas: typeof fluxo) => (i: number) =>
@@ -82,11 +79,9 @@ export default function Onde() {
       <CabecalhoPergunta
         numero={2}
         pergunta="Onde está o trabalho de TI: em que empresas e em que lugares?"
-        resposta="A maior parte dos profissionais de TI está fora das empresas de TI, e o interior cresce mais rápido que as capitais."
       />
       <LinhaFiltros
         resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}
-        nota={`O período vale para o CAGED (fluxo); a RAIS (estoque) usa o último ano coberto por ela: ${anoRais}. O mapa tem seu próprio ano. Clicar num estado do mapa ou do ranking também filtra.`}
       >
         <FiltroPeriodo
           anos={ANOS}
@@ -102,7 +97,6 @@ export default function Onde() {
 
       <Bloco
         titulo="Setor de TI ou ocupação de TI?"
-        descricao="O recorte une duas definições que descrevem populações diferentes: quem trabalha em empresa de tecnologia (CNAE) e quem exerce ocupação de tecnologia (CBO), em qualquer setor."
       >
         <Grade>
           <CartaoGrafico
@@ -139,15 +133,6 @@ export default function Onde() {
             }}
           />
         </Grade>
-        <Leitura>
-          {admFora > 0 && (
-            <p>
-              No fluxo, <strong>{fmtPct((admFora / (admFora + admDentro)) * 100, 0)} das admissões de profissionais de TI</strong> foram feitas
-              por empresas que não são de tecnologia ({fmtNum(admFora)} de {fmtNum(admFora + admDentro)}).
-            </p>
-          )}
-          <TextoLentesEstoque fora={estoque.find((l) => l.categoria === FORA)} dentro={estoque.find((l) => l.categoria === DENTRO)} />
-        </Leitura>
         <CartaoGrafico
           titulo="Quem mais contrata profissionais de TI fora do setor"
           subtitulo={`CAGED · admissões em ocupações de TI por setor da empresa · ${periodo[0]}–${periodo[1]} · ${f.rotulo}`}
@@ -163,7 +148,6 @@ export default function Onde() {
             ],
             linhas: quemContrata.linhas,
           }}
-          rodape="Nenhum desses empregadores é empresa de tecnologia — uma análise que olhasse só o CNAE de TI não veria esse contingente."
         />
       </Bloco>
 
@@ -201,8 +185,6 @@ function Mapa() {
   const totalPais = linhasUf.reduce((s, l) => s + num(l, "estoque"), 0);
   const totalSel = selecionadas.reduce((s, l) => s + num(l, "estoque"), 0);
   const saldoSel = selecionadas.reduce((s, l) => s + num(l, "saldo"), 0);
-  const comEstoque = selecionadas.filter((l) => num(l, "estoque") > 0).map((l) => ({ uf: String(l.uf), intensidade: num(l, "saldo") / num(l, "estoque") }));
-  const ordenadas = [...comEstoque].sort((a, b) => b.intensidade - a.intensidade);
   const ranking = useMemo(() => [...linhasUf].sort((a, b) => num(b, "estoque") - num(a, "estoque")), [linhasUf]);
 
   const opMapa = useMemo(() => {
@@ -227,7 +209,7 @@ function Mapa() {
   };
 
   return (
-    <Bloco titulo="O mapa: estoque e movimento no mesmo lugar" descricao="A cor do estado mostra a métrica escolhida; as bolhas são municípios, do tamanho do estoque. Clique num estado (ou numa barra do ranking) para recortar o site inteiro por ele; clique de novo para desfazer.">
+    <Bloco titulo="O mapa: estoque e movimento no mesmo lugar">
       <div className="flex flex-wrap items-end gap-4">
         <Seletor rotulo="Ano" valor={ano} opcoes={intervalo(2007, 2026).map((a) => ({ valor: a, rotulo: String(a) }))} aoMudar={setAno} />
         <Seletor rotulo="Colorir por" valor={metrica} opcoes={(Object.keys(METRICAS) as Metrica[]).map((k) => ({ valor: k, rotulo: METRICAS[k].rotulo }))} aoMudar={setMetrica} />
@@ -273,20 +255,6 @@ function Mapa() {
           tabela={{ colunas: [{ chave: "uf", rotulo: "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: ranking }}
         />
       </div>
-      {ordenadas.length > 5 && (
-        <Leitura>
-          <p>
-            Em {ano}, o maior movimento em relação ao próprio tamanho foi em <strong>{ordenadas.slice(0, 3).map((o) => o.uf).join(", ")}</strong>, e o
-            menor em <strong>{ordenadas.slice(-3).reverse().map((o) => o.uf).join(", ")}</strong>. Nenhuma das duas bases sozinha mostra isso: o
-            estoque diz o tamanho, o fluxo diz a direção.
-          </p>
-        </Leitura>
-      )}
-      <Aviso titulo="A localização é a do estabelecimento, não a do trabalho">
-        A empresa de TI escolhe onde se registrar por causa do ISS, e isso desloca o mapa: Barueri aparece com 200 vínculos de TI por mil
-        habitantes, e Guaraciaba (MG), com 10 mil habitantes, saiu de 1 vínculo em 2022 para 1.428 em 2023. A coluna da RAIS que resolveria
-        (<code className="font-mono text-[12px]">mun_trab</code>) vem como “não informado” em praticamente todos os registros.
-      </Aviso>
     </Bloco>
   );
 }
@@ -305,18 +273,12 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
            sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf = 'SP') / sum(estoque_3112) FILTER (WHERE uf = 'SP')   AS mediana_sp,
            sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf <> 'SP') / sum(estoque_3112) FILTER (WHERE uf <> 'SP') AS mediana_resto
     FROM rais_estoque_uf WHERE (setor_ti OR ocupacao_ti) AND ano BETWEEN ${inicio} AND ${fim} GROUP BY 1 ORDER BY 1`);
-  const saldo = useConsulta(`
-    SELECT sum(saldo) FILTER (WHERE uf = 'SP')::DOUBLE AS sp, sum(saldo)::DOUBLE AS total
-    FROM caged_cubo WHERE ${entre(periodo)} AND uf IS NOT NULL`);
 
   const s = serie.linhas;
   const [p, u] = [s[0], s.at(-1)];
   const cresce = (chave: string) => (num(u, chave) / num(p, chave) - 1) * 100;
   const cresceTotal = ((num(u, "sp") + num(u, "resto")) / (num(p, "sp") + num(p, "resto")) - 1) * 100;
   const participacao = (l: (typeof s)[number] | undefined) => (num(l, "sp") / (num(l, "sp") + num(l, "resto"))) * 100;
-  const com2022 = s.some((l) => num(l, "ano") === 2022);
-  const saldoSp = num(saldo.linhas[0], "sp");
-  const saldoTotal = num(saldo.linhas[0], "total");
 
   const op = useMemo(() => {
     if (s.length < 2) return { indice: null, mediana: null, participacao: null };
@@ -345,14 +307,9 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
     };
   }, [s, p, c]);
 
-  const nota2022 = com2022
-    ? "2022 está subestimado: a camada publicada ainda não tem a correção da ingestão parcial desse ano, que afetou sobretudo o arquivo do Sudeste. O vale de SP em 2022 é defeito do dado, não do mercado."
-    : undefined;
-
   return (
     <Bloco
       titulo="São Paulo e o resto do país"
-      descricao="São Paulo concentra cerca de 40% do estoque. Não é um valor anômalo a descartar — é o maior mercado do país —, mas pesa tanto que vale perguntar: as conclusões mudam sem ele? Este bloco compara SP com o Brasil sem SP e não segue o filtro de território."
     >
       {s.length > 1 && (
         <Grade colunas={3}>
@@ -368,7 +325,7 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
       <Grade>
         <CartaoGrafico
           titulo="Quem cresceu mais"
-          subtitulo={`RAIS · estoque, índice ${num(p, "ano") || ""} = 100`}
+          subtitulo={`RAIS · índice ${num(p, "ano") || ""} = 100 · não segue o filtro${s.some((l) => num(l, "ano") === 2022) ? " · 2022 subestimado" : ""}`}
           opcao={op.indice}
           carregando={serie.carregando}
           erro={serie.erro}
@@ -381,7 +338,6 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
             ],
             linhas: s,
           }}
-          rodape={nota2022}
         />
         <CartaoGrafico
           titulo="Remuneração mediana"
@@ -399,21 +355,6 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
           }}
         />
       </Grade>
-      {s.length > 1 && Number.isFinite(cresceTotal) && (
-        <Leitura>
-          <p>
-            Sem São Paulo, o estoque de TI cresceu <strong>{fmtDec(cresce("resto"), 0)}%</strong> entre {num(p, "ano")} e {num(u, "ano")}, contra{" "}
-            {fmtDec(cresceTotal, 0)}% do país inteiro
-            {Math.abs(cresce("resto") - cresceTotal) < 10 ? <> — <strong>a conclusão de crescimento não depende de SP</strong>.</> : <>: SP muda a leitura do crescimento.</>}{" "}
-            Onde SP difere é no salário: a mediana paulista equivale a {fmtDec(num(u, "mediana_sp") / num(u, "mediana_resto"), 1)} vez a do resto do país, e
-            por isso tirar SP do recorte muda bem mais a leitura de remuneração do que a de crescimento.
-            {Number.isFinite(saldoSp) && saldoTotal > 0 && (
-              <> No fluxo do CAGED de {periodo[0]}–{periodo[1]}, SP respondeu por {fmtPct((saldoSp / saldoTotal) * 100, 0)} do saldo.</>
-            )}{" "}
-            Para ver qualquer página sem SP, use <strong>Território → Brasil sem SP</strong>.
-          </p>
-        </Leitura>
-      )}
     </Bloco>
   );
 }
@@ -454,7 +395,6 @@ function Clusters() {
   return (
     <Bloco
       titulo="Municípios agrupados por trajetória"
-      descricao="Ordenar municípios por estoque devolve sempre as cidades grandes — o ranking acaba medindo população. O agrupamento (k-médias sobre o estoque em escala log, a especialização e o crescimento; k escolhido por silhueta) pergunta quais municípios se parecem na forma como o mercado de TI se comporta neles. A escala log é o que impede São Paulo de definir os grupos sozinho."
     >
       <CartaoGrafico
         titulo={`Especialização × crescimento · ${f.rotulo}`}
@@ -473,7 +413,6 @@ function Clusters() {
           ],
           linhas: dados.linhas,
         }}
-        rodape={f.ativo ? "Os grupos foram calculados com o país inteiro; o filtro só escolhe quais municípios aparecem." : undefined}
       />
       <CartaoTabela
         titulo="Perfil de cada grupo"

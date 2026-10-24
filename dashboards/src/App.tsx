@@ -6,14 +6,15 @@ import { useTema } from "./lib/tema";
 type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType };
 
 const ROTAS: Rota[] = [
-  { id: "pesquisa", rotulo: "A pesquisa", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
+  { id: "pesquisa", rotulo: "Visão geral", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
   { id: "crescimento", rotulo: "1 · Crescimento", curto: "1", componente: lazy(() => import("./secoes/Crescimento")) },
   { id: "onde", rotulo: "2 · Onde está", curto: "2", componente: lazy(() => import("./secoes/Onde")) },
   { id: "qualidade", rotulo: "3 · Qualidade", curto: "3", componente: lazy(() => import("./secoes/Qualidade")) },
   { id: "equidade", rotulo: "4 · Quem ganha menos", curto: "4", componente: lazy(() => import("./secoes/Equidade")) },
   { id: "futuro", rotulo: "5 · Para onde vai", curto: "5", componente: lazy(() => import("./secoes/Futuro")) },
   { id: "explorar", rotulo: "Explorar", curto: "Explorar", componente: lazy(() => import("./secoes/Explorar")) },
-  { id: "metodo", rotulo: "Método e dados", curto: "Método", componente: lazy(() => import("./secoes/Metodo")) },
+  // A única página com texto: respostas, leitura dos números, ressalvas e método.
+  { id: "analise", rotulo: "Análise", curto: "Análise", componente: lazy(() => import("./secoes/Analise")) },
 ];
 
 function rotaAtual(): string {

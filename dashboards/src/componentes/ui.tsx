@@ -2,17 +2,16 @@ import { useState, type ReactNode } from "react";
 import { useFiltro } from "../lib/filtro";
 import { SeletorUF } from "./SeletorUF";
 
-export function CabecalhoPergunta({ numero, pergunta, resposta }: { numero: number; pergunta: string; resposta: ReactNode }) {
+// Só o rótulo e a pergunta: a resposta, com a leitura dos números, mora na
+// página Análise — as páginas de pergunta são painel, não texto.
+export function CabecalhoPergunta({ numero, pergunta }: { numero: number; pergunta: string }) {
   return (
-    <header className="mb-8">
+    <header className="mb-6">
       <p className="sobrelinha">
         <span className="mr-2 inline-block h-2 w-2 rounded-[2px] bg-acento align-middle" />
         Pergunta {String(numero).padStart(2, "0")} / 05
       </p>
       <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">{pergunta}</h1>
-      <p className="mt-4 max-w-3xl rounded-2xl border border-borda bg-superficie/70 px-4 py-3 text-[16px] leading-relaxed text-tinta-2 shadow-[inset_3px_0_0_var(--acento)] sm:text-lg">
-        {resposta}
-      </p>
     </header>
   );
 }
@@ -44,28 +43,7 @@ export function Grade({ children, colunas = 2 }: { children: ReactNode; colunas?
   return <div className={`grid gap-4 [&>*]:min-w-0 ${cls}`}>{children}</div>;
 }
 
-export function Leitura({ children }: { children: ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-serie-1/20 bg-serie-1/[0.06] px-4 py-3 text-[14px] leading-relaxed text-tinta-2 [&_strong]:font-semibold [&_strong]:text-tinta">
-      <span className="sobrelinha mb-1 block">Leitura</span>
-      {children}
-    </div>
-  );
-}
 
-export function Aviso({ titulo = "Atenção", children }: { titulo?: string; children: ReactNode }) {
-  return (
-    <div role="note" className="flex gap-3 rounded-2xl border border-aviso/40 bg-aviso/10 px-4 py-3 text-[14px] leading-relaxed text-tinta-2 [&_strong]:text-tinta">
-      <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 h-5 w-5 flex-none fill-aviso">
-        <path d="M10 1.5 19 18H1L10 1.5Zm-1 6v5h2v-5H9Zm0 6.5v2h2v-2H9Z" />
-      </svg>
-      <div>
-        <strong className="block">{titulo}</strong>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export function Kpi({ rotulo, valor, detalhe, destaque }: { rotulo: string; valor: ReactNode; detalhe?: ReactNode; destaque?: boolean }) {
   return (
@@ -177,9 +155,6 @@ export function FiltroPeriodo({ anos, valor, aoMudar, atalhos = [] }: {
   );
 }
 
-export function Texto({ children }: { children: ReactNode }) {
-  return <div className="max-w-3xl space-y-3 text-[15px] leading-relaxed text-tinta-2 [&_strong]:text-tinta">{children}</div>;
-}
 
 // Página (ou bloco) inteira sem recorte por estado, com o filtro ligado.
 export function AvisoNacional({ children }: { children?: ReactNode }) {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { CartaoGrafico } from "../componentes/Grafico";
-import { Aviso, Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, Leitura, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { escapar, fmtDec, fmtNum, fmtPct, fmtReais } from "../lib/formato";
 import { opcaoBarrasAgrupadas, opcaoLinhas, opcaoRosca } from "../lib/graficos";
 import { useFiltro } from "../lib/filtro";
@@ -33,9 +33,6 @@ export default function Equidade() {
     FROM hiato_serie WHERE comparacao = '${comparacao}' ORDER BY ano`);
 
   const s = sexo.linhas;
-  const adm = (cat: string) => num(s.find((l) => l.categoria === cat), "admissoes");
-  const sal = (cat: string) => num(s.find((l) => l.categoria === cat), "salario");
-  const totalSexo = s.reduce((t, l) => t + num(l, "admissoes"), 0);
   const fem = feminina.linhas;
   const h = hiato.linhas;
   const [hp, hu] = [h[0], h.at(-1)];
@@ -69,13 +66,12 @@ export default function Equidade() {
       <CabecalhoPergunta
         numero={4}
         pergunta="Quem ganha menos, e por quê?"
-        resposta="Mulheres e pessoas negras. A diferença por gênero é de retorno — mesma qualificação, salário menor; a diferença por raça é sobretudo de acesso."
       />
-      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`} nota="O território vale para o perfil das admissões (CAGED). A participação feminina (RAIS, até 2025) e a decomposição do hiato são nacionais; o hiato tem seu próprio seletor.">
+      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2026] }, { rotulo: "Novo CAGED", periodo: [2020, 2026] }]} />
       </LinhaFiltros>
 
-      <Bloco titulo="Quem é contratado" descricao="Admissões em tecnologia no período, e o salário médio de admissão de cada grupo (passe o mouse). Diferenças brutas: não controlam ocupação, escolaridade nem experiência.">
+      <Bloco titulo="Quem é contratado">
         <Grade>
           <CartaoGrafico
             titulo={`Por sexo · ${f.rotulo}`}
@@ -95,15 +91,6 @@ export default function Equidade() {
             tabela={{ colunas: [{ chave: "categoria", rotulo: "Raça/cor" }, { chave: "admissoes", rotulo: "Admissões", formato: fmtNum, numero: true }, { chave: "salario", rotulo: "Salário médio", formato: fmtReais, numero: true }], linhas: raca.linhas }}
           />
         </Grade>
-        {totalSexo > 0 && adm("Mulher") > 0 && (
-          <Leitura>
-            <p>
-              Mulheres são <strong>{fmtPct((adm("Mulher") / totalSexo) * 100, 0)} das admissões</strong> em tecnologia no período, e o salário médio
-              de contratação delas é <strong>{fmtPct((1 - sal("Mulher") / sal("Homem")) * 100, 0)} menor</strong> que o dos homens. A diferença aqui é
-              bruta — serve para dimensionar, não para atribuir causa. Quem separa composição de retorno é a decomposição abaixo.
-            </p>
-          </Leitura>
-        )}
           <CartaoGrafico
             titulo="Participação feminina no estoque"
             subtitulo="RAIS · % de mulheres entre os vínculos de TI ativos em 31/12"
@@ -113,17 +100,9 @@ export default function Equidade() {
             altura={300}
             tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mulheres", rotulo: "Mulheres", formato: (v) => fmtPct(v, 1), numero: true }], linhas: fem }}
           />
-        {fem.length > 1 && (
-          <Leitura>
-            <p>
-              A participação feminina no estoque foi de {fmtPct(num(fem[0], "mulheres"), 1)} em {num(fem[0], "ano")} para{" "}
-              <strong>{fmtPct(num(fem.at(-1), "mulheres"), 1)} em {num(fem.at(-1), "ano")}</strong>: o mercado cresceu sem ficar mais feminino.
-            </p>
-          </Leitura>
-        )}
       </Bloco>
 
-      <Bloco titulo="Hiato salarial: o que a composição explica e o que sobra" descricao="Decomposição de Oaxaca-Blinder, ano a ano, sobre o log da remuneração em salários mínimos. A parte explicada vem de diferenças de características (escolaridade, área, porte, região, tempo de casa); a não explicada, de retorno diferente para as mesmas características.">
+      <Bloco titulo="Hiato salarial: o que a composição explica e o que sobra">
         <div className="flex flex-wrap items-end gap-4">
           <Seletor rotulo="Comparação" valor={comparacao} opcoes={COMPARACOES.map((v) => ({ valor: v, rotulo: v }))} aoMudar={setComparacao} />
         </div>
@@ -154,26 +133,6 @@ export default function Equidade() {
             linhas: h,
           }}
         />
-        {hu && (
-          <Leitura>
-            {num(hu, "explicada") < 0 ? (
-              <p>
-                A parte explicada é <strong>negativa</strong>, e esse sinal é o achado: {grupoB === "Mulher" ? "as mulheres" : "o segundo grupo"} em tecnologia
-                tem características que deveriam fazê-lo ganhar <em>mais</em> — mais escolaridade, empresas maiores, áreas mais bem pagas. O hiato bruto
-                de {fmtPct(num(hu, "hiato_pct"), 1)} <strong>subestima</strong> a diferença de retorno, que é de {fmtDec(num(hu, "nao_explicada"), 3)} log.
-              </p>
-            ) : (
-              <p>
-                Em {num(hu, "ano")}, <strong>{fmtPct(num(hu, "explicada_share"), 0)} do hiato</strong> vem de diferença de características — onde se
-                trabalha, em quê, com qual formação. O restante é diferença de retorno: mesmas características, salários diferentes.
-              </p>
-            )}
-          </Leitura>
-        )}
-        <Aviso titulo="A parte não explicada não é medida de discriminação">
-          Ela contém tudo que afeta salário e não está no modelo: experiência anterior, interrupções de carreira, senioridade dentro do cargo,
-          empresa específica. O que se pode afirmar é o limite superior da diferença de retorno — não a sua causa.
-        </Aviso>
       </Bloco>
     </>
   );

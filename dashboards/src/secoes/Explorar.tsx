@@ -130,10 +130,7 @@ export default function Explorar() {
           Explorar
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-tinta sm:text-3xl">Monte o seu recorte do CAGED</h1>
-        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-tinta-2">
-          Todas as admissões e desligamentos de tecnologia de 2007 a 2026, agregados por estado, setor, lente, área, sexo, raça/cor, escolaridade e
-          faixa etária. Qualquer combinação de filtros é calculada aqui mesmo, no seu navegador — e clicar numa categoria do gráfico também filtra.
-        </p>
+        <p className="mt-2 text-[14px] text-tinta-3">CAGED 2007–2026 · filtre, quebre por qualquer dimensão, clique numa categoria para filtrar</p>
       </header>
 
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]} · ${m.rotulo}${filtrosAtivos ? ` · ${filtrosAtivos} filtro(s)` : ""}`} nota={filtrosAtivos ? `${filtrosAtivos} filtro(s) ativo(s), além do período.` : "Sem filtros além do período."}>

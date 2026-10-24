@@ -9,7 +9,7 @@ Todas as tabelas numéricas deste capítulo são \textbf{geradas a partir dos re
 
 \section{A Plataforma Construída}
 
-O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2007 a junho de 2026. A \autoref{tab:volumes} mostra o volume de cada camada e a \autoref{tab:linhas-camada}, o número de registros dentro do recorte de tecnologia em cada tabela tratada. A Bronze aparece em duas linhas porque o repositório guarda também anos anteriores a 2007 --- a RAIS desde 1985 ---, ingeridos mas fora do período analisado; o volume do período é o da primeira linha. A contagem de arquivos não se compara à de uma cópia local, porque 50 arquivos grandes da RAIS foram publicados divididos em 146 partes, com o mesmo conteúdo.
+O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2007 a agosto de 2026. A \autoref{tab:volumes} mostra o volume de cada camada e a \autoref{tab:linhas-camada}, o número de registros dentro do recorte de tecnologia em cada tabela tratada. A Bronze aparece em duas linhas porque o repositório guarda também anos anteriores a 2007 --- a RAIS desde 1985 ---, ingeridos mas fora do período analisado; o volume do período é o da primeira linha. A contagem de arquivos não se compara à de uma cópia local, porque 50 arquivos grandes da RAIS foram publicados divididos em 146 partes, com o mesmo conteúdo.
 
 \input{estrutura/tabelas-geradas/tab-volumes.tex}
 
@@ -96,7 +96,7 @@ A \autoref{tab:estoque-serie} apresenta a série anual do estoque de vínculos f
 
 O estoque passou de 560.040 vínculos em 2007 para 1.361.231 em 2025, crescimento de 143\% em dezoito anos --- mais que o dobro. O ritmo, porém, não é uniforme: o salto se concentra em 2021 e 2022, período da aceleração digital que seguiu a pandemia de COVID-19, e os anos seguintes mostram desaceleração clara.
 
-O fluxo mensal do CAGED confirma e detalha esse desenho. A série construída cobre 234 meses, de janeiro de 2007 a junho de 2026, com saldo acumulado de 694.776 vagas líquidas. A diferença entre esse acumulado e a variação do estoque da RAIS no mesmo período não é erro: as duas bases têm coberturas e prazos de declaração distintos, e essa diferença é justamente o que o estimador de \textit{nowcast} da \autoref{sec:resultado-q5} precisa modelar.
+O fluxo mensal do CAGED confirma e detalha esse desenho. A série construída cobre 236 meses, de janeiro de 2007 a agosto de 2026, com saldo acumulado de 697.163 vagas líquidas. A diferença entre esse acumulado e a variação do estoque da RAIS no mesmo período não é erro: as duas bases têm coberturas e prazos de declaração distintos, e essa diferença é justamente o que o estimador de \textit{nowcast} da \autoref{sec:resultado-q5} precisa modelar.
 
 \section{Pergunta 2: Onde Está o Trabalho de TI}
 \label{sec:resultado-q2}
@@ -177,7 +177,7 @@ Sobre composição: a participação feminina no estoque de TI caiu de 34,3\% em
 
 \input{estrutura/tabelas-geradas/tab-previsao.tex}
 
-A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 29\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. Vale notar que uma das seis especificações testadas ficou \textbf{abaixo} do \textit{baseline}, o que reforça a necessidade do piso de comparação --- sem ele, aquela especificação pareceria aceitável.
+A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 31\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. A margem sobre o \textit{baseline}, porém, varia muito entre as seis especificações testadas --- de 31\% a apenas 3\% ---, e é isso que justifica o piso de comparação: sem ele, a especificação mais fraca pareceria tão aceitável quanto as demais. Em uma rodada anterior, com menos meses de série, uma delas chegou a ficar abaixo do \textit{baseline}.
 
 O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano de projeção com intervalo de predição que \textbf{cruza o zero}: o modelo não distingue, nessa distância, saldo positivo de negativo. Projetar até 2030, como previa a proposta, produziria um número sem conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos.
 
@@ -185,16 +185,6 @@ O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previ
 
 \input{estrutura/tabelas-geradas/tab-nowcast.tex}
 
-\begin{quote}
-\small
-\textbf{Resultado provisório.} Os valores desta subseção são da rodada anterior à
-correção da ingestão parcial de 2022, descrita na \autoref{sec:achados-qualidade}.
-Os estimadores de \textit{nowcast} usam a série anual de estoque em seu ajuste, e
-essa série mudou com a correção. A ordem de desempenho entre os estimadores e a
-conclusão qualitativa --- estimar o presente é mais preciso do que prever o
-futuro --- não devem se alterar, mas os valores numéricos serão refeitos. Ver
-\autoref{quadro:pendencias}.
-\end{quote}
 
 A limitação de horizonte da previsão mensal contrasta com um resultado bem mais forte na estimação do \textbf{presente}. O estoque do ano corrente é desconhecido até a RAIS ser publicada no ano seguinte, mas o CAGED já divulgou parte do fluxo. A \autoref{tab:nowcast} mostra o teste mais exigente feito: os estimadores foram ajustados \textbf{sem} o ano de 2025 e usados para estimar o estoque daquele ano, cujo valor verdadeiro já é conhecido.
 
