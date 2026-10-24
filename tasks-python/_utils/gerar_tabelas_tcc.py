@@ -150,12 +150,17 @@ tabela("tab-linhas-camada.tex",
        "tab:linhas-camada", "lr", ["Tabela", "Registros"], linhas)
 
 # ------------------------------------------------- estoque e qualidade
+# A mediana vem de rais_mediana (exata, sobre os vínculos). A média ponderada
+# das medianas dos grupos não é a mediana do conjunto — ver construir_gold.
+# Já o tempo médio pode ser ponderado: média de médias pesada pelo tamanho do
+# grupo é a média do conjunto.
 linhas = [[ano(r[0]), num(r[1]), num(r[2], 2), num(r[3])] for r in con.execute(f"""
-    SELECT ano, sum(estoque_3112) AS estoque,
-           sum(estoque_3112 * remuneracao_sm_mediana) / sum(estoque_3112) AS sm,
-           sum(estoque_3112 * tempo_emprego_meses) / sum(estoque_3112) AS meses
-    FROM read_parquet('{G}/rais_estoque_anual.parquet')
-    GROUP BY 1 ORDER BY 1
+    SELECT e.ano, e.estoque, m.mediana_sm, e.meses
+    FROM (SELECT ano, sum(estoque_3112) AS estoque,
+                 sum(estoque_3112 * tempo_emprego_meses) / sum(estoque_3112) AS meses
+          FROM read_parquet('{G}/rais_estoque_anual.parquet') GROUP BY 1) e
+    JOIN read_parquet('{G}/rais_mediana.parquet') m ON m.ano = e.ano AND m.recorte = 'total'
+    ORDER BY 1
 """).fetchall()]
 tabela("tab-estoque-serie.tex",
        "Estoque de vínculos formais de TI, remuneração mediana e tempo de emprego",
@@ -166,14 +171,19 @@ tabela("tab-estoque-serie.tex",
 # ------------------------------------------------- as duas lentes
 ANO = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/rais_estoque_anual.parquet')").fetchone()[0]
 linhas = [[r[0], num(r[1]), num(r[2], 2), num(r[3])] for r in con.execute(f"""
-    SELECT CASE WHEN ocupacao_ti AND NOT setor_ti THEN 'Profissional de TI fora de empresa de TI'
-                WHEN ocupacao_ti AND setor_ti     THEN 'Profissional de TI em empresa de TI'
-                ELSE 'Outra ocupação em empresa de TI' END AS lente,
-           sum(estoque_3112) AS estoque,
-           sum(estoque_3112 * remuneracao_sm_mediana) / sum(estoque_3112) AS sm,
-           sum(estoque_3112 * tempo_emprego_meses) / sum(estoque_3112) AS meses
-    FROM read_parquet('{G}/rais_setor_vs_ocupacao.parquet')
-    WHERE ano = {ANO} GROUP BY 1 ORDER BY estoque DESC
+    SELECT CASE e.lente WHEN 'fora' THEN 'Profissional de TI fora de empresa de TI'
+                        WHEN 'dentro' THEN 'Profissional de TI em empresa de TI'
+                        ELSE 'Outra ocupação em empresa de TI' END,
+           e.estoque, m.mediana_sm, e.meses
+    FROM (SELECT CASE WHEN ocupacao_ti AND NOT setor_ti THEN 'fora'
+                      WHEN ocupacao_ti AND setor_ti THEN 'dentro' ELSE 'outra' END AS lente,
+                 sum(estoque_3112) AS estoque,
+                 sum(estoque_3112 * tempo_emprego_meses) / sum(estoque_3112) AS meses
+          FROM read_parquet('{G}/rais_setor_vs_ocupacao.parquet')
+          WHERE ano = {ANO} GROUP BY 1) e
+    JOIN read_parquet('{G}/rais_mediana.parquet') m
+      ON m.ano = {ANO} AND m.recorte = 'lente' AND m.grupo = e.lente
+    ORDER BY e.estoque DESC
 """).fetchall()]
 tabela("tab-lentes.tex",
        f"As duas lentes do recorte de tecnologia em {ANO}",
@@ -182,10 +192,13 @@ tabela("tab-lentes.tex",
 
 # ------------------------------------------------- areas de TI
 linhas = [[r[0], num(r[1]), num(r[2], 2)] for r in con.execute(f"""
-    SELECT area_ti, sum(estoque_3112) AS estoque,
-           sum(estoque_3112 * remuneracao_sm_mediana) / sum(estoque_3112) AS sm
-    FROM read_parquet('{G}/rais_estoque_area.parquet')
-    WHERE ano = {ANO} GROUP BY 1 ORDER BY estoque DESC
+    SELECT a.area_ti, a.estoque, m.mediana_sm
+    FROM (SELECT area_ti, sum(estoque_3112) AS estoque
+          FROM read_parquet('{G}/rais_estoque_area.parquet')
+          WHERE ano = {ANO} GROUP BY 1) a
+    JOIN read_parquet('{G}/rais_mediana.parquet') m
+      ON m.ano = {ANO} AND m.recorte = 'area' AND m.grupo = a.area_ti
+    ORDER BY a.estoque DESC
 """).fetchall()]
 tabela("tab-areas.tex", f"Estoque e remuneração por área de TI em {ANO}",
        "tab:areas", "lrr", ["Área", "Vínculos", "Remuneração mediana (SM)"], linhas)

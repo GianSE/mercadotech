@@ -228,6 +228,54 @@ AGREGADOS = {
         GROUP BY 1, 2, 3, 5
         ORDER BY 1, 3, 2
     """,
+    # Mediana EXATA da remuneração, sobre os vínculos, nos recortes que o texto
+    # usa. As tabelas acima guardam a mediana de cada grupo; somar grupos
+    # (ex.: o total de TI a partir de setor × ocupação) pela média ponderada
+    # das medianas NÃO dá a mediana do conjunto — e o resultado muda com a
+    # granularidade dos grupos (3,61 SM pela tabela nacional, 4,07 pela tabela
+    # por UF, no mesmo ano). Uma leitura só da silver, com GROUPING SETS.
+    # Lente em código (dentro/fora/outra): o rótulo é de quem consome.
+    "rais_mediana": f"""
+        SELECT ano,
+               CASE WHEN grouping(lente) = 0 THEN 'lente'
+                    WHEN grouping(area_ti) = 0 THEN 'area'
+                    WHEN grouping(uf) = 0 THEN 'uf'
+                    WHEN grouping(sp) = 0 THEN 'sp'
+                    ELSE 'total' END                       AS recorte,
+               coalesce(lente, area_ti, uf, sp, 'TI')      AS grupo,
+               round(median(remun), 2)                     AS mediana_sm,
+               count(remun)                                AS vinculos
+        FROM (
+            SELECT ano_particao AS ano,
+                   CASE WHEN ocupacao_ti AND setor_ti THEN 'dentro'
+                        WHEN ocupacao_ti THEN 'fora' ELSE 'outra' END AS lente,
+                   CASE WHEN ocupacao_ti THEN {esc.sql_area_ti(COL_CBO)} END AS area_ti,
+                   CASE WHEN municipio_descricao IS NOT NULL THEN {UF} END AS uf,
+                   CASE WHEN municipio_descricao IS NULL THEN NULL
+                        WHEN {UF} = 'SP' THEN 'SP' ELSE 'Brasil sem SP' END AS sp,
+                   {_remuneracao('vl_remun_media_sm')}        AS remun
+            FROM ({BASE_VINC})
+        )
+        GROUP BY GROUPING SETS ((ano), (ano, lente), (ano, area_ti), (ano, uf), (ano, sp))
+        -- Grupo nulo (sem área, sem UF) não é recorte: sai.
+        HAVING NOT ((grouping(area_ti) = 0 AND area_ti IS NULL)
+                 OR (grouping(uf) = 0 AND uf IS NULL)
+                 OR (grouping(sp) = 0 AND sp IS NULL))
+        ORDER BY 1, 2, 3
+    """,
+    # Distribuição da remuneração do estoque em faixas de 0,1 SM (a última
+    # junta tudo de 50 SM para cima). Serve ao site: com o filtro de estados,
+    # a mediana de QUALQUER combinação de UFs sai somando as faixas e
+    # interpolando dentro da faixa do meio — erro máximo de 0,05 SM, contra a
+    # média de medianas, que não tem limite de erro nenhum.
+    "rais_remuneracao_hist": f"""
+        SELECT ano_particao AS ano, {UF} AS uf, setor_ti, ocupacao_ti,
+               least(floor(vl_remun_media_sm / 0.1), 500)::SMALLINT AS faixa,
+               count(*) AS vinculos
+        FROM ({BASE_VINC})
+        WHERE {ATIVO} AND {REMUN_VALIDA} AND municipio_descricao IS NOT NULL
+        GROUP BY ALL ORDER BY ALL
+    """,
     # Estabelecimentos: o que o CAGED não tem. Quantas empresas de TI existem,
     # de que porte, e quantos vínculos elas concentram.
     "rais_estabelecimentos": f"""
