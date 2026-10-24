@@ -1,0 +1,36 @@
+name: Reprodutibilidade RAIS
+
+# Conta, ano a ano, as linhas do recorte de TI aplicando a definição ao
+# microdado bruto (bronze-rais) e compara com a silver-rais-ti publicada.
+# Diferença zero em todos os anos = a camada publicada é reproduzível da
+# fonte. O resultado vai para auditoria/reprodutibilidade_rais.csv na Gold e
+# para o resumo desta execução. Só sob demanda: lê duas colunas de toda a
+# bronze da RAIS.
+
+on:
+  workflow_dispatch:
+    inputs:
+      anos:
+        description: "Anos separados por espaço (vazio = 2007 a 2025)"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-actions.txt
+
+      - name: Recontagem a partir da bronze
+        working-directory: tasks-python
+        run: |
+          ANOS="${{ inputs.anos }}"
+          python _utils/reprodutibilidade_rais.py ${ANOS:+--anos $ANOS}
