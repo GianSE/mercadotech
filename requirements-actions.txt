@@ -1,0 +1,23 @@
+# Dependências do CI (GitHub Actions): só o que os workflows em
+# .github/workflows/*.yml realmente importam. Deliberadamente SEM:
+#   - openpyxl/xlrd/lxml (extração de planilha de dicionário via
+#                      `python dicionario.py --modo extrair` só roda
+#                      localmente; o checador do CI, dicionario.yml,
+#                      só lista o FTP com --modo verificar)
+#   - nada do site de dashboards: ele é Node (dashboards/package.json) e é
+#     construído pelo próprio Cloudflare Pages, não pelo Actions
+# Ver requirements-pipeline.txt pro conjunto completo (máquina local).
+
+duckdb==1.5.6
+pandas==3.0.6    # ciencia_dados/*.py (sklearn/statsmodels exigem pandas, não polars)
+pyarrow==25.0.1
+python-dotenv==1.2.4
+huggingface_hub==2.2.0
+
+# --- extração do FTP do MTE (bronze-caged.yml / bronze-rais.yml) ---
+py7zr==1.1.3
+
+# --- modelos (gold-analise-mercado-ti.yml -> ciencia_dados.materializar) ---
+scikit-learn==1.9.1     # clusters_municipios.py
+statsmodels==0.15.0     # hiato_salarial.py, nowcast_estoque.py, previsao_saldo.py,
+                         # serie.py, sobrevivencia.py (traz scipy como dependência)

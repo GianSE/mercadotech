@@ -1,0 +1,7 @@
+node_modules
+dist
+.wrangler
+# Gerados por scripts/preparar_dados.py a partir do Hugging Face — não versionar.
+public/dados
+# Extensão parquet do DuckDB-WASM, baixada por scripts/preparar_dados.py.
+public/duckdb-ext

@@ -1,0 +1,38 @@
+# Dependências do PIPELINE local: extração FTP, silver, gold e
+# publicação no Hugging Face. Instale no .venv da raiz:
+#
+#     python -m venv .venv
+#     .venv\Scripts\pip install -r requirements-pipeline.txt
+#
+# O requirements.txt da raiz é OUTRO arquivo, de propósito: ele lista só o que
+# o dashboard publicado precisa, porque é dele que o Streamlit Cloud instala.
+
+# --- núcleo: leitura/escrita de parquet ---
+duckdb
+pyarrow
+pandas
+python-dotenv
+
+# --- extração do FTP do MTE ---
+# py7zr é fallback: quando o binário 7-Zip existe, ele é preferido por ser
+# tolerante a CRC inválido — vários .7z do MTE vêm corrompidos.
+py7zr
+
+# --- planilhas de layout/dicionário do MTE (tasks-python/_utils/dicionario.py) ---
+openpyxl   # .xlsx
+xlrd       # .xls antigo
+lxml       # alguns ".xls" são HTML disfarçado; pd.read_html precisa dele
+
+# --- modelos (tasks-python/3-gold/ciencia_dados) ---
+scikit-learn
+statsmodels
+
+# --- dashboard analítico (dashboard/) ---
+streamlit
+plotly
+
+# --- publicação no Hugging Face ---
+huggingface_hub
+
+# --- sincronização do TCC com o Overleaf (overleaf/overleaf.py) ---
+requests

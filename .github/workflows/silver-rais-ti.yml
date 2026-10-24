@@ -1,0 +1,74 @@
+name: Silver RAIS TI
+
+# Traduz e filtra pra TI o que já está na bronze-rais. NÃO baixa nada do
+# FTP — isso é trabalho do bronze-rais.yml, antes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ano_inicio:
+        description: "Ano inicial (vazio = ano atual - 1)"
+      ano_fim:
+        description: "Ano final (vazio = ano atual)"
+      forcar:
+        description: "Reprocessar os anos do intervalo mesmo que já estejam na silver"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      ano_inicio:
+        type: string
+      ano_fim:
+        type: string
+      forcar:
+        type: boolean
+        default: false
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    outputs:
+      tem_novidade: ${{ steps.chk.outputs.tem_novidade }}
+      anos: ${{ steps.chk.outputs.anos }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-actions.txt
+
+      - id: chk
+        working-directory: tasks-python/2-silver
+        run: |
+          ANO_INICIO="${{ inputs.ano_inicio }}"
+          ANO_FIM="${{ inputs.ano_fim }}"
+          python silver-rais-ti.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}" ${{ inputs.forcar && '--forcar' || '' }}
+
+  traduzir:
+    needs: verificar
+    if: needs.verificar.outputs.tem_novidade == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        item: ${{ fromJson(needs.verificar.outputs.anos) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-actions.txt
+
+      - name: Traduz ${{ matrix.item.tabela }} ${{ matrix.item.ano }}
+        working-directory: tasks-python/2-silver
+        run: |
+          python silver-rais-ti.py --modo processar --tabela ${{ matrix.item.tabela }} \
+            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }}

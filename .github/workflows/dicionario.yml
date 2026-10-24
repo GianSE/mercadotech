@@ -1,0 +1,33 @@
+name: Dicionário MTE
+
+# Só AVISA se o FTP tem planilha de layout/dicionário nova — não extrai
+# nada sozinho. Dicionário muda raramente, e dicionário errado é o jeito
+# mais silencioso de quebrar a tradução, então o publicador é manual
+# (python dicionario.py --modo extrair, rodado com você olhando o
+# resultado antes de ligar no pipeline automático).
+
+on:
+  schedule:
+    - cron: "0 6 1 * *" # todo dia 1 do mês, 06:00 UTC — alerta independente, muda raro
+  workflow_dispatch:
+  workflow_call: # também chamado pelo pipeline.yml antes de cada silver
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-actions.txt
+
+      - working-directory: tasks-python/_utils
+        run: python dicionario.py --modo verificar

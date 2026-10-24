@@ -1,0 +1,46 @@
+# Sem barra inicial: pega em qualquer nível (raiz e painel/ têm venv próprio)
+.env
+.venv
+venv
+__pycache__
+.ruff_cache
+
+dev.duckdb
+dev.duckdb.wal
+erros_ingestao_rais.txt
+env.py
+tcc_backup_bronze
+bkp_temporario
+referencias_utfpr/
+# Parquets consolidados para publicacao: vao para o Hugging Face, nao para o
+# git (o maior passa de 100 MB, limite rigido do GitHub por arquivo).
+publicacao/detalhado/
+
+# Espelhos locais do que vai para o Hugging Face: o dado mora no MinIO e no Hub,
+# nao no git. O README.md de cada espelho continua versionado — ele e o card
+# publicado junto com o dataset.
+publicacao/**/*.parquet
+
+# Os agregados sao pequenos (~100 KB) e VAO versionados de proposito: sao o
+# fallback do dashboard quando nao ha acesso aos dados detalhados.
+!dados_publicados/
+# Artefatos de compilacao do LaTeX, escopados na pasta do TCC: o PDF e os
+# auxiliares sao resultado, nao fonte. O Overleaf recompila do zero a partir dos
+# .tex, e versionar o .pdf geraria conflito em cada compilacao local.
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.aux
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.bbl
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.blg
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.brf
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.fdb_latexmk
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.fls
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.idx
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.ilg
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.ind
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.lof
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.log
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.loq
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.lot
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.out
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.synctex.gz
+overleaf/TCC2_Gian_Pedro_Rodrigues/*.toc
+overleaf/TCC2_Gian_Pedro_Rodrigues/main-tcc.pdf

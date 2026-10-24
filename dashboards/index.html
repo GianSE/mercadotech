@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR" data-tema="escuro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Emprego formal em tecnologia no Brasil, 2007–2026: crescimento, onde está o trabalho, remuneração, equidade e projeção, a partir dos microdados da RAIS e do CAGED." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Mercado de TI no Brasil</title>
+    <script>
+      // Antes do primeiro paint, pra não piscar o tema errado.
+      try {
+        var salvo = localStorage.getItem("tema");
+        var claro = window.matchMedia("(prefers-color-scheme: light)").matches;
+        document.documentElement.dataset.tema = salvo || (claro ? "claro" : "escuro");
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="bg-fundo text-tinta antialiased">
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

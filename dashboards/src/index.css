@@ -1,0 +1,164 @@
+@import "tailwindcss";
+
+/*
+ * Design system — "Mercado de TI"
+ *
+ * Preto e amarelo vêm da identidade da UTFPR: o amarelo é a cor de ação e de
+ * destaque da interface (aba ativa, marcador de seção, foco), sempre sobre
+ * preto ou com texto preto por cima — amarelo como texto sobre fundo claro não
+ * passa contraste. O azul é a cor da tecnologia e é a primeira cor dos DADOS.
+ *
+ * As séries são só azuis — royal, céu, ciano-petróleo, pervinca, índigo e
+ * centáurea —, validadas com scripts/validate_palette.js da skill de dataviz
+ * (faixa de luminosidade, croma, separação para daltonismo e para visão
+ * normal entre vizinhas). Claro: pior ΔE daltônico 15,0, normal 18,8. Escuro:
+ * 14,0 e 17,9. Alguns azuis claros ficam abaixo de 3:1 contra a superfície,
+ * por isso todo gráfico tem rótulo direto ou vista em tabela.
+ * Mais de 6 séries viram "Outros". Cada modo tem degraus próprios.
+ *
+ * Verde e vermelho ficam reservados para POLARIDADE (saldo, variação): verde
+ * cresce, vermelho encolhe — nunca como "série 7".
+ */
+
+@custom-variant dark (&:where([data-tema="escuro"], [data-tema="escuro"] *));
+
+:root,
+[data-tema="claro"] {
+  color-scheme: light;
+  --fundo: #f4f4f1;
+  --superficie: #fcfcfb;
+  --superficie-2: #efeee9;
+  --borda: rgb(11 11 11 / 0.1);
+  --tinta: #0b0b0b;
+  --tinta-2: #52514e;
+  --tinta-3: #6b6a65;
+  --grade: #e1e0d9;
+  --eixo: #c3c2b7;
+
+  --acento: #ffc20e;
+  --sobre-acento: #0b0b0b;
+  --marca: #0b0c0f;
+  --sobre-marca: #f0efec;
+
+  --serie-1: #1d5bd0;
+  --serie-2: #3fb8f0;
+  --serie-3: #0b7f9f;
+  --serie-4: #8c96f5;
+  --serie-5: #3442a8;
+  --serie-6: #6aa8f2;
+
+  --positivo: #17a058;
+  --negativo: #e04646;
+  --neutro: #f0efec;
+
+  --aviso: #fab219;
+  --sucesso-texto: #006300;
+}
+
+[data-tema="escuro"] {
+  color-scheme: dark;
+  --fundo: #0b0c0f;
+  --superficie: #16181d;
+  --superficie-2: #1f2228;
+  --borda: rgb(255 255 255 / 0.1);
+  --tinta: #f0efec;
+  --tinta-2: #c3c2b7;
+  --tinta-3: #9a988f;
+  --grade: #2a2d33;
+  --eixo: #3a3d44;
+
+  --acento: #ffc20e;
+  --sobre-acento: #0b0b0b;
+  --marca: #000000;
+  --sobre-marca: #f0efec;
+
+  --serie-1: #3b82f6;
+  --serie-2: #03a9a9;
+  --serie-3: #1a68a3;
+  --serie-4: #8c87df;
+  --serie-5: #494bf2;
+  --serie-6: #2089ae;
+
+  --positivo: #2fbf71;
+  --negativo: #ef6363;
+  --neutro: #383835;
+
+  --aviso: #fab219;
+  --sucesso-texto: #0ca30c;
+}
+
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-borda: var(--borda);
+  --color-tinta: var(--tinta);
+  --color-tinta-2: var(--tinta-2);
+  --color-tinta-3: var(--tinta-3);
+  --color-grade: var(--grade);
+  --color-acento: var(--acento);
+  --color-sobre-acento: var(--sobre-acento);
+  --color-marca: var(--marca);
+  --color-sobre-marca: var(--sobre-marca);
+  --color-aviso: var(--aviso);
+  --color-serie-1: var(--serie-1);
+  --color-serie-2: var(--serie-2);
+  --color-serie-3: var(--serie-3);
+  --color-serie-4: var(--serie-4);
+  --color-serie-5: var(--serie-5);
+  --color-serie-6: var(--serie-6);
+  --color-positivo: var(--positivo);
+  --color-negativo: var(--negativo);
+
+  /* Raios: tudo arredondado, em três degraus — cartão, controle, chip. */
+  --radius-cartao: 1.25rem;
+  --radius-controle: 0.75rem;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  :focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 2px;
+  }
+  /* Colunas de números alinham; números soltos (hero, KPI) não. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Rótulo de seção: mono, caixa alta — o "sotaque" de terminal do sistema. */
+  .sobrelinha {
+    @apply font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-tinta-3;
+  }
+  /* Cartão: superfície com um brilho azul bem fraco no canto, que dá
+     profundidade sem competir com o dado. */
+  .cartao {
+    @apply rounded-[var(--radius-cartao)] border border-borda bg-superficie;
+    background-image: radial-gradient(120% 70% at 0% 0%, rgb(59 130 246 / 0.07), transparent 55%);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -18px rgb(29 91 208 / 0.35);
+  }
+  /* Faixa azul de destaque: o degradê da marca de dados (royal → céu). */
+  .faixa-azul {
+    background-image: linear-gradient(90deg, var(--serie-1), var(--serie-2));
+  }
+  /* Fundo da faixa de marca: grade fina, lembrando papel milimetrado/circuito. */
+  .grade-marca {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  /* Brilho azul sob a grade do cabeçalho preto. */
+  .brilho-marca {
+    background-image:
+      radial-gradient(60% 140% at 85% 0%, rgb(59 130 246 / 0.28), transparent 60%),
+      radial-gradient(40% 120% at 10% 100%, rgb(3 169 169 / 0.14), transparent 60%);
+  }
+}
