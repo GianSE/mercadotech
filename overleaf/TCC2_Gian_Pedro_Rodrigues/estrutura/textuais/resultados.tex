@@ -32,6 +32,23 @@ A validação mais exigente da plataforma não é comparar agregados com painéi
 
 A consulta é executável por terceiros sem acesso à infraestrutura do projeto, porque as duas pontas --- bronze e camada tratada --- estão publicadas. É esse o sentido operacional de reprodutibilidade adotado aqui: não ``o código está disponível'', mas ``a afirmação pode ser recontada da fonte''.
 
+\section{Validação Contra o Painel do MTE}
+\label{sec:validacao-mte}
+
+A recontagem a partir do dado bruto mostra que o processamento não perde nem duplica registros, mas não mostra que o recorte conta o que o Ministério contaria. Para isso, os números do trabalho foram comparados com os de um painel público do MTE, publicado em Power BI, cujo modelo traz a RAIS por ocupação e município e o Novo CAGED por ocupação e competência. Relatórios publicados na \textit{web} respondem à mesma interface de consulta que a própria página usa para desenhar os gráficos; um \textit{script} do repositório a consulta filtrando exatamente os 34 códigos CBO do recorte de ocupação --- com as exclusões e as ocupações avulsas --- e compara o resultado com a camada Gold e a Silver.
+
+\input{estrutura/tabelas-geradas/tab-validacao-rais.tex}
+
+Na RAIS (\autoref{tab:validacao-rais}), o trabalho conta cerca de 1\% a mais que o painel no total do país, nos três anos que o painel cobre, e a diferença se repete nas 27 unidades federativas: a mediana por estado fica entre 0,9\% e 1,1\%, e as diferenças maiores aparecem só nos estados de estoque muito pequeno, como Roraima, em que poucas dezenas de vínculos pesam vários pontos percentuais.
+
+\input{estrutura/tabelas-geradas/tab-validacao-caged.tex}
+
+No Novo CAGED (\autoref{tab:validacao-caged}), a comparação exige um ajuste. O trabalho usa as movimentações informadas no mês; o painel incorpora as declarações fora do prazo e desconta as exclusões, distribuídas pela competência a que se referem. Sem esse ajuste, o trabalho ficava abaixo do painel em 2020 e 2021, anos de muitas declarações tardias, e acima a partir de 2023; com ele, as duas contas passam a diferir entre 0,7\% e 2,2\% em todos os anos, sempre com o trabalho acima (o ano de 2026 vai até agosto).
+
+A diferença tem as três propriedades de uma diferença de critério de contagem, e não de erro de processamento: é pequena, tem sempre o mesmo sinal e se distribui por todas as ocupações e por todos os estados, sem se concentrar em nenhum código ou unidade federativa --- na comparação código a código, feita para a RAIS de 2025, nenhuma das 34 ocupações fica abaixo do painel, e as diferenças vão de 0\% a 5,7\%, com mediana de 0,6\%. A documentação pública do painel não permite identificar o critério. Por ser proporcional e estável, a diferença não altera comparações entre anos, estados ou grupos, que são o objeto das cinco perguntas.
+
+A validação tem dois limites. O painel não traz a atividade econômica nas tabelas de fato, e por isso a lente de setor fica sem confronto externo. E a RAIS do painel cobre de 2023 a 2025, o que deixa fora do confronto o ano de 2022, justamente o da ingestão parcial corrigida.
+
 \section{O \textit{Pipeline} em Execução na Nuvem}
 \label{sec:execucao-nuvem}
 
@@ -112,9 +129,9 @@ Esta é a pergunta cuja resposta mais se afasta do senso comum sobre o setor, e 
 
 \input{estrutura/tabelas-geradas/tab-lentes.tex}
 
-A \autoref{tab:lentes} cruza as duas lentes do recorte. Dos profissionais com ocupação de TI, \textbf{58\% trabalham fora de empresas de TI} --- em bancos, varejo, indústria, saúde e administração pública. E não estão em posição inferior: a remuneração mediana de quem está fora é de 4,71 salários mínimos, contra 4,36 de quem está dentro, com tempo de emprego de 59 meses contra 43.
+A \autoref{tab:lentes} cruza as duas lentes do recorte. Dos profissionais com ocupação de TI, \textbf{58\% trabalham fora de empresas de TI} --- em bancos, varejo, indústria, saúde e administração pública. A remuneração mediana deles é próxima à de quem está dentro --- 4,13 salários mínimos, contra 4,31 ---, e o tempo de emprego é maior: 59 meses, contra 43.
 
-A comparação, no entanto, não é estável ao longo da série: em 2007 quem estava fora ganhava \textit{menos} (5,22 contra 5,74 salários mínimos), e a inversão ocorre ao longo do período. A leitura compatível com os dados é que a difusão da função de tecnologia para fora do setor de TI veio acompanhada de valorização relativa dessas posições, e não que ``fora paga mais'' como característica permanente do mercado.
+A proximidade é recente. Em 2007, quem estava dentro das empresas de TI ganhava bem mais: 5,47 salários mínimos de mediana, contra 4,22 de quem estava fora. A distância quase desapareceu porque a mediana de quem está dentro caiu 21\% em salários mínimos no período, enquanto a de quem está fora ficou praticamente estável. A difusão da função de tecnologia pela economia não veio acompanhada de remuneração inferior fora do setor; o que encolheu foi o prêmio que as empresas de TI pagavam.
 
 A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo \textbf{outras} ocupações, com remuneração mediana de 2,18 salários mínimos --- menos da metade das demais. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
 
@@ -130,7 +147,7 @@ A \autoref{tab:areas} desagrega o estoque pelas áreas de atuação. Desenvolvim
 
 A concentração é acentuada: São Paulo responde por 40,9\% do estoque nacional, e as cinco primeiras unidades federativas somam quase 70\%. A remuneração mediana varia muito entre elas, e a leitura exige cuidado --- o Ceará aparece com mediana de 1,40 salário mínimo, bem abaixo das demais, o que reflete a concentração de centrais de atendimento classificadas em atividades de TI, e não um mercado de desenvolvimento mal remunerado.
 
-A concentração em São Paulo levanta uma pergunta de método: as conclusões nacionais dependem de um único estado? São Paulo não é um valor anômalo a descartar --- é o maior mercado do país, e retirá-lo distorceria os totais nacionais ---, mas o seu peso justifica uma análise de sensibilidade, que compara o estado com o restante do país. Entre 2007 e 2025, o estoque de TI de São Paulo cresceu 154\%, e o do Brasil sem São Paulo, 136\%, contra 143\% do total: a conclusão de crescimento não depende do estado, e a participação paulista mudou pouco no período (de 39,2\% para 40,9\%). A remuneração é outra história. Medida pela média das medianas por unidade federativa, setor e ocupação, ponderada pelo estoque, a mediana paulista passou de 4,78 para 4,87 salários mínimos, enquanto a do restante do país caiu de 3,62 para 2,98. A estabilidade da remuneração relativa observada para o país (\autoref{sec:resultado-q3}) resulta, portanto, da composição de dois movimentos opostos, e não de estabilidade em toda parte. A medida é aproximada --- a média de medianas depende da granularidade dos grupos, e por isso a comparação é feita só dentro da mesma tabela ---, mas o sentido dos dois movimentos é claro. O \textit{dashboard} permite repetir qualquer análise sem São Paulo, pelo filtro de território descrito na \autoref{sec:apresentacao}; a \autoref{fig:dashboard-sp} mostra a seção que o site dedica a essa comparação.
+A concentração em São Paulo levanta uma pergunta de método: as conclusões nacionais dependem de um único estado? São Paulo não é um valor anômalo a descartar --- é o maior mercado do país, e retirá-lo distorceria os totais nacionais ---, mas o seu peso justifica uma análise de sensibilidade, que compara o estado com o restante do país. Entre 2007 e 2025, o estoque de TI de São Paulo cresceu 154\%, e o do Brasil sem São Paulo, 136\%, contra 143\% do total: a conclusão de crescimento não depende do estado, e a participação paulista mudou pouco no período (de 39,2\% para 40,9\%). A remuneração é outra história: a mediana paulista subiu de 4,20 para 4,85 salários mínimos, enquanto a do restante do país caiu de 2,81 para 2,66. A quase estabilidade da remuneração relativa observada para o país (\autoref{sec:resultado-q3}) resulta, portanto, da composição de dois movimentos opostos, e não de estabilidade em toda parte. O \textit{dashboard} permite repetir qualquer análise sem São Paulo, pelo filtro de território descrito na \autoref{sec:apresentacao}; a \autoref{fig:dashboard-sp} mostra a seção que o site dedica a essa comparação.
 
 \begin{figure}[htbp]
     \centering
@@ -152,7 +169,7 @@ O agrupamento de municípios por trajetória, apresentado na \autoref{tab:cluste
 
 Crescer e melhorar são coisas diferentes, e a resposta aqui é negativa em uma dimensão central.
 
-A remuneração mediana, medida em salários mínimos para ser comparável ao longo de dezoito anos sem depender de escolha de deflator, era de 3,61 em 2007 e é de 3,55 em 2025 (\autoref{tab:estoque-serie}). Em outras palavras: o emprego de TI mais que dobrou em volume, mas a posição relativa do salário mediano do setor frente ao piso legal do país ficou praticamente onde estava. O crescimento foi de quantidade, não de remuneração relativa.
+A remuneração mediana, medida em salários mínimos para ser comparável ao longo de dezoito anos sem depender de escolha de deflator, era de 3,24 em 2007 e é de 3,41 em 2025 (\autoref{tab:estoque-serie}): alta de 5\% em dezoito anos, com oscilação entre 3,05 e 3,59 no caminho. Em outras palavras: o emprego de TI mais que dobrou em volume, mas a posição relativa do salário mediano do setor frente ao piso legal do país ficou praticamente onde estava. O crescimento foi de quantidade, não de remuneração relativa.
 
 O tempo médio de emprego caiu de 56 para 48 meses no mesmo período, indicando rotatividade maior --- consistente com um mercado em expansão, em que a troca de emprego é mais frequente e muitas vezes vantajosa para o trabalhador.
 
@@ -254,8 +271,8 @@ O \autoref{quadro:sintese} reúne as respostas às cinco perguntas.
         \textbf{Pergunta} & \textbf{Resposta} \\
         \midrule
         1. Quanto cresceu? & 143\% em dezoito anos, de 560.040 para 1.361.231 vínculos, com o salto concentrado em 2021--2022 e desaceleração depois. \\
-        2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, com remuneração e permanência maiores. O crescimento recente é mais rápido fora das capitais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
-        3. Melhorou em qualidade? & Não em remuneração relativa: a mediana em salários mínimos ficou estável (3,61 para 3,55). O tempo de emprego caiu, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
+        2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, com remuneração próxima à de quem está dentro (4,13 contra 4,31 salários mínimos) e permanência maior. O crescimento recente é mais rápido fora das capitais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
+        3. Melhorou em qualidade? & Não em remuneração relativa: a mediana em salários mínimos ficou praticamente estável (3,24 para 3,41 em dezoito anos). O tempo de emprego caiu, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
         4. Quem ganha menos? & Mulheres e pessoas negras, por mecanismos distintos: o hiato de gênero é inteiramente de retorno (parcela explicada negativa); o racial é majoritariamente de acesso. A participação feminina caiu de 34,3\% para 30,6\%. \\
         5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso. Já a estimação do estoque corrente por \textit{nowcast} erra menos de 1\% em teste com ano retido. \\
         \bottomrule
