@@ -67,6 +67,7 @@ O \autoref{quadro:achados} relaciona os achados. Dois merecem discussão mais lo
         Domicílio fiscal no lugar do local de trabalho & A localização do vínculo é a do estabelecimento declarante. Municípios com incentivo fiscal aparecem com concentração acima da real. Não é corrigível com o dado público. & Concentração implausível em municípios específicos. \\
         Ingestão parcial de arquivo & Sete pedaços de dois arquivos de 2022 não chegaram à camada tratada: 446.267 vínculos ausentes, um terço do ano. & Série anual implausível, e depois verificação pedaço a pedaço contra o bronze. \\
         Erro de método: Kaplan-Meier em corte transversal & A primeira estimativa de permanência no emprego indicou mediana de 570 meses --- 48 anos. O estimador pressupõe coorte acompanhada no tempo; a RAIS é corte transversal. & Resultado implausível à inspeção. \\
+        Erro de método: mediana agregada por média & A remuneração mediana de um conjunto de grupos foi calculada como a média das medianas dos grupos, ponderada pelo estoque. Em 2025, isso dava 3,55 salários mínimos para o total de TI, contra 3,41 da mediana exata, e invertia a comparação entre as duas lentes. & O mesmo número calculado a partir de duas tabelas de granularidades diferentes (nacional e por UF) deu 3,55 e 3,75. \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
@@ -86,6 +87,12 @@ A correção teve duas partes. A primeira foi reconstruir os pedaços a partir d
 A primeira tentativa de medir permanência no emprego aplicou o estimador de Kaplan-Meier ao corte transversal da RAIS e produziu mediana de 570 meses, 48 anos de emprego. O número é absurdo e, por isso, útil: ele expõe a incompatibilidade entre o estimador e a estrutura do dado, discutida na \autoref{subsec:sobrevivencia}. Um corte transversal sobre-representa vínculos longos --- quem fica vinte anos aparece em vinte edições da RAIS; quem fica três meses pode não aparecer em nenhuma.
 
 A substituição pela tábua de vida de período resolve o problema ao trocar a pergunta: em lugar de ``quanto dura um vínculo que começou em tal ano'', que o dado não permite responder, ela responde ``qual o risco de desligamento observado em cada faixa de tempo de casa neste ano''. O registro deste erro no texto é deliberado: a estimativa implausível foi detectada por inspeção, e não por um teste automatizado, o que indica onde a validação do trabalho é mais frágil.
+
+\subsection{Erro de Método: Mediana Agregada por Média}
+
+Cada tabela da Gold guarda a mediana da remuneração de cada grupo --- por exemplo, de cada combinação entre setor e ocupação de TI. Para obter a mediana de um conjunto maior, como o total de TI, a primeira versão do trabalho fez a média das medianas dos grupos, ponderada pelo estoque. O atalho parece razoável e está errado: mediana não se soma, e a média de medianas não é a mediana de nada. O erro só apareceu porque o mesmo número, calculado a partir de duas tabelas com grupos diferentes, não coincidia: para 2025, a tabela nacional dava 3,55 salários mínimos, e a tabela por unidade federativa, 3,75. A mediana exata, calculada sobre os vínculos, é 3,41.
+
+O efeito mais sério não foi no nível, e sim numa comparação. Pela média das medianas por setor da empresa, os profissionais de TI que trabalham fora das empresas de TI pareciam ganhar mais que os de dentro; pela mediana exata, ganham menos --- 4,13 contra 4,31 salários mínimos em 2025. A Gold passou a guardar a mediana exata dos recortes usados neste texto e a distribuição da remuneração em faixas, da qual o \textit{dashboard} calcula a mediana de qualquer combinação de estados (\autoref{sec:apresentacao}). Todas as medianas deste capítulo vêm dessa versão.
 
 \section{Pergunta 1: Quanto o Mercado Cresceu}
 \label{sec:resultado-q1}

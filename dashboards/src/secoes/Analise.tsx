@@ -8,7 +8,7 @@ import { AvisoNacional, Bloco } from "../componentes/ui";
 import { obterManifesto } from "../lib/db";
 import { fmtDec, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
 import { arcoSaldo, TextoEstoque, TextoLentesEstoque, TextoRemuneracao, TextoSaldo } from "../lib/narrativa";
-import { num, ponderada, TI } from "../lib/sql";
+import { medianaExata, num, ponderada, TI } from "../lib/sql";
 import { useConsulta } from "../lib/useConsulta";
 
 const FORA = "Profissional de TI fora do setor de TI";
@@ -57,22 +57,29 @@ export default function Analise() {
   const arco = useMemo(() => arcoSaldo(cagedAnual.linhas, num(referencia.linhas[0], "ano")), [cagedAnual.linhas, referencia.linhas]);
 
   // ---------------------------------------------------------- pergunta 2
+  // Medianas exatas (rais_mediana): as mesmas das tabelas do TCC.
   const lentesEstoque = useConsulta(`
-    SELECT CASE WHEN setor_ti AND ocupacao_ti THEN '${DENTRO}' WHEN ocupacao_ti THEN '${FORA}' ELSE 'outra' END AS categoria,
-           sum(estoque_3112)::DOUBLE AS estoque, ${ponderada("remuneracao_sm_mediana")} AS mediana
-    FROM rais_setor_vs_ocupacao WHERE ano = (SELECT max(ano) FROM rais_setor_vs_ocupacao) GROUP BY 1`);
+    SELECT e.categoria, e.estoque, m.mediana
+    FROM (SELECT CASE WHEN setor_ti AND ocupacao_ti THEN 'dentro' WHEN ocupacao_ti THEN 'fora' ELSE 'outra' END AS categoria,
+                 sum(estoque_3112)::DOUBLE AS estoque
+          FROM rais_setor_vs_ocupacao WHERE ano = (SELECT max(ano) FROM rais_setor_vs_ocupacao) GROUP BY 1) e
+    JOIN (${medianaExata("lente", "ano = (SELECT max(ano) FROM rais_mediana)")}) m ON m.grupo = e.categoria`);
   const lentesFluxo = useConsulta(`SELECT lente, sum(admissoes)::DOUBLE AS admissoes FROM caged_cubo GROUP BY 1`);
   const sp = useConsulta(`
-    SELECT ano, sum(estoque_3112) FILTER (WHERE uf = 'SP')::DOUBLE AS sp, sum(estoque_3112) FILTER (WHERE uf <> 'SP')::DOUBLE AS resto,
-           sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf = 'SP') / sum(estoque_3112) FILTER (WHERE uf = 'SP') AS m_sp,
-           sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf <> 'SP') / sum(estoque_3112) FILTER (WHERE uf <> 'SP') AS m_resto
-    FROM rais_estoque_uf WHERE ${TI} AND ano IN ((SELECT min(ano) FROM rais_estoque_uf), (SELECT max(ano) FROM rais_estoque_uf)) GROUP BY 1 ORDER BY 1`);
+    SELECT e.ano, e.sp, e.resto, m.m_sp, m.m_resto
+    FROM (SELECT ano, sum(estoque_3112) FILTER (WHERE uf = 'SP')::DOUBLE AS sp, sum(estoque_3112) FILTER (WHERE uf <> 'SP')::DOUBLE AS resto
+          FROM rais_estoque_uf WHERE ${TI} AND ano IN ((SELECT min(ano) FROM rais_estoque_uf), (SELECT max(ano) FROM rais_estoque_uf)) GROUP BY 1) e
+    JOIN (SELECT ano, max(mediana) FILTER (WHERE grupo = 'SP') AS m_sp, max(mediana) FILTER (WHERE grupo = 'Brasil sem SP') AS m_resto
+          FROM (${medianaExata("sp")}) GROUP BY 1) m ON m.ano = e.ano
+    ORDER BY 1`);
   const clusters = useConsulta("SELECT nome, count(*)::DOUBLE AS n, median(crescimento) * 100 AS cresc FROM municipios_cluster GROUP BY 1 ORDER BY 3 DESC");
 
   // ---------------------------------------------------------- pergunta 3
   const remuneracao = useConsulta(`
-    SELECT ano, ${ponderada("remuneracao_sm")} AS media, ${ponderada("remuneracao_sm_mediana")} AS mediana
-    FROM rais_estoque_anual WHERE ${TI} GROUP BY 1 ORDER BY 1`);
+    SELECT a.ano, a.media, m.mediana
+    FROM (SELECT ano, ${ponderada("remuneracao_sm")} AS media FROM rais_estoque_anual WHERE ${TI} GROUP BY 1) a
+    JOIN (${medianaExata("total")}) m ON m.ano = a.ano
+    ORDER BY 1`);
   const risco = useConsulta(`SELECT tempo_de_casa, "risco_%" AS risco, ano FROM sobrevivencia_risco`);
 
   // ---------------------------------------------------------- pergunta 4
@@ -101,8 +108,8 @@ export default function Analise() {
   }, []);
 
   // ---------------------------------------------------------- derivados
-  const fora = lentesEstoque.linhas.find((l) => l.categoria === FORA);
-  const dentro = lentesEstoque.linhas.find((l) => l.categoria === DENTRO);
+  const fora = lentesEstoque.linhas.find((l) => l.categoria === "fora");
+  const dentro = lentesEstoque.linhas.find((l) => l.categoria === "dentro");
   const admFora = num(lentesFluxo.linhas.find((l) => l.lente === FORA), "admissoes");
   const admDentro = num(lentesFluxo.linhas.find((l) => l.lente === DENTRO), "admissoes");
   const [sp0, sp1] = [sp.linhas[0], sp.linhas.at(-1)];
@@ -283,7 +290,7 @@ export default function Analise() {
           <li className="cartao p-4"><strong>Só o mercado formal.</strong> RAIS e CAGED não veem PJ, autônomos nem informais — relevante num setor em que a contratação como pessoa jurídica é comum.</li>
           <li className="cartao p-4"><strong>Lugar do estabelecimento, não do trabalho.</strong> A coluna da RAIS que resolveria (<code className="font-mono text-[13px]">mun_trab</code>) vem como “não informado” em praticamente todos os registros.</li>
           <li className="cartao p-4"><strong>Salário do CAGED é nominal.</strong> A RAIS é lida em salários mínimos justamente para comparar 2007 com 2025 sem escolher deflator.</li>
-          <li className="cartao p-4"><strong>Mediana por recorte é aproximada.</strong> Com filtro de território, a remuneração mediana é a média ponderada das medianas de cada estado — mediana não se soma.</li>
+          <li className="cartao p-4"><strong>Mediana com filtro, por faixas.</strong> Mediana não se soma: com filtro de território, ela sai da distribuição dos salários em faixas de 0,1 SM dos estados escolhidos, com erro máximo de 0,05 SM. Sem filtro, é a mediana exata.</li>
         </ul>
       </Bloco>
 

@@ -15,6 +15,21 @@ export const ponderada = (coluna: string, peso = "estoque_3112") =>
 // das medianas muda com a granularidade dos grupos.
 export const tabelaRais = (filtrada: boolean) => (filtrada ? "rais_estoque_uf" : "rais_estoque_anual");
 
+// Mediana da remuneração (SM) de qualquer recorte, pelo histograma da Gold
+// (faixas de 0,1 SM): soma as faixas do recorte, acha a faixa que contém o
+// meio e interpola dentro dela. Erro máximo de 0,05 SM — a média das
+// medianas dos grupos, que isto substitui, não tem limite de erro nenhum.
+// Devolve (g, mediana), um por valor de `grupo`.
+export const medianaHist = (onde: string, grupo = "ano") => `
+  WITH h AS (SELECT ${grupo} AS g, faixa, sum(vinculos) AS n FROM rais_remuneracao_hist WHERE ${onde} GROUP BY 1, 2),
+       c AS (SELECT g, faixa, n, sum(n) OVER (PARTITION BY g ORDER BY faixa) AS acum, sum(n) OVER (PARTITION BY g) AS total FROM h)
+  SELECT g, min_by((faixa + (total / 2.0 - (acum - n)) / n) * 0.1, faixa) AS mediana FROM c WHERE acum >= total / 2.0 GROUP BY g`;
+
+// Mediana exata (rais_mediana), para quando não há filtro de território:
+// é o mesmo número das tabelas do TCC.
+export const medianaExata = (recorte: string, extra = "TRUE") =>
+  `SELECT ano, grupo, mediana_sm AS mediana FROM rais_mediana WHERE recorte = '${recorte}' AND ${extra}`;
+
 export const entre = (p: Periodo, coluna = "ano") => `${coluna} BETWEEN ${p[0]} AND ${p[1]}`;
 
 export const literal = (s: string) => `'${s.replace(/'/g, "''")}'`;

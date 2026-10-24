@@ -4,7 +4,7 @@ import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Sele
 import { UFS, useFiltro } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoMosaico, opcaoRosca } from "../lib/graficos";
-import { coluna, entre, intervalo, literal, num, ponderada, rotulos } from "../lib/sql";
+import { coluna, entre, intervalo, literal, medianaExata, medianaHist, num, rotulos } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
@@ -43,9 +43,15 @@ export default function Onde() {
     FROM caged_cubo WHERE ${entre(periodo)} AND ${f.sql()} GROUP BY 1`);
   // Sem filtro, a tabela do cruzamento setor × ocupação (a do TCC); com
   // filtro, a mesma conta sobre o estoque por UF, que tem as duas marcações.
+  // A mediana de cada lente: exata sem filtro, pelo histograma com filtro.
   const lentesEstoque = useConsulta(`
-    SELECT ${LENTE_RAIS} AS categoria, sum(estoque_3112)::DOUBLE AS estoque, ${ponderada("remuneracao_sm_mediana")} AS mediana
-    FROM ${f.ativo ? "rais_estoque_uf" : "rais_setor_vs_ocupacao"} WHERE ano = ${anoRais} AND ${f.sql()} GROUP BY 1`);
+    SELECT e.categoria, e.estoque, m.mediana
+    FROM (SELECT ${LENTE_RAIS} AS categoria, sum(estoque_3112)::DOUBLE AS estoque
+          FROM ${f.ativo ? "rais_estoque_uf" : "rais_setor_vs_ocupacao"} WHERE ano = ${anoRais} AND ${f.sql()} GROUP BY 1) e
+    LEFT JOIN (${f.ativo
+      ? medianaHist(`ano = ${anoRais} AND ${f.sql()}`, LENTE_RAIS)
+      : `SELECT CASE grupo WHEN 'dentro' THEN '${DENTRO}' WHEN 'fora' THEN '${FORA}' ELSE 'Outra ocupação em empresa de TI' END AS g, mediana
+         FROM (${medianaExata("lente", `ano = ${anoRais}`)})`}) m ON m.g = e.categoria`);
   const quemContrata = useConsulta(`
     SELECT setor, sum(admissoes)::DOUBLE AS admissoes, sum(saldo)::DOUBLE AS saldo,
            sum(soma_salario_adm) / nullif(sum(n_salario_adm), 0) AS salario
@@ -270,9 +276,11 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
     SELECT ano,
            sum(estoque_3112) FILTER (WHERE uf = 'SP')::DOUBLE  AS sp,
            sum(estoque_3112) FILTER (WHERE uf <> 'SP')::DOUBLE AS resto,
-           sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf = 'SP') / sum(estoque_3112) FILTER (WHERE uf = 'SP')   AS mediana_sp,
-           sum(estoque_3112 * remuneracao_sm_mediana) FILTER (WHERE uf <> 'SP') / sum(estoque_3112) FILTER (WHERE uf <> 'SP') AS mediana_resto
-    FROM rais_estoque_uf WHERE (setor_ti OR ocupacao_ti) AND ano BETWEEN ${inicio} AND ${fim} GROUP BY 1 ORDER BY 1`);
+           any_value(m.sp) AS mediana_sp, any_value(m.resto) AS mediana_resto
+    FROM rais_estoque_uf e
+    LEFT JOIN (SELECT ano AS m_ano, max(mediana) FILTER (WHERE grupo = 'SP') AS sp, max(mediana) FILTER (WHERE grupo = 'Brasil sem SP') AS resto
+               FROM (${medianaExata("sp")}) GROUP BY 1) m ON m.m_ano = e.ano
+    WHERE (setor_ti OR ocupacao_ti) AND ano BETWEEN ${inicio} AND ${fim} GROUP BY 1 ORDER BY 1`);
 
   const s = serie.linhas;
   const [p, u] = [s[0], s.at(-1)];

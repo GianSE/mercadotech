@@ -4,7 +4,7 @@ import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, 
 import { useFiltro } from "../lib/filtro";
 import { fmtDec, fmtNum, fmtPct, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoLinhas } from "../lib/graficos";
-import { coluna, entre, intervalo, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
+import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
@@ -21,14 +21,21 @@ export default function Qualidade() {
   const [recorte, setRecorte] = useState<Recorte>("setor");
   const ano = periodo[1];
 
+  // A média pode vir dos grupos (média de médias pesada pelo tamanho é a
+  // média do conjunto); a mediana não: vem exata, ou do histograma no recorte.
   const anual = useConsulta(`
-    SELECT ano, ${ponderada("remuneracao_sm")} AS media, ${ponderada("remuneracao_sm_mediana")} AS mediana,
-           sum(remun_implausivel)::DOUBLE AS descartados,
-           sum(estoque_3112)::DOUBLE AS estoque, sum(desligados_no_ano)::DOUBLE AS desligados
-    FROM ${tabelaRais(f.ativo)} WHERE ${TI} AND ${entre(periodo)} AND ${f.sql()} GROUP BY 1 ORDER BY 1`);
+    SELECT a.ano, a.media, m.mediana, a.descartados, a.estoque, a.desligados
+    FROM (SELECT ano, ${ponderada("remuneracao_sm")} AS media, sum(remun_implausivel)::DOUBLE AS descartados,
+                 sum(estoque_3112)::DOUBLE AS estoque, sum(desligados_no_ano)::DOUBLE AS desligados
+          FROM ${tabelaRais(f.ativo)} WHERE ${TI} AND ${entre(periodo)} AND ${f.sql()} GROUP BY 1) a
+    LEFT JOIN (${f.ativo ? medianaHist(`${entre(periodo)} AND ${f.sql()}`) : `SELECT ano AS g, mediana FROM (${medianaExata("total")})`}) m ON m.g = a.ano
+    ORDER BY 1`);
   const areas = useConsulta(`
-    SELECT area_ti AS area, ${ponderada("remuneracao_sm_mediana")} AS mediana, sum(estoque_3112)::DOUBLE AS estoque
-    FROM rais_estoque_area WHERE area_ti IS NOT NULL AND ano = ${ano} GROUP BY 1 ORDER BY 2 DESC`);
+    SELECT a.area, m.mediana, a.estoque
+    FROM (SELECT area_ti AS area, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_area
+          WHERE area_ti IS NOT NULL AND ano = ${ano} GROUP BY 1) a
+    JOIN (${medianaExata("area", `ano = ${ano}`)}) m ON m.grupo = a.area
+    ORDER BY 2 DESC`);
   const risco = useConsulta(`SELECT tempo_de_casa, "risco_%" AS risco, vinculos::DOUBLE AS vinculos, ano FROM sobrevivencia_risco`);
   const tabua = useConsulta(`SELECT * EXCLUDE (ano) FROM sobrevivencia_tabua`);
   const multi = useConsulta(`SELECT variavel, razao_de_chances, p FROM sobrevivencia_multivariado ORDER BY razao_de_chances DESC`);
@@ -72,7 +79,7 @@ export default function Qualidade() {
       <Bloco titulo="Remuneração em salários mínimos">
         <CartaoGrafico
           titulo={`Mediana e média da remuneração · ${f.rotulo}`}
-          subtitulo={`RAIS · ponderado pelo estoque${f.ativo ? " · mediana aproximada no recorte" : ""}`}
+          subtitulo={`RAIS · salários mínimos${f.ativo ? " · mediana por faixas de 0,1 SM" : ""}`}
           opcao={op.remuneracao}
           carregando={anual.carregando}
           erro={anual.erro}
