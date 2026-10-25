@@ -17,7 +17,7 @@ O problema é que esses arquivos não foram pensados para consulta direta. Cada 
 
 Estudos sobre o mercado de TI brasileiro costumam trabalhar com recortes temporais curtos ou agregações setoriais publicadas por entidades como a BRASSCOM \cite{Brasscom2024} e a FECOMERCIOSP \cite{Fecomercio2024}. Olhando direto para os microdados da RAIS e do CAGED, é possível ir muito além: dá para quantificar o crescimento do setor, mapear disparidades regionais, medir o impacto de eventos macroeconômicos (como a recessão de 2015--2016, a pandemia de COVID-19 e a aceleração digital de 2021--2023) e projetar tendências a partir de quase duas décadas de registros formais.
 
-O obstáculo está na própria engenharia desses dados. Antes de 2020, o CAGED vinha em arquivos de largura fixa; a partir de 2020, virou CSV compactado, com codificação e esquema diferentes. A RAIS, por sua vez, mudou de \textit{layout} várias vezes ao longo dos anos. Há ainda tabelas de referência externas --- que traduzem os códigos de ocupação (CBO), de atividade econômica (CNAE) e de município (IBGE) --- que precisam ser cruzadas com os registros para que esses códigos numéricos façam sentido. Construir um \textit{pipeline} reproduzível capaz de transformar essa massa heterogênea em séries temporais comparáveis é, por si só, uma contribuição relevante para quem trabalha com bases governamentais brasileiras.
+O obstáculo está na própria engenharia desses dados: formatos, \textit{layouts} e codificações mudam ao longo da série, e os registros são só códigos, que precisam ser cruzados com tabelas de referência externas para fazer sentido. Construir um \textit{pipeline} reproduzível capaz de transformar essa massa heterogênea em séries temporais comparáveis é, por si só, uma contribuição relevante para quem trabalha com bases governamentais brasileiras.
 
 \section{Problema de Pesquisa}
 \label{sec:problema}
@@ -55,6 +55,7 @@ Para dar foco à segunda face, o trabalho se organiza em torno de uma pergunta s
 Nem as perguntas nem as fontes ficaram fixas desde a proposta. O trabalho seguiu o CRISP-DM, cujo ciclo prevê o retorno a fases anteriores sempre que uma descoberta o justifica, e foi exatamente assim que ele avançou: a cada achado nos dados, buscaram-se fontes novas, corrigiu-se a preparação ou reformulou-se uma pergunta, até chegar ao resultado apresentado aqui (\autoref{sec:metodo}).
 
 \section{Objetivos}
+\label{sec:objetivos}
 
 O objetivo geral foi desenvolver uma plataforma integrada para análise histórica, visualização interativa e previsão do mercado de trabalho em TI no Brasil, a partir dos microdados da RAIS e do CAGED, com base em uma arquitetura Medalhão executada em nuvem, com o \textit{data lake} em repositórios públicos de dados e o processamento automatizado por \textit{workflows} de integração contínua.
 
@@ -78,7 +79,7 @@ Do lado científico, a pesquisa oferece um retrato quantitativo do mercado de TI
 
 No plano técnico, o \textit{pipeline} mostra que é possível substituir infraestruturas pesadas e caras por ferramentas leves e de código aberto, como DuckDB e Apache Parquet, sem perder desempenho analítico em volumes dessa ordem. Consultas interativas passam a ser feitas direto sobre o \textit{data lake}, dispensando a etapa de importação prévia que costuma encarecer e atrasar esse tipo de projeto. Mostra também que esse \textit{pipeline} pode rodar sem servidor próprio e sem custo de infraestrutura: o armazenamento fica em repositórios públicos de dados e o processamento, em executores de integração contínua, de modo que a plataforma se atualiza sozinha na verificação semanal seguinte à publicação de um mês novo pelo MTE. O mesmo desenho pode ser reaproveitado em outras bases governamentais brasileiras de grande volume.
 
-Há ainda uma terceira contribuição, que não estava prevista na proposta e emergiu da execução: a auditoria sistemática do dado publicado pelo MTE revelou defeitos concretos na fonte --- entre eles uma conversão de salário mínimo invertida, colunas numéricas gravadas como texto e códigos de ocupação em uso que não constam de nenhum dicionário oficial. Documentar esses defeitos, e os testes que os detectam, é informação útil para qualquer pesquisa futura que use as mesmas bases.
+Há ainda uma terceira contribuição, não prevista na proposta: a auditoria do dado publicado pelo MTE revelou defeitos concretos na fonte, e documentá-los, com os testes que os detectam, é útil para qualquer pesquisa futura sobre as mesmas bases.
 
 \section{Estrutura do Trabalho}
 

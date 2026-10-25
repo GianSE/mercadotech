@@ -15,9 +15,7 @@ O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2
 
 \input{estrutura/tabelas-geradas/tab-linhas-camada.tex}
 
-A redução de volume entre as camadas é informativa: os 661~GB de microdados em texto, guardados em 56~GB de Parquet na Bronze, tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia (\autoref{fig:fluxo-dado}). É essa redução que torna viável processar e consultar a série inteira sem infraestrutura dedicada: dentro de um executor gratuito do GitHub Actions, no navegador de quem visita o \textit{dashboard} ou em um computador pessoal.
-
-O número de arquivos importa tanto quanto o volume. A camada nasceu com 2.111 arquivos de menos de 2~MB --- um por arquivo de entrada ---, e foi consolidada em um arquivo por partição, conforme descrito na \autoref{sec:arquitetura} --- 628 na época; com os meses publicados depois, são os 634 da \autoref{tab:volumes}. Depois da consolidação, uma contagem completa dos vínculos de TI da RAIS respondia em 0,4~segundo, em medição feita antes da migração, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. O ganho não vem de \textit{hardware}, e sim de pedir ao formato o que ele sabe responder sem ler dado.
+A redução de volume entre as camadas é o que viabiliza a plataforma: os 661~GB de microdados em texto, guardados em 56~GB de Parquet na Bronze, tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia (\autoref{fig:fluxo-dado}) --- volume que se processa em um executor gratuito e se consulta no navegador. O número de arquivos importa tanto quanto o volume: depois da consolidação em um arquivo por partição (\autoref{sec:arquitetura}), uma contagem completa dos vínculos de TI da RAIS passou a responder em 0,4~segundo, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. Em nuvem, a Gold inteira cabe com folga em um executor gratuito: na execução da \autoref{fig:actions}, a etapa mais longa levou 14 minutos. O resultado mais relevante da migração, porém, não é o tempo: a plataforma deixou de depender de uma máquina específica estar ligada, com espaço livre e com as bibliotecas certas funcionando (\autoref{subsec:migracao}).
 
 \section{Reprodutibilidade do Recorte}
 \label{sec:reprodutibilidade}
@@ -54,13 +52,6 @@ No Novo CAGED (\autoref{tab:validacao-caged}), a comparação exige um ajuste. O
 A diferença tem as três propriedades de uma diferença de critério de contagem, e não de erro de processamento: é pequena, tem sempre o mesmo sinal e se distribui por todas as ocupações e por todos os estados, sem se concentrar em nenhum código ou unidade federativa --- na comparação código a código, feita para a RAIS de 2025, nenhuma das 34 ocupações fica abaixo do painel, e as diferenças vão de 0\% a 5,7\%, com mediana de 0,6\%. A documentação pública do painel não permite identificar o critério. Por ser proporcional e estável, a diferença não altera comparações entre anos, estados ou grupos, que são o objeto das cinco perguntas.
 
 A validação tem dois limites. O painel não traz a atividade econômica nas tabelas de fato, e por isso a lente de setor fica sem confronto externo. E a RAIS do painel cobre de 2023 a 2025, o que deixa fora do confronto o ano de 2022, justamente o da ingestão parcial corrigida.
-
-\section{O \textit{Pipeline} em Execução na Nuvem}
-\label{sec:execucao-nuvem}
-
-A Gold inteira coube com folga em um executor gratuito do GitHub Actions. Em uma execução de outubro de 2026, ainda com a Gold em etapa única, as nove tabelas de agregados da RAIS foram construídas em cerca de dois minutos, as duas tabelas territoriais em menos de dois minutos, e os quatro modelos em cerca de dez minutos --- dos quais pouco mais de seis só na decomposição salarial, que soma 57 decomposições ao longo dos dezenove anos da série. Para os modelos, a estimativa registrada na fase local era de cerca de quinze minutos. Os tempos são de uma única execução e servem como ordem de grandeza, não como medida de desempenho: os executores não têm configuração fixa, razão pela qual as etapas de Bronze registram os recursos de cada executor recebido.
-
-O resultado mais relevante dessa etapa, porém, não é o tempo. É que a plataforma deixou de depender de uma máquina específica estar ligada, com espaço livre e com as bibliotecas certas funcionando, para continuar atualizada --- as três condições que, na fase local, falharam em algum momento (\autoref{subsec:migracao}).
 
 \section{Achados de Qualidade do Dado}
 \label{sec:achados-qualidade}
@@ -107,9 +98,7 @@ A correção teve duas partes. A primeira foi reconstruir os pedaços a partir d
 
 \subsection{Erro de Método: Sobrevivência em Corte Transversal}
 
-A primeira tentativa de medir permanência no emprego aplicou o estimador de Kaplan-Meier ao corte transversal da RAIS e produziu mediana de 570 meses, 48 anos de emprego. O número é absurdo e, por isso, útil: ele expõe a incompatibilidade entre o estimador e a estrutura do dado, discutida na \autoref{subsec:sobrevivencia}. Um corte transversal sobre-representa vínculos longos --- quem fica vinte anos aparece em vinte edições da RAIS; quem fica três meses pode não aparecer em nenhuma.
-
-A substituição pela tábua de vida de período resolve o problema ao trocar a pergunta: em lugar de ``quanto dura um vínculo que começou em tal ano'', que o dado não permite responder, ela responde ``qual o risco de desligamento observado em cada faixa de tempo de casa neste ano''. O registro deste erro no texto é deliberado: a estimativa implausível foi detectada por inspeção, e não por um teste automatizado, o que indica onde a validação do trabalho é mais frágil.
+A primeira tentativa de medir permanência aplicou o estimador de Kaplan-Meier ao corte transversal da RAIS e produziu mediana de 570 meses, 48 anos de emprego --- número absurdo, que expõe a incompatibilidade entre o estimador e a estrutura do dado (\autoref{subsec:sobrevivencia}). A tábua de vida de período troca a pergunta por uma que o dado responde: qual o risco de desligamento em cada faixa de tempo de casa naquele ano. O erro foi detectado por inspeção, e não por um teste automatizado, o que indica onde a validação do trabalho é mais frágil.
 
 \subsection{Erro de Método: Mediana Agregada por Média}
 
@@ -126,6 +115,8 @@ A \autoref{fig:estoque-serie} apresenta a série anual do estoque de vínculos f
 
 O estoque passou de 560.040 vínculos em 2007 para 1.361.231 em 2025, crescimento de 143\% em dezoito anos --- mais que o dobro. O ritmo, porém, não é uniforme: o salto se concentra em 2021 e 2022, período da aceleração digital que seguiu a pandemia de COVID-19, e os anos seguintes mostram desaceleração clara.
 
+Os números são coerentes com os da literatura (\autoref{sec:relacionados}), com diferenças que o recorte explica. Entre 2012 e 2022, a lente de ocupação deste trabalho cresceu 73\%, contra 95\% medidos pela FECOMERCIOSP para 30 ocupações de tecnologia \cite{Fecomercio2024}: o sentido e a ordem de grandeza coincidem, e a distância é compatível com listas de ocupações diferentes --- a seleção por família, as exclusões e a inclusão dos estatísticos mudam a base de comparação. Já os 2,1 milhões de empregos que a BRASSCOM atribui ao macrossetor TIC em 2024 \cite{Brasscom2024} superam o 1,31 milhão deste trabalho porque o macrossetor soma às atividades de TI as de telecomunicações e de equipamentos, fora do recorte adotado aqui.
+
 O fluxo mensal do CAGED confirma e detalha esse desenho. A série construída cobre 236 meses, de janeiro de 2007 a agosto de 2026, com saldo acumulado de 697.163 vagas líquidas. A diferença entre esse acumulado e a variação do estoque da RAIS no mesmo período não é erro: as duas bases têm coberturas e prazos de declaração distintos, e essa diferença é justamente o que o estimador de \textit{nowcast} da \autoref{sec:resultado-q5} precisa modelar.
 
 \section{Pergunta 2: Onde Está o Trabalho de TI}
@@ -139,7 +130,7 @@ A \autoref{tab:lentes} cruza as duas lentes do recorte. Dos profissionais com oc
 
 A proximidade é recente. Em 2007, quem estava dentro das empresas de TI ganhava bem mais: 5,47 salários mínimos de mediana, contra 4,22 de quem estava fora. A distância quase desapareceu porque a mediana de quem está dentro caiu 21\% em salários mínimos no período, enquanto a de quem está fora ficou praticamente estável. A difusão da função de tecnologia pela economia não veio acompanhada de remuneração inferior fora do setor; o que encolheu foi o prêmio que as empresas de TI pagavam.
 
-A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo \textbf{outras} ocupações, com remuneração mediana de 2,06 salários mínimos --- menos da metade das demais. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
+A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo \textbf{outras} ocupações, com remuneração mediana de 2,06 salários mínimos --- menos da metade das demais. É a heterogeneidade interna das empresas de TIC que \citeonline{Azambuja2016} já apontavam ao comparar seus segmentos. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
 
 \subsection{Composição por Área}
 
@@ -192,7 +183,7 @@ A tábua de vida de período, calculada para 2024 --- último ano em que o desli
 
 A \autoref{tab:hiato} apresenta a decomposição de Oaxaca-Blinder para as três comparações calculadas. Os dois eixos de desigualdade têm estruturas \textbf{qualitativamente distintas}, e é essa distinção --- e não a magnitude de cada hiato --- o resultado relevante.
 
-No eixo de \textbf{gênero}, o hiato bruto em 2025 é de 7,8\%, e a parcela explicada por características observáveis é \textbf{negativa}. Isso significa que, pelas características que o modelo observa --- escolaridade, área, porte, região, tempo de emprego, idade e jornada ---, as mulheres do setor deveriam ganhar \textit{mais} que os homens. Toda a diferença observada, e um pouco além dela, fica na parcela não explicada: é diferença de \textbf{retorno} às mesmas características, não de características.
+No eixo de \textbf{gênero}, o hiato bruto em 2025 é de 7,8\%, e a parcela explicada por características observáveis é \textbf{negativa}. Isso significa que, pelas características que o modelo observa --- escolaridade, área, porte, região, tempo de emprego, idade e jornada ---, as mulheres do setor deveriam ganhar \textit{mais} que os homens. Toda a diferença observada, e um pouco além dela, fica na parcela não explicada: é diferença de \textbf{retorno} às mesmas características, não de características. O resultado converge com o de \citeonline{Dobner2022}, que encontraram o mesmo padrão --- atributos produtivos que, sozinhos, fariam as mulheres ganharem mais --- na RAIS do Rio Grande do Sul, em todos os setores: não se trata, portanto, de um artefato do recorte deste trabalho.
 
 No eixo de \textbf{raça/cor}, a estrutura se inverte. Os hiatos são bem maiores e a maior parte deles é explicada por características: pessoas brancas estão sobre-representadas nas áreas, nos portes e nas regiões que pagam mais. É desigualdade de \textbf{acesso} --- quem chega a quais posições --- mais do que de remuneração dentro da mesma posição.
 
@@ -207,7 +198,7 @@ Sobre composição: a participação feminina no estoque de TI caiu de 34,3\% em
 
 \input{estrutura/tabelas-geradas/tab-previsao.tex}
 
-A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 31\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. A margem sobre o \textit{baseline}, porém, varia muito entre as seis especificações testadas --- de 31\% a apenas 3\% ---, e é isso que justifica o piso de comparação: sem ele, a especificação mais fraca pareceria tão aceitável quanto as demais. Em uma rodada anterior, com menos meses de série, uma delas chegou a ficar abaixo do \textit{baseline}.
+A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 31\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. A margem sobre o \textit{baseline}, porém, varia muito entre as seis especificações testadas --- de 31\% a apenas 3\% ---, e é isso que justifica o piso de comparação: sem ele, a especificação mais fraca pareceria tão aceitável quanto as demais.
 
 O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano de projeção com intervalo de predição que \textbf{cruza o zero}: o modelo não distingue, nessa distância, saldo positivo de negativo. Projetar até 2030, como previa a proposta, produziria um número sem conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos. No ciclo do CRISP-DM, foi a Avaliação levando de volta ao Entendimento do Negócio: a pergunta deixou de ser apenas ``quanto haverá no futuro'' e passou a incluir ``quanto há agora'', que o \textit{nowcast} a seguir responde.
 
@@ -224,9 +215,7 @@ Essa assimetria --- previsão de futuro incerta, estimação de presente precisa
 
 \section{O \textit{Dashboard} Entregue}
 
-A camada de apresentação foi organizada pelas cinco perguntas de pesquisa, e não pela origem do dado. A decisão corrige um problema observado na primeira versão: com as abas organizadas por base (CAGED, RAIS, modelos), a interface apresentava gráficos corretos que não chegavam a uma conclusão --- a estrutura refletia como o dado foi produzido, não o que ele responde.
-
-A versão final tem oito páginas: uma visão geral, uma por pergunta de pesquisa, uma de exploração livre do CAGED e uma de análise. As páginas de pergunta não têm texto corrido --- trazem a pergunta, os filtros, os indicadores e os gráficos, como um painel ---, e a página de análise é a única com texto: reúne as cinco respostas, a leitura dos números, o que os dados não permitem afirmar e o método. A seleção do que mostrar seguiu um critério explícito: um indicador ou gráfico só permanece em uma página se sustenta a resposta daquela pergunta. A aplicação do critério removeu gráficos que se repetiam entre páginas --- a permanência no emprego aparecia em duas, a comparação entre homens e mulheres em duas, e a série mensal do CAGED em duas --- e levou os recortes que não sustentam uma resposta (como o saldo por setor e por ocupação) para a página de exploração, onde podem ser cruzados livremente. Cada página de pergunta ficou com dois a quatro indicadores. A \autoref{fig:dashboard-pergunta} mostra a abertura de uma delas: a pergunta, os filtros e os indicadores, antes dos gráficos.
+A camada de apresentação, descrita na \autoref{sec:apresentacao}, foi organizada pelas cinco perguntas de pesquisa, e não pela origem do dado --- correção de uma primeira versão em que as abas, organizadas por base, mostravam gráficos corretos que não chegavam a uma conclusão. Um gráfico só permanece em uma página se sustenta a resposta daquela pergunta; os recortes que não sustentam uma resposta, como o saldo por setor e por ocupação, foram para a página de exploração livre. A \autoref{fig:dashboard-pergunta} mostra a abertura de uma página de pergunta: a pergunta, os filtros e os indicadores, antes dos gráficos.
 
 \begin{figure}[htbp]
     \centering
@@ -237,16 +226,7 @@ A versão final tem oito páginas: uma visão geral, uma por pergunta de pesquis
     Fonte: Autoria própria.
 \end{figure}
 
-O filtro de território e o clique sobre o mapa, descritos na \autoref{sec:apresentacao}, tornam a interface um instrumento de verificação, e não só de leitura. A \autoref{fig:dashboard-territorio} mostra a lista de estados, com as regiões e os atalhos, e a \autoref{fig:dashboard-mapa}, o efeito do recorte ``Brasil sem SP'' sobre o mapa: o estado excluído sai da escala de cor, que passa a distinguir os demais, e os indicadores são recalculados para o recorte.
-
-\begin{figure}[htbp]
-    \centering
-    \caption{Filtro de território do \textit{dashboard}, aberto sobre a barra de filtros}
-    \label{fig:dashboard-territorio}
-    \includegraphics[width=\textwidth]{figuras/dashboard-territorio.png}
-    \\[4pt]
-    Fonte: Autoria própria.
-\end{figure}
+O filtro de território torna a interface um instrumento de verificação, e não só de leitura. A \autoref{fig:dashboard-mapa} mostra o efeito do recorte ``Brasil sem SP'' sobre o mapa: o estado excluído sai da escala de cor, que passa a distinguir os demais, e os indicadores são recalculados para o recorte.
 
 \begin{figure}[htbp]
     \centering
@@ -256,8 +236,6 @@ O filtro de território e o clique sobre o mapa, descritos na \autoref{sec:apres
     \\[4pt]
     Fonte: Autoria própria.
 \end{figure} A análise de sensibilidade sobre São Paulo apresentada na \autoref{sec:resultado-q2} tem uma seção própria na página da segunda pergunta e pode ser estendida a qualquer outro gráfico com um clique.
-
-O site é publicado no Cloudflare Pages, e a reconstrução é disparada pela última etapa do orquestrador. Um mês novo processado pelo \textit{pipeline} chega à interface sem ação manual: a mesma execução que atualiza a Gold dispara a construção do site com os dados novos.
 
 \section{Síntese das Respostas}
 

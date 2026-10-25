@@ -336,7 +336,7 @@ figura("fig-risco.tex", f"Risco de desligamento no ano, por tempo de casa, em {i
 {barras}
     \\end{{axis}}
     \\end{{tikzpicture}}""",
-       nota="Vínculos e desligamentos de cada faixa na \\autoref{tab:risco}, no \\autoref{apend:series}. ")
+       nota="")
 
 # ------------------------------------------------- perfis de municipio
 linhas = [[r[0], num(r[1]), num(r[2]), num(r[3], 2), num(r[4], 2)] for r in con.execute(f"""

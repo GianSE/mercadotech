@@ -140,13 +140,11 @@ FROM read_parquet('hf://datasets/Gianpedro/bronze-caged/dicionarios.parquet')
 WHERE coluna = 'sexo';
 \end{lstlisting}
 
-\chapter{Séries anuais}
+\chapter{Série anual do estoque e da remuneração}
 \label{apend:series}
 
-As tabelas a seguir trazem os valores exatos dos gráficos do \autoref{cap:resultados}. Saem da mesma consulta à camada Gold que gera os gráficos, de modo que figura e tabela não podem divergir.
+A tabela a seguir traz os valores exatos da \autoref{fig:estoque-serie}. Ela sai da mesma consulta à camada Gold que gera o gráfico, de modo que figura e tabela não podem divergir.
 
 \input{estrutura/tabelas-geradas/tab-estoque-serie.tex}
-
-\input{estrutura/tabelas-geradas/tab-risco.tex}
 
 \end{apendicesenv}

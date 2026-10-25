@@ -32,6 +32,7 @@ A RAIS tem uma limitação importante: captura só o mercado formal. Ela não en
 
 
 \subsection{CAGED: Cadastro Geral de Empregados e Desempregados}
+\label{subsec:caged}
 
 \subsubsection{Formato Antigo do CAGED (2007--2019)}
 
@@ -45,16 +46,12 @@ Em janeiro de 2020, o CAGED foi reformulado pela Portaria n.º 1.127/2019 e pass
 
 \begin{itemize}
     \item \textbf{Formato}: de um único arquivo de largura fixa para CSV compactado (\texttt{.7z}), com separador ponto e vírgula;
-    \item \textbf{Tipos de arquivo}: o que antes era um arquivo único passa a ser dividido em quatro tipos: \textbf{MOV} (declarações regulares, 31 campos) e \textbf{FOR} (fora do prazo, mesmo esquema do MOV) constituem o fluxo principal; \textbf{EXC} (exclusões, 33 campos, com colunas adicionais de competência de exclusão e indicador de cancelamento) registra as retificações; e \textbf{AJUSTES} (correções retroativas integradas ao eSocial, 45 campos) cobre reclassificações retroativas de competências que remontam a 2010;
-    \item \textbf{Colunas}: esquema reformulado com 31 campos nos tipos MOV e FOR, incluindo variáveis novas como horas contratuais, indicador de trabalho intermitente e parcial, código de categoria do trabalhador e valor do salário fixo; os campos de
-    regionalização granular do formato antigo (bairros, distritos, mesorregiões) foram
-    suprimidos;
-    \item \textbf{Codificação}: os tipos MOV\slash{}FOR\slash{}EXC são distribuídos em Latin-1, mantendo a mesma codificação do CAGED antigo; o tipo AJUSTES utiliza UTF-8.  Essa convivência de duas codificações no mesmo período exige tratamento explícito no  \textit{parser}, sob risco de gerar registros com caracteres corrompidos.
+    \item \textbf{Tipos de arquivo}: o arquivo único dá lugar a quatro tipos --- \textbf{MOV} (declarações regulares) e \textbf{FOR} (fora do prazo), que formam o fluxo principal; \textbf{EXC} (exclusões), que registra as retificações; e \textbf{AJUSTES}, com correções retroativas que remontam a 2010;
+    \item \textbf{Colunas}: esquema reformulado, com variáveis novas (horas contratuais, trabalho intermitente e parcial, categoria do trabalhador) e sem os campos de regionalização fina do formato antigo;
+    \item \textbf{Codificação}: MOV, FOR e EXC em Latin-1, e AJUSTES em UTF-8 --- duas codificações no mesmo período, que exigem tratamento explícito no \textit{parser}.
 \end{itemize}
 
 Com a divisão em vários arquivos, o saldo de cada competência deixa de sair de uma única fonte: passa a ser preciso somar as movimentações de MOV e FOR e descontar as de EXC para chegar ao número correto.
-
-Essa diferença de formato, esquema e codificação entre os dois períodos é um dos maiores desafios técnicos do trabalho e demanda estratégias específicas de harmonização no \textit{pipeline}.
 
 \subsection{Tabelas Auxiliares e CBO}
 
@@ -238,7 +235,7 @@ Essa organização traz três benefícios concretos para consultas analíticas:
 
     \item \textbf{\textit{Predicate pushdown}}: filtros numéricos ou de string são avaliados no nível do bloco de dados, usando estatísticas de mínimo e máximo armazenadas nos metadados do arquivo para descartar blocos inteiros sem leitura;
 
-    \item \textbf{Compressão eficiente}: valores de uma mesma coluna tendem a ter distribuição similar, tornando algoritmos de compressão como Snappy e ZSTD mais eficazes do que em formatos orientados a linha. Na prática, converter os arquivos de texto para Parquet com ZSTD reduz substancialmente o espaço em disco; a magnitude exata dessa redução para os microdados da RAIS e do CAGED será quantificada nos resultados deste trabalho. O resultado, ao contrário do texto bruto, passa a ser consultado diretamente por motores OLAP como o DuckDB, sem nenhuma importação prévia.
+    \item \textbf{Compressão eficiente}: valores de uma mesma coluna tendem a ter distribuição similar, tornando algoritmos de compressão como Snappy e ZSTD mais eficazes do que em formatos orientados a linha. Neste trabalho, a conversão dos microdados em texto para Parquet com ZSTD reduziu o volume em 11,7 vezes (\autoref{fig:fluxo-dado}). O resultado, ao contrário do texto bruto, passa a ser consultado diretamente por motores OLAP como o DuckDB, sem nenhuma importação prévia.
 \end{itemize}
 
 O formato também aceita particionar os arquivos por colunas de alta cardinalidade, como ano e estado \cite{ApacheParquet2024}. Com isso, leitores como o DuckDB conseguem carregar apenas as partições que casam com os filtros da consulta, reforçando o \textit{predicate pushdown} já em nível de arquivo.
@@ -254,11 +251,9 @@ Por dentro, o DuckDB usa execução vetorizada (\textit{vectorized execution}): 
 
 \subsection{Armazenamento de Objetos e Repositórios de Dados Versionados}
 
-No armazenamento de objetos (\textit{object storage}), os arquivos são tratados como objetos identificados por uma chave única dentro de um \textit{bucket}, sem a hierarquia rígida de diretórios típica dos sistemas de arquivos tradicionais. Esse modelo casa bem com \textit{data lakes}: escala com facilidade, tolera falhas e suporta acesso paralelo por vários processos ao mesmo tempo \cite{Reis2022}. O \textit{Amazon Simple Storage Service} (S3) virou a API \textit{de facto} desse modelo, e implementações de código aberto, como o MinIO, reproduzem a mesma interface em infraestrutura própria \cite{MinIO2024}.
+Em vez de um \textit{bucket} de armazenamento de objetos, como o S3, este trabalho usa um repositório de dados versionado, o Hugging Face Hub \cite{HuggingFaceDatasets2026}. Neles, cada conjunto de dados é um repositório com histórico de \textit{commits}: um envio de arquivos cria uma nova versão do conjunto, e as versões anteriores continuam recuperáveis. Os arquivos são servidos por HTTP com suporte a requisições parciais e endereçados por um caminho estável, o que permite ao DuckDB lê-los no próprio repositório pelo protocolo \texttt{hf://} --- inclusive com padrões de \textit{glob} sobre a estrutura de partições --- sem cópia local \cite{DuckDB2024}.
 
-Uma alternativa, adotada neste trabalho, são os repositórios de dados versionados, como o Hugging Face Hub \cite{HuggingFaceDatasets2026}. Neles, cada conjunto de dados é um repositório com histórico de \textit{commits}: um envio de arquivos cria uma nova versão do conjunto, e as versões anteriores continuam recuperáveis. Os arquivos são servidos por HTTP com suporte a requisições parciais e endereçados por um caminho estável, o que permite ao DuckDB lê-los no próprio repositório pelo protocolo \texttt{hf://} --- inclusive com padrões de \textit{glob} sobre a estrutura de partições --- sem cópia local \cite{DuckDB2024}.
-
-A diferença em relação a um \textit{bucket} privado não é de desempenho, mas de papel. Em um \textit{bucket} privado, o \textit{data lake} é uma infraestrutura de trabalho, e publicar significa produzir uma segunda cópia para fora. Em um repositório público, o local de armazenamento e o ponto de publicação são o mesmo, e não existe uma cópia de trabalho e uma cópia publicada que possam divergir.
+A diferença em relação a um \textit{bucket} privado não é de desempenho, mas de papel. Em um \textit{bucket} privado, o \textit{data lake} é uma infraestrutura de trabalho, e publicar significa produzir uma segunda cópia para fora. Em um repositório público, o local de armazenamento e o ponto de publicação são o mesmo, e não existe uma cópia de trabalho e uma cópia publicada que possam divergir. É também o que os princípios FAIR \cite{WilkinsonFair2016} pedem de dados de pesquisa: que sejam localizáveis, acessíveis, interoperáveis e reutilizáveis.
 
 Uma propriedade desse modelo tem consequência direta na engenharia: o envio é \textbf{aditivo}. Um \textit{commit} acrescenta ou substitui os arquivos enviados, mas não remove os que deixaram de existir na origem \cite{HuggingFaceDatasets2026}. Se uma camada for reorganizada e seus arquivos renomeados, as versões antigas permanecem no repositório, e uma leitura da pasta inteira passa a contá-las junto com as novas.
 
@@ -273,6 +268,7 @@ Duas características desse modelo condicionam o desenho de um \textit{pipeline}
 
 
 \section{Visualização de Dados \textit{Web}}
+\label{sec:visualizacao}
 
 A entrega de análises por meio de \textit{dashboards} interativos na \textit{web} depende de onde a consulta é executada. Quando ela roda em um servidor, cada interação do usuário --- um filtro, uma mudança de página --- exige uma ida e volta pela rede, e a aplicação só existe enquanto houver um processo de servidor ativo. Quando roda no navegador de quem visita, o filtro responde sem rede, e o \textit{dashboard} se reduz a um conjunto de arquivos estáticos.
 
@@ -296,62 +292,6 @@ em que $(P, D, Q)$ são as ordens sazonais e $m$ é o período --- 12, no caso d
 A diferenciação sazonal ($D = 1$) é o que torna a família adequada à série de saldo de empregos: ela remove o ciclo anual de admissões e desligamentos subtraindo de cada mês o mesmo mês do ano anterior, em lugar de estimar uma forma funcional para esse ciclo. O preço é que a série diferenciada perde os primeiros $m$ pontos, o que importa quando o histórico é curto.
 
 Modelos dessa família pressupõem que o que resta após a modelagem seja ruído sem estrutura. Essa hipótese é verificável: o teste de \citeonline{Ljung1978} examina se as autocorrelações dos resíduos, tomadas em conjunto, diferem do que se esperaria de uma sequência aleatória. Resíduo com estrutura remanescente indica que há sinal que o modelo deixou passar.
-
-A \autoref{fig:serie-decomp} ilustra a decomposição clássica de uma série temporal nos componentes discutidos no início desta seção.
-
-\begin{figure}[htbp]
-    \centering
-    \caption{Decomposição clássica de uma série temporal}
-    \label{fig:serie-decomp}
-    \begin{tikzpicture}[
-        every node/.style={font=\scriptsize},
-        axe/.style={->, thick, black!70},
-        serie/.style={thick, blue!70!black},
-        tendencia/.style={thick, orange!80!black},
-        sazon/.style={thick, green!60!black},
-        ruido/.style={thick, gray!60!black},
-        painel/.style={font=\footnotesize\bfseries, anchor=west}
-    ]
-        % Painel y(t) - serie observada
-        \node[painel] at (-4.5, 2.6) {$y_t$ -- série observada};
-        \draw[axe] (-4.5, 1.6) -- (-4.5, 2.4);
-        \draw[axe] (-4.5, 1.6) -- (3.0, 1.6);
-        \draw[serie] plot[smooth, samples=80, domain=0:6.8]
-            ({-4.5+\x}, {1.6 + 0.4 + 0.05*\x + 0.25*sin(\x*180) + 0.15*cos(\x*60) + 0.08*rnd});
-
-        % Operador =
-        \node[font=\Large] at (-4.7, 0.95) {$=$};
-
-        % Painel tendencia
-        \node[painel] at (-4.5, 0.7) {$T_t$ -- tendência};
-        \draw[axe] (-4.5, -0.3) -- (-4.5, 0.5);
-        \draw[axe] (-4.5, -0.3) -- (3.0, -0.3);
-        \draw[tendencia] (-4.5, -0.15) -- (-1.5, 0.05) -- (3.0, 0.30);
-
-        % Operador +
-        \node[font=\Large] at (-4.7, -0.95) {$+$};
-
-        % Painel sazonalidade
-        \node[painel] at (-4.5, -1.2) {$S_t$ -- sazonalidade de período $m$};
-        \draw[axe] (-4.5, -2.2) -- (-4.5, -1.4);
-        \draw[axe] (-4.5, -2.2) -- (3.0, -2.2);
-        \draw[sazon] plot[smooth, samples=80, domain=0:6.8]
-            ({-4.5+\x}, {-1.8 + 0.3*sin(\x*180)});
-
-        % Operador +
-        \node[font=\Large] at (-4.7, -2.85) {$+$};
-
-        % Painel ruido
-        \node[painel] at (-4.5, -3.1) {$\varepsilon_t$ -- ruído};
-        \draw[axe] (-4.5, -4.1) -- (-4.5, -3.3);
-        \draw[axe] (-4.5, -4.1) -- (3.0, -4.1);
-        \draw[ruido] plot[samples=40, domain=0:6.8]
-            ({-4.5+\x}, {-3.7 + 0.15*rand});
-
-    \end{tikzpicture}
-    \\[4pt]
-    Fonte: Autoria própria, adaptado de \citeonline{Box2015}.
-\end{figure}
 
 \subsection{Validação de Origem Móvel}
 \label{subsec:origem-movel}
@@ -414,13 +354,6 @@ Para descrever a geografia do mercado além de um \textit{ranking} de maiores vo
 
 Duas decisões são necessárias. A primeira é a padronização das variáveis: o algoritmo opera sobre distâncias, e variáveis em escalas distintas dominariam o resultado. A segunda é a escolha de $k$, que o algoritmo não determina. Este trabalho utiliza o coeficiente de silhueta \cite{Rousseeuw1987}, que mede, para cada observação, o quanto ela está mais próxima do próprio grupo do que do grupo vizinho mais próximo, e escolhe o $k$ que maximiza a média desse coeficiente.
 
-\section{Publicação de Dados de Pesquisa}
-\label{sec:fair}
-
-Reprodutibilidade em trabalhos de dados exige mais que publicar código: exige que os dados tratados estejam acessíveis. Os princípios FAIR \cite{WilkinsonFair2016} sistematizam esse requisito em quatro atributos --- dados localizáveis, acessíveis, interoperáveis e reutilizáveis.
-
-Repositórios de dados que servem arquivos por HTTP com suporte a requisições parciais (\textit{HTTP range requests}) têm uma propriedade útil para formatos colunares: um motor analítico pode ler o rodapé de metadados do arquivo Parquet, identificar os blocos necessários à consulta e baixar apenas esses trechos, sem transferir o arquivo inteiro. Com isso, um conjunto de dados publicado deixa de ser apenas um arquivo para \textit{download} e passa a ser consultável no lugar onde está \cite{HuggingFaceDatasets2026}.
-
 \section{Trabalhos Relacionados}
 \label{sec:relacionados}
 
@@ -431,6 +364,8 @@ O Instituto de Pesquisa Econômica Aplicada (IPEA) mantém uma série regular de
 A pesquisa da FECOMERCIOSP, baseada em microdados da RAIS entre 2012 e 2022, analisou 30 ocupações ligadas à tecnologia e quantificou o crescimento do setor em até 95\% no período, com famílias específicas chegando a 740\% \cite{Fecomercio2024}. Esse estudo é o que mais se aproxima da proposta deste TCC, mas se limita à análise descritiva de séries históricas anuais, sem aplicar modelagem preditiva nem integrar o CAGED ao recorte. Além disso, o estudo é publicado como nota técnica, sem detalhamento metodológico que permita a reprodução dos resultados.
 
 A BRASSCOM publica anualmente seu \textit{Relatório Setorial do Macrossetor TIC}, que combina dados da RAIS, CAGED e outras fontes para estimar o tamanho do setor, sua participação no PIB e o déficit projetado de profissionais \cite{Brasscom2024, Brasscom2025}. O recorte do trabalho é setorial e bastante completo, mas a metodologia e os dados intermediários não são abertos: a publicação traz números agregados, sem disponibilizar os \textit{pipelines} ou as bases tratadas que os geraram.
+
+Na literatura acadêmica, \citeonline{Azambuja2016} usaram a RAIS de 2006 a 2013 para comparar a demanda de trabalho das empresas de serviços de TIC com a do setor de serviços como um todo, e concluíram que o setor é heterogêneo: as condições de trabalho variam conforme o grau de inserção de cada segmento na competição por inovação. O recorte é setorial, sem a lente de ocupação. No tema da equidade, \citeonline{Dobner2022} aplicaram as decomposições de Oaxaca-Blinder e de Ñopo à RAIS do Rio Grande do Sul, de 2012 a 2018, e encontraram hiato de gênero favorável aos homens em todos os setores, com uma característica notável: se os atributos produtivos determinassem o salário, as mulheres ganhariam mais. Nenhum dos dois trata o setor de TI pelas duas lentes nem cobre a série desde 2007.
 
 No campo técnico, a Arquitetura Medalhão proposta originalmente pela Databricks \cite{MicrosoftMedallion2024} tornou-se referência para organização de \textit{data lakes}, sendo adotada em estudos de caso e em projetos corporativos para a estruturação de dados em camadas progressivas de qualidade. Em uma direção complementar, \citeonline{Armbrust2021} introduziram o conceito de \textit{lakehouse}, uma evolução do \textit{data lake} que combina o desempenho analítico de \textit{data warehouses} tradicionais com a flexibilidade de armazenamento de dados brutos sobre formatos abertos como Parquet. A proposta defende que motores analíticos modernos, lendo direto sobre arquivos colunares em armazenamento de objetos, podem entregar latência competitiva sem a complexidade operacional de ambientes proprietários, a mesma intuição que motiva as escolhas técnicas deste trabalho. Ainda assim, a aplicação dessa arquitetura especificamente a microdados governamentais brasileiros, com motores leves como o DuckDB, armazenamento em repositórios públicos de dados e execução automatizada por integração contínua, é pouco documentada em trabalhos acadêmicos publicados.
 
@@ -456,6 +391,8 @@ A \autoref{tab:comparativo-relacionados} resume como este TCC se posiciona frent
         IPEA            & PNAD Contínua, CAGED, RAIS  & Até 2023 (trimestral) & Macroeconômico (todo o mercado) & Não & Não \\
         FECOMERCIOSP & RAIS                     & 2012--2022 & TI (30 ocupações) & Não & Não \\
         BRASSCOM & RAIS, CAGED e outras & Anual & Macrossetor TIC & Projeção de déficit & Não (dados fechados) \\
+        \citeonline{Azambuja2016} & RAIS & 2006--2013 & Serviços TIC (CNAE) & Não & Parcial (método descrito) \\
+        \citeonline{Dobner2022} & RAIS & 2012--2018 & Rio Grande do Sul, todos os setores & Não (decomposição salarial) & Parcial (método descrito) \\
         \rowcolor{blue!6}
         \textbf{Este TCC}               & RAIS + CAGED integradas & 2007--2026 (mensal/anual) & TI por CBO, CNAE e UF & SARIMA validado em origem móvel e \textit{nowcast} do estoque & Sim (código e dados abertos) \\
         \bottomrule
