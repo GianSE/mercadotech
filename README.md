@@ -28,7 +28,7 @@ e uma seção do TCC.
 | **2. Onde está o trabalho de TI?** | **58%** dos profissionais de TI trabalham fora de empresas de TI. São Paulo concentra 41% do estoque, mas o crescimento não depende dele: sem SP, foi de 136%. |
 | **3. O emprego melhorou em qualidade?** | Não em remuneração relativa: a mediana em salários mínimos subiu só 5% em 18 anos (3,24 → 3,41). O risco de desligamento é máximo entre 6 e 12 meses de casa. |
 | **4. Quem ganha menos, e por quê?** | Mulheres e pessoas negras, por mecanismos distintos: o hiato de gênero (de 19,0% para 7,8%) é de retorno; o racial é sobretudo de acesso. |
-| **5. Para onde o mercado vai?** | A previsão do saldo mensal (SARIMA) erra 31% menos que a regra ingênua sazonal; o *nowcast* do estoque errou 0,78% no ano retido. Estimar o presente é bem mais preciso que prever o futuro. |
+| **5. Para onde o mercado vai?** | A previsão do saldo mensal (SARIMA) erra 31% menos que a regra ingênua sazonal, contra 16% do melhor Prophet; o *nowcast* do estoque, testado em cada ano de 2014 a 2025, erra em média 2,1%, contra 5,1% do estimador ingênuo. Estimar o presente é bem mais preciso que prever o futuro. |
 
 Os números vêm da camada Gold e são os mesmos do TCC: as tabelas do texto são
 geradas por script a partir dos dados publicados, nunca digitadas.

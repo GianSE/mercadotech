@@ -1,21 +1,21 @@
 % Gerado por scripts/gerar_tabelas.py --- não editar à mão.
 \begin{table}[htbp]
     \centering
-    \caption{\textit{Nowcast} do estoque: estimadores ajustados sem o ano de 2025}
+    \caption{\textit{Nowcast} do estoque: erro de cada estimador com cada ano retido, 2014--2025}
     \label{tab:nowcast}
     \footnotesize
     \renewcommand{\arraystretch}{1.25}
     \begin{tabular}{lrrrr}
         \toprule
         \rowcolor{black!8}
-        \textbf{Estimador} & \textbf{Estimado} & \textbf{Observado} & \textbf{Erro} & \textbf{Erro relativo} \\
+        \textbf{Estimador} & \textbf{Erro médio} & \textbf{Erro mediano} & \textbf{Maior erro (ano)} & \textbf{Erro em 2025} \\
         \midrule
-        razão mediana & 1.350.558 & 1.361.231 & -10.673 & -0,78\% \\
-        regressão OLS & 1.349.478 & 1.361.231 & -11.753 & -0,86\% \\
-        identidade (delta = fluxo) & 1.341.782 & 1.361.231 & -19.449 & -1,43\% \\
-        ingênuo (sem mudança) & 1.311.311 & 1.361.231 & -49.920 & -3,67\% \\
+        identidade (delta = fluxo) & 2,12\% & 1,39\% & -7,4\% (2022) & -1,43\% \\
+        razão mediana & 2,18\% & 2,05\% & 5,4\% (2021) & -0,78\% \\
+        regressão OLS & 2,49\% & 2,07\% & -7,4\% (2022) & -0,86\% \\
+        ingênuo (sem mudança) & 5,09\% & 3,75\% & -14,7\% (2022) & -3,67\% \\
         \bottomrule
     \end{tabular}
     \\[4pt]
-    Fonte: Autoria própria, a partir da camada Gold.
+    Erros em \% do estoque observado; médio e mediano em valor absoluto. Cada ano é estimado só com os anteriores. Fonte: Autoria própria, a partir da camada Gold.
 \end{table}

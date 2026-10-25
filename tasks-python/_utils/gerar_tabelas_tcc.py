@@ -284,7 +284,9 @@ tabela("tab-hiato.tex", "Decomposição de Oaxaca-Blinder do hiato salarial",
        nota="Parcelas em logaritmo da remuneração; referência de Neumark. ")
 
 # ------------------------------------------------- previsao
-linhas = [[f"\\texttt{{{r[0]}}}", num(r[1]), num(r[2]), num(r[3]), pct(r[4])]
+# "Prophet(tendência 0.01)" -> vírgula decimal no texto.
+modelo_tex = lambda m: m.replace("0.", "0,") if m.startswith("Prophet") else m
+linhas = [[f"\\texttt{{{modelo_tex(r[0])}}}", num(r[1]), num(r[2]), num(r[3]), pct(r[4])]
           for r in con.execute(f"""
     SELECT modelo, dobras, mae, rmse, \"ganho_vs_naive_%\"
     FROM read_parquet('{G}/previsao_placar.parquet') ORDER BY mae
@@ -295,15 +297,48 @@ tabela("tab-previsao.tex",
        ["Modelo", "Dobras", "MAE", "RMSE", "Ganho sobre o ingênuo"], linhas)
 
 # ------------------------------------------------- nowcast
-linhas = [[r[0], num(r[1]), num(r[2]), num(r[3]), pct(r[4], 2)] for r in con.execute(f"""
-    SELECT estimador, previsto, real, erro, erro_pct
-    FROM read_parquet('{G}/nowcast_ano_retido.parquet') ORDER BY abs(erro_pct)
-""").fetchall()]
-ano_teste = con.execute(f"SELECT max(ano_teste) FROM read_parquet('{G}/nowcast_ano_retido.parquet')").fetchone()[0]
+# Retrospectiva: cada ano, de 2014 em diante, estimado só com os anteriores. O
+# último ano retido sozinho é o melhor caso, não o típico; a tabela mostra a
+# média, a mediana, o pior ano e o último ano de cada estimador.
+try:
+    ret = con.execute(f"SELECT ano, estimador, erro_pct FROM read_parquet('{G}/nowcast_retrospectiva_anos.parquet')").df()
+except Exception:
+    # Gold publicada antes da tabela ano a ano: o mesmo cálculo, a partir dos pares.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "3-gold"))
+    from ciencia_dados import nowcast_estoque as nc
+    pares = con.execute(f"SELECT * FROM read_parquet('{G}/nowcast_pares.parquet') ORDER BY ano").df()
+    ret = nc.retrospectiva_anos(pares)[["ano", "estimador", "erro_pct"]]
+ret["abs"] = ret["erro_pct"].abs()
+ano0, ult = int(ret["ano"].min()), int(ret["ano"].max())
+res = ret.groupby("estimador").agg(media=("abs", "mean"), mediana=("abs", "median")).reset_index()
+pior = ret.loc[ret.groupby("estimador")["abs"].idxmax(), ["estimador", "ano", "erro_pct"]]
+fim = ret[ret["ano"] == ult][["estimador", "erro_pct"]].rename(columns={"erro_pct": "erro_fim"})
+res = res.merge(pior, on="estimador").merge(fim, on="estimador").sort_values("media")
 tabela("tab-nowcast.tex",
-       f"\\textit{{Nowcast}} do estoque: estimadores ajustados sem o ano de {int(ano_teste)}",
+       f"\\textit{{Nowcast}} do estoque: erro de cada estimador com cada ano retido, {ano0}--{ult}",
        "tab:nowcast", "lrrrr",
-       ["Estimador", "Estimado", "Observado", "Erro", "Erro relativo"], linhas)
+       ["Estimador", "Erro médio", "Erro mediano", "Maior erro (ano)", f"Erro em {ult}"],
+       [[r.estimador, pct(r.media, 2), pct(r.mediana, 2), f"{pct(r.erro_pct, 1)} ({int(r.ano)})", pct(r.erro_fim, 2)]
+        for r in res.itertuples()],
+       nota="Erros em \\% do estoque observado; médio e mediano em valor absoluto. Cada ano é estimado só com os anteriores. ")
+
+melhor = res.iloc[0].estimador
+erros = lambda n: pontos((int(a), round(e, 2)) for a, e in
+                         ret[ret["estimador"] == n].sort_values("ano")[["ano", "erro_pct"]].itertuples(index=False))
+figura("fig-nowcast-anos.tex", f"Erro do \\textit{{nowcast}} em cada ano retido, {ano0}--{ult}",
+       "fig:nowcast-anos", f"""    \\begin{{tikzpicture}}
+    \\begin{{axis}}[{EIXO}, width=0.85\\textwidth, height=6cm, ylabel={{Erro (\\% do estoque)}},
+            xmin={ano0}, xmax={ult}, xtick distance=1,
+            x tick label style={{/pgf/number format/1000 sep={{}}, rotate=45, anchor=north east}},
+            legend style={{font=\\footnotesize, at={{(0.02,0.03)}}, anchor=south west, draw=none, fill=white}}]
+        \\addplot[black!40, thin, forget plot] coordinates {{({ano0},0) ({ult},0)}};
+        \\addplot[very thick, black!85, mark=*, mark size=1.3pt] coordinates {{{erros(melhor)}}};
+        \\addlegendentry{{{melhor}}}
+        \\addplot[thick, black!45, dashed, mark=o, mark size=1.3pt] coordinates {{{erros('ingênuo (sem mudança)')}}};
+        \\addlegendentry{{ingênuo (sem mudança)}}
+    \\end{{axis}}
+    \\end{{tikzpicture}}""",
+       nota="Erro positivo: o estimador superestimou o estoque. ")
 
 # ------------------------------------------------- sobrevivencia
 risco = con.execute(f"""

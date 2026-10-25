@@ -1,0 +1,23 @@
+% Gerado por scripts/gerar_tabelas.py --- não editar à mão.
+\begin{figure}[htbp]
+    \centering
+    \caption{Erro do \textit{nowcast} em cada ano retido, 2014--2025}
+    \label{fig:nowcast-anos}
+    \begin{tikzpicture}
+    \begin{axis}[width=\linewidth, height=6.2cm, axis lines=left, tick align=outside,
+            ymajorgrids, grid style={black!12}, tick label style={font=\footnotesize},
+            label style={font=\footnotesize}, title style={font=\small\bfseries},
+            /pgf/number format/use comma, /pgf/number format/1000 sep={.}, width=0.85\textwidth, height=6cm, ylabel={Erro (\% do estoque)},
+            xmin=2014, xmax=2025, xtick distance=1,
+            x tick label style={/pgf/number format/1000 sep={}, rotate=45, anchor=north east},
+            legend style={font=\footnotesize, at={(0.02,0.03)}, anchor=south west, draw=none, fill=white}]
+        \addplot[black!40, thin, forget plot] coordinates {(2014,0) (2025,0)};
+        \addplot[very thick, black!85, mark=*, mark size=1.3pt] coordinates {(2014,-1.58) (2015,-1.36) (2016,0.64) (2017,2.19) (2018,-5.69) (2019,0.94) (2020,-0.95) (2021,0.8) (2022,-7.37) (2023,1.68) (2024,-0.86) (2025,-1.43)};
+        \addlegendentry{identidade (delta = fluxo)}
+        \addplot[thick, black!45, dashed, mark=o, mark size=1.3pt] coordinates {(2014,-3.84) (2015,-0.44) (2016,2.43) (2017,1.84) (2018,-9.73) (2019,-3.26) (2020,-5.01) (2021,-12.16) (2022,-14.71) (2023,-0.17) (2024,-3.83) (2025,-3.67)};
+        \addlegendentry{ingênuo (sem mudança)}
+    \end{axis}
+    \end{tikzpicture}
+    \\[4pt]
+    {\footnotesize Erro positivo: o estimador superestimou o estoque. }Fonte: Autoria própria, a partir da camada Gold.
+\end{figure}

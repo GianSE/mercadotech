@@ -70,7 +70,7 @@ A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM 
         \textbf{Entendimento dos Dados}   & Levantamento dos \textit{layouts} de cada ano, extração dos dicionários oficiais a partir das planilhas de \textit{layout} do servidor público e auditoria da tradução dos códigos; identificação dos defeitos de fonte relatados na \autoref{sec:achados-qualidade}. \\
         \textbf{Preparação dos Dados}     & Construção das camadas Bronze, Silver (restrita ao recorte de TI) e Gold; definição e posterior revisão do recorte de tecnologia; harmonização de nomes de coluna, tipagem de campos numéricos e agrupamento dos arquivos por partição. \\
         \textbf{Modelagem}                & Modelos SARIMA sobre o saldo mensal; estimador de \textit{nowcast} do estoque; tábua de vida e modelo de risco em tempo discreto para a permanência no vínculo; decomposição de Oaxaca-Blinder do hiato salarial; agrupamento de municípios por $k$-médias. \\
-        \textbf{Avaliação}                & Validação de origem móvel com MAE e RMSE contra \textit{baseline} ingênuo sazonal; validação do \textit{nowcast} com um ano retido do treinamento; verificação de reprodutibilidade confrontando o dado bruto com a camada publicada. \\
+        \textbf{Avaliação}                & Validação de origem móvel com MAE e RMSE contra \textit{baseline} ingênuo sazonal; validação do \textit{nowcast} retendo cada ano de 2014 a 2025; verificação de reprodutibilidade confrontando o dado bruto com a camada publicada. \\
         \textbf{Implantação}              & Migração do \textit{data lake} e do processamento para a nuvem, com execução automatizada e incremental; implantação do \textit{dashboard} consumindo o próprio \textit{data lake} público; publicação do código-fonte em repositório público. \\
         \bottomrule
     \end{tabular}
@@ -393,7 +393,7 @@ O \textit{pipeline} foi escrito em Python \cite{Python2024} e é executado pelo 
 \subsection{Previsão do Saldo Mensal}
 \label{subsec:metodo-sarima}
 
-A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12,, e um \textit{baseline} ingênuo sazonal. A grade é deliberadamente pequena, pelo risco de sobreajuste na validação discutido na \autoref{subsec:origem-movel}.
+A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12, e um \textit{baseline} ingênuo sazonal. O Prophet \cite{Taylor2018}, modelo previsto na proposta, entrou na mesma comparação, em três configurações que variam apenas a flexibilidade da tendência (0,01, 0,05 --- o padrão da biblioteca --- e 0,5), com sazonalidade anual aditiva, já que o saldo é negativo em parte dos meses. As duas grades são deliberadamente pequenas, pelo risco de sobreajuste na validação discutido na \autoref{subsec:origem-movel}.
 
 A avaliação seguiu validação de origem móvel \cite{Tashman2000}: o modelo é treinado até um instante $T$, prevê os 12 meses seguintes, a origem avança 12 meses e o procedimento se repete, totalizando cinco dobras. O \textit{baseline} é avaliado nas mesmas dobras e com o mesmo horizonte. As métricas são MAE e RMSE, apresentadas na \autoref{subsec:metricas}.
 
@@ -408,7 +408,7 @@ em que $E_{t-1}$ é o estoque do último ano publicado da RAIS e $F_t$ é o flux
 
 A identidade é aproximada, e não exata: a variação do estoque entre dois 31 de dezembro não é idêntica ao saldo do CAGED, porque as duas bases têm coberturas e prazos de declaração distintos. Por isso foram comparados quatro estimadores para a relação entre $\Delta E$ e $F$: a identidade direta, uma regressão linear de $\Delta E$ sobre $F$, a razão mediana histórica entre os dois e um estimador ingênuo que supõe estoque constante.
 
-A validação foi feita de duas formas. A primeira é retrospectiva, aplicando cada estimador a todos os pares ano-a-ano disponíveis. A segunda --- mais exigente --- retém um ano inteiro do treinamento: os estimadores são ajustados apenas com dados até 2024 e usados para estimar o estoque de 2025, cujo valor verdadeiro já é conhecido mas não foi visto pelo ajuste.
+A validação é retrospectiva, com janela expansiva: cada ano de 2014 a 2025 é estimado com os estimadores ajustados apenas com os anos anteriores, como se o ano estivesse em curso, e o erro é medido contra o estoque que a RAIS publicou depois. O resultado é reportado em média, em mediana e no pior ano, além do último ano retido, que é o mais próximo do uso real.
 
 \subsection{Permanência e Sobrevivência no Vínculo}
 \label{subsec:metodo-sobrevivencia}
@@ -479,7 +479,7 @@ Projetos de dados raramente terminam idênticos ao que foram propostos, e declar
         \rowcolor{black!8}
         \textbf{Proposto no TCC~1} & \textbf{Executado} & \textbf{Motivo} \\
         \midrule
-        Modelo Prophet & Família SARIMA, com seis especificações e \textit{baseline} ingênuo sazonal & A série mensal é completa, sem lacunas, e as vantagens do Prophet (tolerância a dados faltantes e \textit{changepoints} manuais) não se aplicavam. O Prophet não foi avaliado, o que fica declarado como limitação. \\
+        Modelo Prophet & Prophet e SARIMA na mesma validação de origem móvel, contra o \textit{baseline} ingênuo sazonal & O SARIMA venceu: a série é completa e de sazonalidade estável, e as vantagens do Prophet (tolerância a lacunas e a mudanças de tendência) não se aplicavam (\autoref{sec:resultado-q5}). \\
         Projeção até 2030 & Horizonte de 18 meses & O intervalo de predição cruza o zero em cerca de um ano; uma projeção até 2030 não teria conteúdo informativo (\autoref{sec:resultado-q5}). \\
         Previsão como única modelagem & Previsão, \textit{nowcast}, sobrevivência, decomposição salarial e agrupamento & As perguntas de pesquisa formuladas na fase de Entendimento do Negócio pedem mais do que extrapolação de série: qualidade do emprego, equidade e geografia exigem métodos próprios. \\
         Publicação apenas do código & Publicação do código e de seis conjuntos de dados abertos, que formam o próprio \textit{data lake} & Primeiro, requisito de implantação: o \textit{dashboard} em nuvem não alcançava o \textit{data lake} local. Depois, consequência da migração para a nuvem. Ver \autoref{sec:publicacao}. \\

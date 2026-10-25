@@ -200,6 +200,8 @@ Sobre composição: a participação feminina no estoque de TI caiu de 34,3\% em
 
 A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 31\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. A margem sobre o \textit{baseline}, porém, varia muito entre as seis especificações testadas --- de 31\% a apenas 3\% ---, e é isso que justifica o piso de comparação: sem ele, a especificação mais fraca pareceria tão aceitável quanto as demais.
 
+O Prophet, modelo previsto na proposta, foi avaliado nas mesmas dobras. Na configuração de tendência mais rígida, superou o \textit{baseline} em 16\%, cerca de metade do ganho do melhor SARIMA; na configuração padrão e na mais flexível, ficou abaixo do próprio \textit{baseline}. O resultado tem explicação: a série mensal é completa e de sazonalidade estável, o terreno em que a diferenciação sazonal do SARIMA rende mais, e as vantagens do Prophet --- tolerância a lacunas e a mudanças de tendência --- não se aplicavam. Quanto mais liberdade a tendência recebe, pior o Prophet se sai, o que indica que ele interpreta como mudança de tendência parte do que é ruído do saldo mensal.
+
 O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano de projeção com intervalo de predição que \textbf{cruza o zero}: o modelo não distingue, nessa distância, saldo positivo de negativo. Projetar até 2030, como previa a proposta, produziria um número sem conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos. No ciclo do CRISP-DM, foi a Avaliação levando de volta ao Entendimento do Negócio: a pergunta deixou de ser apenas ``quanto haverá no futuro'' e passou a incluir ``quanto há agora'', que o \textit{nowcast} a seguir responde.
 
 \subsection{\textit{Nowcast} do Estoque}
@@ -207,11 +209,13 @@ O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previ
 \input{estrutura/tabelas-geradas/tab-nowcast.tex}
 
 
-A limitação de horizonte da previsão mensal contrasta com um resultado bem mais forte na estimação do \textbf{presente}. O estoque do ano corrente é desconhecido até a RAIS ser publicada no ano seguinte, mas o CAGED já divulgou parte do fluxo. A \autoref{tab:nowcast} mostra o teste mais exigente feito: os estimadores foram ajustados \textbf{sem} o ano de 2025 e usados para estimar o estoque daquele ano, cujo valor verdadeiro já é conhecido.
+A limitação de horizonte da previsão mensal contrasta com um resultado bem mais forte na estimação do \textbf{presente}. O estoque do ano corrente é desconhecido até a RAIS ser publicada no ano seguinte, mas o CAGED já divulgou parte do fluxo. A \autoref{tab:nowcast} e a \autoref{fig:nowcast-anos} mostram o teste feito: cada ano de 2014 a 2025 foi estimado \textbf{sem} os dados daquele ano e dos seguintes, como se estivesse em curso, e comparado com o estoque que a RAIS publicou depois.
 
-O melhor estimador erra menos de 1\% em um estoque de mais de 1,3 milhão de vínculos, enquanto o estimador ingênuo --- supor estoque constante --- erra várias vezes mais. O resultado é relevante na prática: enquanto a previsão de fluxo a doze meses é incerta, a estimativa do estoque corrente é precisa, porque se apoia em informação já observada em lugar de extrapolação.
+\input{estrutura/tabelas-geradas/fig-nowcast-anos.tex}
 
-Essa assimetria --- previsão de futuro incerta, estimação de presente precisa --- é o resultado de modelagem mais útil do trabalho, e vale como recomendação metodológica: em bases com defasagem de publicação, estimar o que já aconteceu e ainda não foi divulgado rende mais do que prever o que não aconteceu.
+O melhor estimador, a identidade entre a variação do estoque e o saldo do CAGED, erra em média 2,1\% --- a mediana é de 1,4\% ---, contra 5,1\% do estimador ingênuo, que supõe estoque constante. Em dez dos doze anos, o erro não passou de 2,2\%. Os dois anos ruins são informativos: em 2018 e em 2022, o estoque cresceu bem mais do que o saldo do CAGED indicava, e nenhum estimador apoiado no fluxo poderia antecipar isso; é nesses anos que a diferença de cobertura entre as duas bases pesa. No último ano retido, 2025, os três estimadores apoiados no fluxo erraram entre 0,78\% e 1,43\% --- um caso favorável, e não o típico. O resultado é relevante na prática: enquanto a previsão de fluxo a doze meses é incerta, a estimativa do estoque corrente erra pouco na maior parte dos anos, porque se apoia em informação já observada em lugar de extrapolação.
+
+Essa assimetria --- previsão de futuro incerta, estimação de presente bem mais precisa --- é o resultado de modelagem mais útil do trabalho, e vale como recomendação metodológica: em bases com defasagem de publicação, estimar o que já aconteceu e ainda não foi divulgado rende mais do que prever o que não aconteceu.
 
 \section{O \textit{Dashboard} Entregue}
 
@@ -258,7 +262,7 @@ O \autoref{quadro:sintese} reúne as respostas às cinco perguntas.
         2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, com remuneração próxima à de quem está dentro (4,13 contra 4,31 salários mínimos) e permanência maior. O crescimento recente é mais rápido fora das capitais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
         3. Melhorou em qualidade? & Não em remuneração relativa: a mediana em salários mínimos ficou praticamente estável (3,24 para 3,41 em dezoito anos). O tempo de emprego caiu, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
         4. Quem ganha menos? & Mulheres e pessoas negras, por mecanismos distintos: o hiato de gênero é inteiramente de retorno (parcela explicada negativa); o racial é majoritariamente de acesso. A participação feminina caiu de 34,3\% para 30,6\%. \\
-        5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso. Já a estimação do estoque corrente por \textit{nowcast} erra menos de 1\% em teste com ano retido. \\
+        5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso. O SARIMA superou o Prophet. Já a estimação do estoque corrente por \textit{nowcast} errou em média 2,1\% em doze anos retidos, menos da metade do erro do estimador ingênuo. \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
