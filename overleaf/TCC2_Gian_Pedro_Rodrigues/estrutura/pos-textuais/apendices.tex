@@ -121,9 +121,13 @@ SELECT cru.linhas AS no_dado_cru, publicado.linhas AS na_camada_publicada,
 FROM cru, publicado;
 \end{lstlisting}
 
+\section{Reprodutibilidade da RAIS, ano a ano}
+
+Para a RAIS, a verificação percorre todos os arquivos da camada Bronze de cada ano, porque o nome das colunas de atividade econômica e de ocupação muda entre layouts. Para cada arquivo, a contagem aplica o mesmo predicado da \autoref{lst:reprodutibilidade}, sobre as colunas daquele layout; a soma dos arquivos do ano é comparada com o total de linhas da partição correspondente da camada tratada. O procedimento está em \texttt{tasks-python/\_utils/reprodutibilidade\_rais.py}, executável pelo \textit{workflow} ``Reprodutibilidade RAIS'' do repositório, e o resultado é publicado junto da camada Gold, em \texttt{auditoria/reprodutibilidade\_rais.csv}.
+
 \section{Procedência de uma tradução}
 
-Esta consulta recupera a origem de qualquer descrição aplicada pelo \textit{pipeline}: de qual planilha de \textit{layout}, de qual aba, de qual caminho no servidor público e em que data a extração foi feita.
+A consulta do \autoref{lst:procedencia} recupera a origem de qualquer descrição aplicada pelo \textit{pipeline}: de qual planilha de \textit{layout}, de qual aba, de qual caminho no servidor público e em que data a extração foi feita.
 
 \begin{lstlisting}[language=SQL, basicstyle=\ttfamily\scriptsize, breaklines=true,
                    frame=single, captionpos=b,

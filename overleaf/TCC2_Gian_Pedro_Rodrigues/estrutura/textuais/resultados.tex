@@ -17,7 +17,7 @@ O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2
 
 A redução de volume entre as camadas é informativa: os 56~GB de microdados brutos tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia e convertidos para Parquet com compressão. É essa redução que torna viável processar e consultar a série inteira sem infraestrutura dedicada: dentro de um executor gratuito do GitHub Actions, no navegador de quem visita o \textit{dashboard} ou em um computador pessoal.
 
-O número de arquivos importa tanto quanto o volume. A camada nasceu com 2.111 arquivos de menos de 2~MB --- um por arquivo de entrada ---, e foi consolidada em 628, um por partição, conforme descrito na \autoref{sec:arquitetura}. Depois da consolidação, uma contagem completa dos vínculos de TI da RAIS respondia em 0,4~segundo, em medição feita antes da migração, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. O ganho não vem de \textit{hardware}, e sim de pedir ao formato o que ele sabe responder sem ler dado.
+O número de arquivos importa tanto quanto o volume. A camada nasceu com 2.111 arquivos de menos de 2~MB --- um por arquivo de entrada ---, e foi consolidada em um arquivo por partição, conforme descrito na \autoref{sec:arquitetura} --- 628 na época; com os meses publicados depois, são os 634 da \autoref{tab:volumes}. Depois da consolidação, uma contagem completa dos vínculos de TI da RAIS respondia em 0,4~segundo, em medição feita antes da migração, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. O ganho não vem de \textit{hardware}, e sim de pedir ao formato o que ele sabe responder sem ler dado.
 
 \section{Reprodutibilidade do Recorte}
 \label{sec:reprodutibilidade}
@@ -31,6 +31,12 @@ A validação mais exigente da plataforma não é comparar agregados com painéi
 \end{itemize}
 
 A consulta é executável por terceiros sem acesso à infraestrutura do projeto, porque as duas pontas --- bronze e camada tratada --- estão publicadas. É esse o sentido operacional de reprodutibilidade adotado aqui: não ``o código está disponível'', mas ``a afirmação pode ser recontada da fonte''.
+
+Para a RAIS, a mesma verificação foi feita para todos os anos. Um \textit{script} do repositório aplica a definição do recorte a cada arquivo bruto da camada Bronze --- lendo apenas as colunas de atividade econômica e de ocupação, sem tradução, sem divisão em pedaços e sem publicação --- e compara a contagem com as linhas da camada tratada publicada (\autoref{apend:consultas}). A \autoref{tab:reprodutibilidade-rais} mostra o resultado: diferença zero em todos os dezenove anos, nos 445 arquivos e nos 23.795.000 registros do recorte.
+
+\input{estrutura/tabelas-geradas/tab-reprodutibilidade-rais.tex}
+
+O ano de 2022 está incluído, já reprocessado. A verificação foi construída depois da ingestão parcial descrita na \autoref{sec:achados-qualidade}, e é exatamente o tipo de teste que a teria apontado no momento em que aconteceu: ela compara a saída com a fonte, e não apenas a presença de cada arquivo. Por isso passou a ser uma etapa do repositório, executável sob demanda no GitHub Actions, e não uma conferência feita uma vez.
 
 \section{Validação Contra o Painel do MTE}
 \label{sec:validacao-mte}
@@ -82,7 +88,7 @@ O \autoref{quadro:achados} relaciona os achados. Dois merecem discussão mais lo
         Remuneração como texto & Em 2023, sete arquivos trazem a remuneração como texto, e não como número. A verificação por ano não revelava: o esquema agregado do ano mostrava o tipo numérico. & Leitura do esquema \textbf{arquivo por arquivo}. \\
         Código de ocupação não documentado & O código CBO 211220 aparece no microdado com milhares de vínculos ativos, mas não consta de nenhum dicionário oficial do MTE --- nem da RAIS, nem do CAGED. & Tradução sem correspondente no dicionário, com código presente no dado. \\
         Domicílio fiscal no lugar do local de trabalho & A localização do vínculo é a do estabelecimento declarante. Municípios com incentivo fiscal aparecem com concentração acima da real. Não é corrigível com o dado público. & Concentração implausível em municípios específicos. \\
-        Ingestão parcial de arquivo & Sete pedaços de dois arquivos de 2022 não chegaram à camada tratada: 446.267 vínculos ausentes, um terço do ano. & Série anual implausível, e depois verificação pedaço a pedaço contra o bronze. \\
+        Ingestão parcial de arquivo & Sete pedaços de dois arquivos de 2022 não chegaram à camada tratada: 446.267 vínculos ausentes, cerca de um quarto do ano. & Série anual implausível, e depois verificação pedaço a pedaço contra o bronze. \\
         Erro de método: Kaplan-Meier em corte transversal & A primeira estimativa de permanência no emprego indicou mediana de 570 meses --- 48 anos. O estimador pressupõe coorte acompanhada no tempo; a RAIS é corte transversal. & Resultado implausível à inspeção. \\
         Erro de método: mediana agregada por média & A remuneração mediana de um conjunto de grupos foi calculada como a média das medianas dos grupos, ponderada pelo estoque. Em 2025, isso dava 3,55 salários mínimos para o total de TI, contra 3,41 da mediana exata, e invertia a comparação entre as duas lentes. & O mesmo número calculado a partir de duas tabelas de granularidades diferentes (nacional e por UF) deu 3,55 e 3,75. \\
         \bottomrule
@@ -133,19 +139,19 @@ A \autoref{tab:lentes} cruza as duas lentes do recorte. Dos profissionais com oc
 
 A proximidade é recente. Em 2007, quem estava dentro das empresas de TI ganhava bem mais: 5,47 salários mínimos de mediana, contra 4,22 de quem estava fora. A distância quase desapareceu porque a mediana de quem está dentro caiu 21\% em salários mínimos no período, enquanto a de quem está fora ficou praticamente estável. A difusão da função de tecnologia pela economia não veio acompanhada de remuneração inferior fora do setor; o que encolheu foi o prêmio que as empresas de TI pagavam.
 
-A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo \textbf{outras} ocupações, com remuneração mediana de 2,18 salários mínimos --- menos da metade das demais. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
+A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo \textbf{outras} ocupações, com remuneração mediana de 2,06 salários mínimos --- menos da metade das demais. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
 
 \subsection{Composição por Área}
 
 \input{estrutura/tabelas-geradas/tab-areas.tex}
 
-A \autoref{tab:areas} desagrega o estoque pelas áreas de atuação. Desenvolvimento concentra a maior parte dos vínculos; Suporte e Operação vem em seguida, com remuneração mediana muito inferior; e Gestão e Direção, com o menor contingente entre as áreas técnicas, tem a maior mediana. A família de Estatística e Ciência de Dados, incorporada na revisão do recorte, é a menor em volume --- o que é esperado, dado que entrou para capturar uma ocupação específica, e não um bloco do mercado.
+A \autoref{tab:areas} desagrega o estoque pelas áreas de atuação. Desenvolvimento concentra a maior parte dos vínculos; Suporte e Operação vem em seguida, com remuneração mediana muito inferior; e Gestão e Direção, terceira em volume, tem a maior mediana, de 10,15 salários mínimos. A família de Estatística e Ciência de Dados, incorporada na revisão do recorte, é a menor em volume --- o que é esperado, dado que entrou para capturar uma ocupação específica, e não um bloco do mercado.
 
 \subsection{Distribuição Territorial}
 
 \input{estrutura/tabelas-geradas/tab-uf.tex}
 
-A concentração é acentuada: São Paulo responde por 40,9\% do estoque nacional, e as cinco primeiras unidades federativas somam quase 70\%. A remuneração mediana varia muito entre elas, e a leitura exige cuidado --- o Ceará aparece com mediana de 1,40 salário mínimo, bem abaixo das demais, o que reflete a concentração de centrais de atendimento classificadas em atividades de TI, e não um mercado de desenvolvimento mal remunerado.
+A \autoref{tab:uf} mostra que a concentração é acentuada: São Paulo responde por 40,9\% do estoque nacional, e as cinco primeiras unidades federativas somam quase 70\%. A remuneração mediana varia muito entre elas, e a leitura exige cuidado --- o Ceará aparece com mediana de 1,40 salário mínimo, bem abaixo das demais, o que reflete a concentração de centrais de atendimento classificadas em atividades de TI, e não um mercado de desenvolvimento mal remunerado.
 
 A concentração em São Paulo levanta uma pergunta de método: as conclusões nacionais dependem de um único estado? São Paulo não é um valor anômalo a descartar --- é o maior mercado do país, e retirá-lo distorceria os totais nacionais ---, mas o seu peso justifica uma análise de sensibilidade, que compara o estado com o restante do país. Entre 2007 e 2025, o estoque de TI de São Paulo cresceu 154\%, e o do Brasil sem São Paulo, 136\%, contra 143\% do total: a conclusão de crescimento não depende do estado, e a participação paulista mudou pouco no período (de 39,2\% para 40,9\%). A remuneração é outra história: a mediana paulista subiu de 4,20 para 4,85 salários mínimos, enquanto a do restante do país caiu de 2,81 para 2,66. A quase estabilidade da remuneração relativa observada para o país (\autoref{sec:resultado-q3}) resulta, portanto, da composição de dois movimentos opostos, e não de estabilidade em toda parte. O \textit{dashboard} permite repetir qualquer análise sem São Paulo, pelo filtro de território descrito na \autoref{sec:apresentacao}; a \autoref{fig:dashboard-sp} mostra a seção que o site dedica a essa comparação.
 
@@ -162,7 +168,7 @@ Vale repetir aqui a limitação declarada na \autoref{sec:limitacoes-metodo}: a 
 
 \input{estrutura/tabelas-geradas/tab-clusters.tex}
 
-O agrupamento de municípios por trajetória, apresentado na \autoref{tab:clusters}, acrescenta o que o \textit{ranking} esconde. Os polos maduros são poucos e concentram estoque alto com crescimento moderado; os municípios de perfil emergente têm estoque pequeno, mas a maior taxa de crescimento do conjunto; e o grupo mais numeroso reúne mercados incipientes, com presença de TI ainda marginal. A conclusão é que o crescimento recente do emprego de TI não é um fenômeno exclusivo das capitais.
+O agrupamento de municípios por trajetória, apresentado na \autoref{tab:clusters}, acrescenta o que o \textit{ranking} esconde. Os polos maduros são poucos e concentram estoque alto com crescimento moderado; os municípios de perfil emergente têm estoque pequeno, mas a maior taxa de crescimento do conjunto; e o grupo mais numeroso reúne mercados incipientes, com presença de TI ainda marginal. Somados, os municípios do agrupamento fora das capitais cresceram 54\% entre 2020 e 2025, contra 38\% das 27 capitais: o crescimento recente do emprego de TI é mais rápido fora delas.
 
 \section{Pergunta 3: O Emprego Melhorou em Qualidade}
 \label{sec:resultado-q3}
@@ -175,9 +181,9 @@ O tempo médio de emprego caiu de 56 para 48 meses no mesmo período, indicando 
 
 \input{estrutura/tabelas-geradas/tab-risco.tex}
 
-A \autoref{tab:risco} detalha o risco de desligamento por tempo de casa. O padrão contraria uma expectativa comum: o risco \textbf{não} é máximo nos primeiros meses, e sim na faixa de 6 a 12 meses, caindo de forma monótona depois de dois anos de casa. A leitura mais plausível é a interação com o contrato de experiência e com o primeiro ciclo de avaliação: quem passa do primeiro ano tende a ficar.
+A \autoref{tab:risco} detalha o risco de desligamento por tempo de casa. O padrão contraria uma expectativa comum: o risco \textbf{não} é máximo nos primeiros meses, e sim na faixa de 6 a 12 meses, caindo de forma monótona a partir daí. A leitura mais plausível é a interação com o contrato de experiência e com o primeiro ciclo de avaliação: quem passa do primeiro ano tende a ficar.
 
-A tábua de vida de período mostra que cerca de 77\% dos vínculos chegam a completar um ano e menos de 60\% chegam a dois, com mediana de permanência na faixa de dois a três anos. Separando pelas duas lentes do recorte, quem está fora de empresas de TI alcança patamares de permanência mais altos nas faixas longas: 20,3\% atingem a faixa de 5 a 10 anos, contra 15,6\% de quem está em empresa de TI --- segunda evidência, independente da remuneração, de que as posições fora do setor são mais estáveis.
+A tábua de vida de período, calculada para 2024 --- último ano em que o desligamento pode ser observado ---, mostra que cerca de 77\% dos vínculos chegam a completar um ano e menos de 60\% chegam a dois, com mediana de permanência na faixa de dois a três anos. Separando pelas duas lentes do recorte, quem está fora de empresas de TI alcança patamares de permanência mais altos nas faixas longas: 20,3\% atingem a faixa de 5 a 10 anos, contra 15,6\% de quem está em empresa de TI --- segunda evidência, independente da remuneração, de que as posições fora do setor são mais estáveis.
 
 \section{Pergunta 4: Quem Ganha Menos, e Por Quê}
 \label{sec:resultado-q4}
@@ -220,7 +226,7 @@ Essa assimetria --- previsão de futuro incerta, estimação de presente precisa
 
 A camada de apresentação foi organizada pelas cinco perguntas de pesquisa, e não pela origem do dado. A decisão corrige um problema observado na primeira versão: com as abas organizadas por base (CAGED, RAIS, modelos), a interface apresentava gráficos corretos que não chegavam a uma conclusão --- a estrutura refletia como o dado foi produzido, não o que ele responde.
 
-A versão final tem oito páginas: uma de abertura com a argumentação completa, uma por pergunta de pesquisa, cada uma abrindo com a resposta antes da evidência, uma de exploração livre do CAGED e uma de método e dados. A seleção do que mostrar seguiu um critério explícito: um indicador ou gráfico só permanece em uma página se sustenta a resposta daquela pergunta. A aplicação do critério removeu gráficos que se repetiam entre páginas --- a permanência no emprego aparecia em duas, a comparação entre homens e mulheres em duas, e a série mensal do CAGED em duas --- e levou os recortes que não sustentam uma resposta (como o saldo por setor e por ocupação) para a página de exploração, onde podem ser cruzados livremente. Cada página de pergunta ficou com dois a quatro indicadores. A \autoref{fig:dashboard-pergunta} mostra a abertura de uma delas: a pergunta, a resposta em uma frase, os filtros e os indicadores, antes dos gráficos.
+A versão final tem oito páginas: uma visão geral, uma por pergunta de pesquisa, uma de exploração livre do CAGED e uma de análise. As páginas de pergunta não têm texto corrido --- trazem a pergunta, os filtros, os indicadores e os gráficos, como um painel ---, e a página de análise é a única com texto: reúne as cinco respostas, a leitura dos números, o que os dados não permitem afirmar e o método. A seleção do que mostrar seguiu um critério explícito: um indicador ou gráfico só permanece em uma página se sustenta a resposta daquela pergunta. A aplicação do critério removeu gráficos que se repetiam entre páginas --- a permanência no emprego aparecia em duas, a comparação entre homens e mulheres em duas, e a série mensal do CAGED em duas --- e levou os recortes que não sustentam uma resposta (como o saldo por setor e por ocupação) para a página de exploração, onde podem ser cruzados livremente. Cada página de pergunta ficou com dois a quatro indicadores. A \autoref{fig:dashboard-pergunta} mostra a abertura de uma delas: a pergunta, os filtros e os indicadores, antes dos gráficos.
 
 \begin{figure}[htbp]
     \centering

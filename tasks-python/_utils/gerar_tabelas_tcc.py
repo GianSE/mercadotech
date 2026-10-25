@@ -244,16 +244,18 @@ linhas = [[r[0], num(r[1]), num(r[2]), num(r[3]), pct(r[4], 2)] for r in con.exe
 """).fetchall()]
 ano_teste = con.execute(f"SELECT max(ano_teste) FROM read_parquet('{G}/nowcast_ano_retido.parquet')").fetchone()[0]
 tabela("tab-nowcast.tex",
-       f"\\textit{{Nowcast}} do estoque: estimadores ajustados sem o ano de {num(ano_teste)}",
+       f"\\textit{{Nowcast}} do estoque: estimadores ajustados sem o ano de {int(ano_teste)}",
        "tab:nowcast", "lrrrr",
        ["Estimador", "Estimado", "Observado", "Erro", "Erro relativo"], linhas)
 
 # ------------------------------------------------- sobrevivencia
 linhas = [[r[0], num(r[1]), num(r[2]), pct(r[3])] for r in con.execute(f"""
     SELECT tempo_de_casa, vinculos, desligamentos, \"risco_%\"
-    FROM read_parquet('{G}/sobrevivencia_risco.parquet') ORDER BY vinculos DESC
+    FROM read_parquet('{G}/sobrevivencia_risco.parquet')
+    ORDER BY list_position(['0-6m', '6-12m', '1-2a', '2-3a', '3-5a', '5-10a', '10-20a', '20a+'], tempo_de_casa)
 """).fetchall()]
-tabela("tab-risco.tex", "Risco de desligamento por tempo de casa",
+ano_risco = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/sobrevivencia_risco.parquet')").fetchone()[0]
+tabela("tab-risco.tex", f"Risco de desligamento por tempo de casa em {int(ano_risco)}",
        "tab:risco", "lrrr",
        ["Tempo de casa", "Vínculos", "Desligamentos", "Risco no ano"], linhas)
 
@@ -282,5 +284,21 @@ tabela("tab-cbos.tex",
        ["Família", "CBO", "Ocupação", "Área", f"Vínculos {ANO}"], linhas,
        nota="Ocupações sem descrição são códigos em uso que não constam dos "
             "dicionários oficiais do MTE. ", ambiente="quadro")
+
+# ------------------------------- reprodutibilidade da RAIS (auditoria)
+# Resultado de _utils/reprodutibilidade_rais.py, publicado na Gold em
+# auditoria/: recontagem do recorte no dado bruto, ano a ano.
+rep = con.execute(f"""
+    SELECT ano, arquivos_bronze, linhas_no_bruto, linhas_publicadas, diferenca
+    FROM read_csv('{G}/auditoria/reprodutibilidade_rais.csv') ORDER BY ano
+""").fetchall()
+linhas = [[ano(r[0]), num(r[1]), num(r[2]), num(r[3]), num(r[4])] for r in rep]
+linhas.append(["\\textbf{Total}", num(sum(r[1] for r in rep)), num(sum(r[2] for r in rep)),
+               num(sum(r[3] for r in rep)), num(sum(r[4] for r in rep))])
+tabela("tab-reprodutibilidade-rais.tex",
+       "Recontagem do recorte de tecnologia na RAIS a partir do dado bruto",
+       "tab:reprodutibilidade-rais", "lrrrr",
+       ["Ano", "Arquivos brutos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas,
+       fonte="Autoria própria, a partir das camadas Bronze e Silver publicadas.")
 
 print(f"\n{len(list(DESTINO.glob('*.tex')))} tabela(s) geradas.")

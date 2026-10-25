@@ -26,7 +26,7 @@ e uma seção do TCC.
 |---|---|
 | **1. Quanto o mercado cresceu?** | O estoque de vínculos formais de TI passou de 560.040 em 2007 para 1.361.231 em 2025: **+143%**, com o salto concentrado em 2021–22. |
 | **2. Onde está o trabalho de TI?** | **58%** dos profissionais de TI trabalham fora de empresas de TI. São Paulo concentra 41% do estoque, mas o crescimento não depende dele: sem SP, foi de 136%. |
-| **3. O emprego melhorou em qualidade?** | Não em remuneração relativa: a mediana em salários mínimos ficou praticamente parada (3,61 → 3,55). O risco de desligamento é máximo entre 6 e 12 meses de casa. |
+| **3. O emprego melhorou em qualidade?** | Não em remuneração relativa: a mediana em salários mínimos subiu só 5% em 18 anos (3,24 → 3,41). O risco de desligamento é máximo entre 6 e 12 meses de casa. |
 | **4. Quem ganha menos, e por quê?** | Mulheres e pessoas negras, por mecanismos distintos: o hiato de gênero (de 19,0% para 7,8%) é de retorno; o racial é sobretudo de acesso. |
 | **5. Para onde o mercado vai?** | A previsão do saldo mensal (SARIMA) erra 31% menos que a regra ingênua sazonal; o *nowcast* do estoque errou 0,78% no ano retido. Estimar o presente é bem mais preciso que prever o futuro. |
 
