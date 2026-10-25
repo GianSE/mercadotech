@@ -5,6 +5,7 @@ venv
 __pycache__
 .ruff_cache
 
+_staging/
 dev.duckdb
 dev.duckdb.wal
 erros_ingestao_rais.txt
