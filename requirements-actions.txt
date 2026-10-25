@@ -21,3 +21,5 @@ py7zr==1.1.3
 scikit-learn==1.9.1     # clusters_municipios.py
 statsmodels==0.15.0     # hiato_salarial.py, nowcast_estoque.py, previsao_saldo.py,
                          # serie.py, sobrevivencia.py (traz scipy como dependência)
+prophet==1.5.0          # previsao_saldo.py: comparado ao SARIMA na mesma validação
+                         # (traz cmdstanpy; testado com pandas 3.0.6)

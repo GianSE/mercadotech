@@ -95,6 +95,7 @@ export default function Analise() {
   const placar = useConsulta(`SELECT modelo, "ganho_vs_naive_%" AS ganho FROM previsao_placar ORDER BY mae`);
   const pares = useConsulta("SELECT ano, fluxo, delta FROM nowcast_pares ORDER BY ano");
   const retido = useConsulta("SELECT estimador, erro_pct, ano_teste FROM nowcast_ano_retido ORDER BY abs(erro_pct) LIMIT 1");
+  const retro = useConsulta("SELECT estimador, erro_pct, anos FROM nowcast_retrospectiva ORDER BY erro_pct LIMIT 1");
   const projecao = useConsulta("SELECT * FROM nowcast_projecao");
 
   // ---------------------------------------------------------- método
@@ -129,6 +130,7 @@ export default function Analise() {
     linhas.length > 2 ? correlacao(linhas.map((l) => num(l, "fluxo")), linhas.map((l) => num(l, "delta"))) : NaN;
   const r = corr(pares.linhas);
   const nc = retido.linhas[0];
+  const rt = retro.linhas[0];
   const pr = projecao.linhas[0];
   const totalMb = arquivos.reduce((s, a) => s + a.kb, 0) / 1024;
 
@@ -267,7 +269,13 @@ export default function Analise() {
               último estoque e do fluxo já publicado.
               {nc && (
                 <>
-                  {" "}Com {num(nc, "ano_teste")} retido do ajuste, o melhor estimador errou <strong>{fmtPct(Math.abs(num(nc, "erro_pct")), 2)}</strong>.
+                  {rt && (
+                    <>
+                      {" "}Estimando cada ano só com os anteriores, o melhor estimador errou em média{" "}
+                      <strong>{fmtPct(num(rt, "erro_pct"), 1)}</strong> em {num(rt, "anos")} anos;
+                    </>
+                  )}{" "}
+                  com {num(nc, "ano_teste")} retido do ajuste, errou {fmtPct(Math.abs(num(nc, "erro_pct")), 2)}.
                 </>
               )}
             </p>

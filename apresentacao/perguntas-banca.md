@@ -46,14 +46,17 @@ Não. É um limite superior: contém tudo que afeta salário e não está no mod
 **Por que não Kaplan-Meier para permanência?**
 Foi tentado e deu mediana de 48 anos. O estimador supõe uma coorte acompanhada no tempo, e a RAIS é um corte transversal, que sobre-representa vínculos longos. A tábua de vida de período responde à pergunta que o dado permite: qual o risco de desligamento em cada faixa de tempo de casa naquele ano.
 
-**Por que SARIMA e não Prophet, como estava na proposta?**
-O SARIMA foi validado por origem móvel em 5 dobras e erra 31% menos que o ingênuo sazonal. O Prophet não foi avaliado, e isso está declarado como limitação.
+**Por que o SARIMA e não o Prophet, como estava na proposta?**
+Os dois foram avaliados nas mesmas 5 dobras de origem móvel, contra o mesmo ingênuo sazonal, cada um com uma grade pequena. O melhor SARIMA erra 31% menos que o ingênuo; o melhor Prophet (tendência rígida), 16% menos; com a tendência padrão ou flexível, o Prophet fica pior que o ingênuo. A série é completa e de sazonalidade estável, terreno da diferenciação sazonal do SARIMA; as vantagens do Prophet (lacunas e mudanças de tendência) não se aplicavam.
+
+**Não dava para ajustar melhor o Prophet?**
+Dava, e seria o erro: com 5 dobras, testar muitas configurações acha por acaso a que se sai bem no teste. A grade do Prophet (3 configurações) é do mesmo tamanho da do SARIMA (6), e a tendência mais flexível piorou o resultado, o que indica que o Prophet lê ruído como mudança de tendência.
 
 **Por que o horizonte é de 18 meses e não até 2030?**
 O intervalo de predição cruza o zero ao fim do primeiro ano, ou seja, o modelo não distingue saldo positivo de negativo. Projetar até 2030 daria um número sem conteúdo informativo.
 
-**O nowcast de 0,78% não é sorte de um ano só?**
-É um teste com um ano retido, e o TCC apresenta assim. O que sustenta o resultado é o mecanismo: o estimador parte do último estoque e do fluxo já observado pelo CAGED, e não extrapola. Os outros estimadores também erram pouco (0,86% e 1,43%), contra 3,67% do ingênuo.
+**O nowcast não depende de um ano favorável?**
+Não: cada ano de 2014 a 2025 foi estimado só com os anteriores. O melhor estimador erra em média 2,1% (mediana 1,4%), contra 5,1% do ingênuo; em 10 dos 12 anos, até 2,2%. Os anos ruins são 2018 e 2022, quando o estoque cresceu bem mais que o saldo do CAGED — nenhum estimador apoiado no fluxo antecipa isso. Os 0,78% de 2025 são o caso favorável, e o TCC diz isso.
 
 ## Resultados
 

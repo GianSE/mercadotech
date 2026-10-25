@@ -72,6 +72,45 @@ def _ajustar(treino: pd.Series, ordem, sazonal):
         return modelo.fit(disp=False)
 
 
+# Prophet, o modelo previsto na proposta do TCC 1, entra na MESMA validação do
+# SARIMA, contra o mesmo baseline, com uma grade tão pequena quanto a dele: só
+# a flexibilidade da tendência varia (changepoint_prior_scale; 0,05 é o padrão
+# da biblioteca). Uma grade maior seria o mesmo sobreajuste na validação que a
+# grade do SARIMA evita.
+PROPHET_ESCALAS = (0.01, 0.05, 0.5)
+
+
+def _nome_prophet(escala: float) -> str:
+    return f"Prophet(tendência {escala:g})"
+
+
+def _prophet(treino: pd.Series, escala: float = 0.05, intervalo: float = 0.80):
+    """Prophet com sazonalidade anual aditiva (o saldo é negativo em parte dos meses)."""
+    import logging
+
+    from prophet import Prophet
+
+    logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+    modelo = Prophet(yearly_seasonality=True, weekly_seasonality=False,
+                     daily_seasonality=False, seasonality_mode="additive",
+                     changepoint_prior_scale=escala, interval_width=intervalo)
+    return modelo.fit(pd.DataFrame({"ds": treino.index, "y": treino.to_numpy()}))
+
+
+def _prever_prophet(modelo, h: int) -> pd.DataFrame:
+    futuro = modelo.make_future_dataframe(periods=h, freq="MS", include_history=False)
+    return modelo.predict(futuro).set_index("ds")[["yhat", "yhat_lower", "yhat_upper"]]
+
+
+def _candidatos():
+    """(nome, função treino,h -> previsão): baseline, SARIMAs e Prophet."""
+    yield "naive sazonal", naive_sazonal
+    for o, s in CANDIDATOS:
+        yield f"SARIMA{o}{s}", (lambda t, h, o=o, s=s: _ajustar(t, o, s).forecast(h).to_numpy())
+    for e in PROPHET_ESCALAS:
+        yield _nome_prophet(e), (lambda t, h, e=e: _prever_prophet(_prophet(t, e), h)["yhat"].to_numpy())
+
+
 def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
     """
     Origem móvel: treina até T, prevê h, anda 12 meses, repete.
@@ -84,9 +123,7 @@ def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
     cortes = [c for c in cortes if c > 36]
 
     linhas = []
-    for nome, ordem, sazonal in (
-            [("naive sazonal", None, None)]
-            + [(f"SARIMA{o}{s}", o, s) for o, s in CANDIDATOS]):
+    for nome, prever_fn in _candidatos():
         erros_abs, erros_qua = [], []
         falhou = False
         for corte in cortes:
@@ -94,10 +131,7 @@ def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
             if len(teste) < h:
                 continue
             try:
-                if ordem is None:
-                    pred = naive_sazonal(treino, h)
-                else:
-                    pred = _ajustar(treino, ordem, sazonal).forecast(h).to_numpy()
+                pred = prever_fn(treino, h)
             except Exception:
                 falhou = True
                 break
@@ -135,6 +169,23 @@ def prever(y: pd.Series, ordem, sazonal, h: int = 12, alpha: float = 0.20):
         "superior": ic.iloc[:, 1],
     })
     return saida, ajuste
+
+
+def prever_vencedor(y: pd.Series, modelo: str, h: int = 18, alpha: float = 0.20) -> pd.DataFrame:
+    """Previsão com intervalo pelo modelo que venceu a validação, seja qual for.
+
+    Se o vencedor for o próprio baseline, a projeção usa o primeiro SARIMA da
+    grade: o baseline não tem intervalo, e o placar já diz que nenhum modelo o
+    superou — a leitura honesta fica registrada lá.
+    """
+    escalas = {_nome_prophet(e): e for e in PROPHET_ESCALAS}
+    if modelo in escalas:
+        p = _prever_prophet(_prophet(y, escalas[modelo], intervalo=1 - alpha), h)
+        return pd.DataFrame({"previsao": p["yhat"], "inferior": p["yhat_lower"],
+                             "superior": p["yhat_upper"]})
+    nomes = [f"SARIMA{o}{s}" for o, s in CANDIDATOS]
+    ordem, sazonal = CANDIDATOS[nomes.index(modelo)] if modelo in nomes else CANDIDATOS[0]
+    return prever(y, ordem, sazonal, h=h, alpha=alpha)[0]
 
 
 def main() -> int:
@@ -181,14 +232,11 @@ def main() -> int:
         print("    A leitura honesta é que a sazonalidade explica quase tudo, e")
         print("    a previsão publicável é a própria média sazonal. Usar um")
         print("    modelo mais complexo aqui só daria falsa autoridade.")
-        ordem, sazonal = CANDIDATOS[0]
     else:
-        i = [f"SARIMA{o}{s}" for o, s in CANDIDATOS].index(vencedor["modelo"])
-        ordem, sazonal = CANDIDATOS[i]
         print(f"\n✅ Escolhido: {vencedor['modelo']} — MAE {vencedor['mae']:,.0f}, "
               f"{vencedor['ganho_vs_naive_%']:+.1f}% vs baseline")
 
-    previsao, ajuste = prever(y, ordem, sazonal, h=args.horizonte)
+    previsao = prever_vencedor(y, vencedor["modelo"], h=args.horizonte)
     print(f"\n🔮 Próximos {args.horizonte} meses (intervalo de 80%)")
     print(f"{'mês':<10}{'previsão':>12}{'inferior':>12}{'superior':>12}")
     for idx, linha in previsao.iterrows():

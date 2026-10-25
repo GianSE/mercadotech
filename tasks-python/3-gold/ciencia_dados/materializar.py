@@ -66,13 +66,7 @@ def previsao(con) -> dict[str, pd.DataFrame]:
     placar = ps.validar(y, h=12, origens=5)
 
     vencedor = placar.iloc[0]["modelo"]
-    if vencedor == "naive sazonal":
-        ordem, sazonal = ps.CANDIDATOS[0]
-    else:
-        i = [f"SARIMA{o}{s}" for o, s in ps.CANDIDATOS].index(vencedor)
-        ordem, sazonal = ps.CANDIDATOS[i]
-
-    prev, _ = ps.prever(y, ordem, sazonal, h=18)
+    prev = ps.prever_vencedor(y, vencedor, h=18)
     prev = prev.reset_index().rename(columns={"index": "mes"})
     prev.columns = ["mes", "previsao", "inferior", "superior"]
     prev["modelo"] = vencedor
@@ -118,6 +112,7 @@ def nowcast(con) -> dict[str, pd.DataFrame]:
     detalhe = nc.detalhe_ano(df, ano_teste).assign(ano_teste=ano_teste)
     proj = nc.projetar_ano_corrente(df, con)
     return {"nowcast_retrospectiva": retro,
+            "nowcast_retrospectiva_anos": nc.retrospectiva_anos(df),
             "nowcast_ano_retido": detalhe,
             "nowcast_projecao": pd.DataFrame([proj]) if proj else pd.DataFrame(),
             "nowcast_pares": df}

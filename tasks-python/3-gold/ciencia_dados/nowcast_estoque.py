@@ -156,6 +156,26 @@ def retrospectiva(df: pd.DataFrame, primeiro_alvo: int = 2014) -> pd.DataFrame:
     return pd.DataFrame(linhas).sort_values("erro_pct").reset_index(drop=True)
 
 
+def retrospectiva_anos(df: pd.DataFrame, primeiro_alvo: int = 2014) -> pd.DataFrame:
+    """O mesmo da `retrospectiva`, ano a ano: mostra onde cada estimador erra.
+
+    A média esconde a dispersão. Um estimador que erra 1% em quase todo ano e
+    10% em um ano atípico tem a mesma média de um que erra 2% sempre — e é a
+    tabela por ano que separa os dois.
+    """
+    linhas = []
+    for _, alvo in df[df["ano"] >= primeiro_alvo].iterrows():
+        treino = df[df["ano"] < alvo["ano"]]
+        if len(treino) < 5:
+            continue
+        for nome, fn in ESTIMADORES.items():
+            previsto = alvo["estoque_anterior"] + fn(treino, alvo["fluxo"])
+            linhas.append({"ano": int(alvo["ano"]), "estimador": nome,
+                           "previsto": float(previsto), "real": float(alvo["estoque"]),
+                           "erro_pct": float((previsto - alvo["estoque"]) / alvo["estoque"] * 100)})
+    return pd.DataFrame(linhas)
+
+
 def detalhe_ano(df: pd.DataFrame, ano_teste: int) -> pd.DataFrame:
     """Previsão de cada estimador para um ano retido, treinando só com o passado."""
     treino = df[df["ano"] < ano_teste]
