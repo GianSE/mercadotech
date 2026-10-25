@@ -6,10 +6,11 @@
 Este capítulo descreve o método de pesquisa, as fontes de dados, o recorte adotado, a arquitetura efetivamente implementada, as ferramentas utilizadas e os modelos aplicados. A \autoref{sec:revisoes} declara, de forma explícita, as revisões feitas em relação à proposta apresentada no TCC~1.
 
 \section{Método}
+\label{sec:metodo}
 
 O trabalho seguiu o CRISP-DM (\textit{Cross-Industry Standard Process for Data Mining}), proposto por \citeonline{Chapman2000} como processo padrão para projetos de mineração e análise de dados. As seis fases do método são organizadas em um ciclo iterativo, em que é possível voltar para etapas anteriores sempre que novas descobertas justifiquem revisão. A \autoref{fig:crispdm-ciclo} ilustra esse fluxo.
 
-A natureza iterativa do método não foi um detalhe formal: o ciclo foi percorrido mais de uma vez em duas situações concretas. Na primeira, a fase de Entendimento dos Dados revelou defeitos na fonte que obrigaram a retornar à Preparação dos Dados --- caso da conversão de salário mínimo invertida descrita na \autoref{sec:achados-qualidade}. Na segunda, a definição do recorte de ocupações foi revista depois de a plataforma já estar construída, o que exigiu reprocessar parte da camada Silver e reconstruir todos os agregados.
+A natureza iterativa do método não foi um detalhe formal: foi o modo como o trabalho de fato andou. A proposta definiu as fontes, o recorte e as perguntas iniciais; a execução mostrou, repetidas vezes, que algo precisava mudar. A cada descoberta, o trabalho voltou a uma fase anterior do ciclo --- para buscar dados que não estavam previstos, corrigir a preparação, trocar um modelo ou reformular uma pergunta --- e só então seguiu adiante. O \autoref{quadro:crispdm-retornos}, ao fim desta seção, relaciona os principais retornos, com a descoberta que motivou cada um e a fase a que o trabalho voltou.
 
 \begin{figure}[htbp]
     \centering
@@ -77,9 +78,97 @@ A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM 
     Fonte: Autoria própria, adaptado de \citeonline{Chapman2000}.
 \end{table}
 
+O mapeamento acima lê-se como uma sequência, mas o trabalho não a percorreu uma vez só. Das doze idas e vindas do \autoref{quadro:crispdm-retornos}, oito partiram da Avaliação: foi ao confrontar um resultado com o que era plausível, ou com uma segunda conta do mesmo número, que os defeitos apareceram. Quatro delas levaram de volta ao Entendimento do Negócio, isto é, mudaram o que se perguntava --- e três trouxeram fontes de dados que a proposta não previa.
+
+\begin{quadro}[htbp]
+    \centering
+    \caption{Retornos no ciclo CRISP-DM motivados por descobertas durante o trabalho}
+    \label{quadro:crispdm-retornos}
+    \footnotesize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{%
+        >{\raggedright\arraybackslash\hsize=1.20\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.56\hsize}X}
+        \toprule
+        \rowcolor{black!8}
+        \textbf{Descoberta} & \textbf{Fase em que surgiu} & \textbf{Retorno a} & \textbf{O que mudou} \\
+        \midrule
+        Os microdados chegam só com códigos; as descrições estão em planilhas de \textit{layout} & Entendimento dos Dados & Preparação dos Dados & Nova fonte: dicionários extraídos das planilhas oficiais, com procedência (\autoref{subsec:dicionarios}) \\
+        A série do CAGED não fecha só com as movimentações do mês & Entendimento dos Dados & Entendimento dos Dados & Novas fontes: declarações fora do prazo, exclusões e ajustes, não previstas na proposta \\
+        Códigos com zero à esquerda no microdado e sem ele na planilha: tradução vazia, sem erro & Avaliação & Preparação dos Dados & Comparação numérica das chaves na tradução \\
+        Ocupações de dados fora do recorte e cinco códigos sem aderência ao escopo & Avaliação & Entendimento do Negócio & Recorte revisto e camada tratada reprocessada (\autoref{subsec:revisao-recorte}) \\
+        Estoque de 2022 abaixo do de 2021 e do de 2023 & Avaliação & Preparação dos Dados & Pedaços reconstruídos; verificação de completude por pedaço e recontagem a partir do dado bruto \\
+        Permanência mediana de 48 anos pelo Kaplan-Meier & Avaliação & Modelagem & Tábua de vida de período e modelo de risco em tempo discreto \\
+        A mesma mediana dava 3,55 ou 3,75 conforme a tabela de origem & Avaliação & Preparação dos Dados & Mediana exata e distribuição da remuneração em faixas na Gold \\
+        O intervalo de predição cruza o zero em cerca de um ano & Avaliação & Entendimento do Negócio & Pergunta 5 reformulada: horizonte de 18 meses e \textit{nowcast} do estoque corrente \\
+        São Paulo concentra 41\% do estoque & Avaliação & Entendimento do Negócio & Nova pergunta: as conclusões dependem de um estado? Análise de sensibilidade e filtro de território \\
+        Faltava confronto externo dos totais & Avaliação & Entendimento dos Dados & Nova fonte: painel público do MTE, consultado com os mesmos códigos (\autoref{sec:validacao-mte}) \\
+        \textit{Dashboard} organizado por base mostrava gráficos sem conclusão & Implantação & Entendimento do Negócio & Interface reorganizada pelas cinco perguntas de pesquisa \\
+        Disco local esgotado e dependência de uma máquina ligada & Implantação & Preparação dos Dados & Migração do \textit{data lake} e do processamento para a nuvem (\autoref{subsec:migracao}) \\
+        \bottomrule
+    \end{tabularx}
+    \\[4pt]
+    Fonte: Autoria própria.
+\end{quadro}
+
 \section{Fontes de Dados}
 
-A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (\nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}) e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, a camada Bronze soma 56,4~GB de microdados convertidos para Apache Parquet.
+A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (\nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}) e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor público distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A camada Bronze guarda esse mesmo conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,4~GB --- 11,7 vezes menos que o texto e quase o tamanho dos pacotes compactados de origem, com a diferença de que o Parquet é lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os arquivos: o formato 7z registra o tamanho original de cada arquivo no cabeçalho, ao fim do pacote, e basta ler esse trecho. A \autoref{fig:fluxo-dado} mostra o volume em cada etapa, do servidor público ao navegador.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Fluxo do dado, do servidor público ao navegador, com o volume em cada etapa}
+    \label{fig:fluxo-dado}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        etapa/.style={rectangle, rounded corners=2pt, draw=black!70, thick,
+                      text width=3.05cm, minimum height=19mm, align=center, font=\small,
+                      execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+        publicado/.style={double, double distance=1.2pt},
+        seta/.style={-{Stealth[length=2.2mm]}, thick, black!70},
+        tracejada/.style={-{Stealth[length=2.2mm]}, thick, black!55, dashed},
+        acao/.style={font=\footnotesize\itshape, fill=white, inner sep=1.5pt, align=center}
+    ]
+    % linha 1: da fonte à camada tratada
+    \node[etapa, fill=blue!8] (ftp) at (0, 0)
+        {Servidor FTP do MTE\\{\footnotesize\ttfamily .7z / .zip}\\[2pt]{\bfseries53,4~GB compactados}};
+    \node[etapa, fill=blue!3] (txt) at (4.3, 0)
+        {Microdado em texto\\{\footnotesize largura fixa ou CSV}\\[2pt]{\bfseries$\approx$ 661~GB}};
+    \node[etapa, fill=orange!20, publicado] (bronze) at (8.6, 0)
+        {Bronze\\{\footnotesize Parquet, ZSTD nível 3}\\[2pt]{\bfseries56,4~GB}};
+    \node[etapa, fill=gray!20, publicado] (silver) at (12.9, 0)
+        {Silver de TI\\{\footnotesize recorte CNAE $\cup$ CBO, traduzido}\\[2pt]{\bfseries1,3~GB}};
+
+    % linha 2: dicionários, agregação e apresentação
+    \node[etapa, fill=blue!3] (layout) at (0, -3.4)
+        {Planilhas de \textit{layout}\\{\footnotesize do MTE (\ttfamily .xls)}};
+    \node[etapa, fill=blue!10, publicado] (dic) at (4.3, -3.4)
+        {Dicionários\\{\footnotesize\ttfamily mte-dicionarios}\\{\footnotesize código e procedência}};
+    \node[etapa, fill=red!6] (dash) at (8.6, -3.4)
+        {\textit{Dashboard}\\{\footnotesize React + DuckDB-Wasm, Cloudflare Pages}};
+    \node[etapa, fill=yellow!25, publicado] (gold) at (12.9, -3.4)
+        {Gold\\{\footnotesize 29 agregados e modelos}\\[2pt]{\bfseries< 10~MB}};
+
+    \node[etapa, fill=white, draw=black!50, dashed, minimum height=12mm] (mod) at (12.9, -6.2)
+        {{\footnotesize SARIMA, \textit{nowcast}, Oaxaca-Blinder, $k$-médias}};
+
+    \draw[seta] (ftp) -- node[acao, above=1mm] {7-Zip} (txt);
+    \draw[seta] (txt) -- node[acao, above=1mm] {DuckDB} (bronze);
+    \draw[seta] (bronze) -- node[acao, above=1mm] {SQL} (silver);
+    \draw[seta] (silver) -- node[acao, right=1mm] {SQL, Python} (gold);
+    \draw[seta] (gold) -- node[acao, above=1mm] {\textit{build}} (dash);
+    \draw[tracejada] (layout) -- node[acao, above=1mm] {extração} (dic);
+    \draw[tracejada] (dic.north east) -- node[acao, sloped, above=0.5mm] {\textit{LEFT JOIN}} (silver.south west);
+    \draw[tracejada] (mod) -- (gold);
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize Contorno duplo: conjunto de dados público no Hugging Face Hub. Todas as etapas, do \textit{download} à Gold, rodam em executores do GitHub Actions; o \textit{dashboard} é publicado na Cloudflare Pages.}
+    \\[2pt]
+    Fonte: Autoria própria.
+\end{figure}
 
 \subsection{Desafios de Engenharia da RAIS}
 
@@ -297,7 +386,95 @@ O orquestrador roda toda semana e também pode ser disparado manualmente a parti
 
 \paragraph{Limites do serviço.} O repositório de dados recusa requisições acima de uma taxa máxima, com a resposta HTTP 429, tanto na listagem de arquivos quanto no \textit{download}. Dois ajustes foram necessários. O primeiro foi autenticar as leituras do DuckDB: o motor não usa sozinho o \textit{token} de acesso disponível no ambiente, e as leituras anônimas estão sujeitas a um limite menor. O segundo foi tolerar a recusa: as leituras são repetidas até seis vezes, com espera que dobra a cada tentativa a partir de oito segundos, e têm tempo máximo de resposta definido --- sem ele, uma conexão que para de responder sem devolver erro nunca aciona a nova tentativa e mantém o \textit{job} parado até o limite de duração do executor.
 
-\paragraph{Acompanhamento.} As etapas de Bronze registram, no início, os recursos do executor recebido (processadores, memória e disco), já que eles não são fixos entre execuções, e as etapas enviam notificações com o resultado --- se havia dado novo, o que foi processado e o que falhou --- por um \textit{bot} de mensagens. O próprio grafo da \autoref{fig:dag} é exibido pela interface do GitHub Actions a cada execução, com o estado de cada etapa.
+\paragraph{Acompanhamento.} As etapas de Bronze registram, no início, os recursos do executor recebido (processadores, memória e disco), já que eles não são fixos entre execuções, e as etapas enviam notificações com o resultado --- se havia dado novo, o que foi processado e o que falhou --- por um \textit{bot} de mensagens. O próprio grafo da \autoref{fig:dag} é exibido pela interface do GitHub Actions a cada execução, com o estado de cada etapa. A \autoref{fig:actions} mostra uma execução real, disparada a partir da Silver: as etapas de Bronze aparecem sem execução; a verificação da Silver do CAGED encontrou três pares pendentes --- as movimentações, as declarações fora do prazo e as exclusões do mês recém-publicado de 2026 ---, traduzidos em paralelo; a da RAIS não encontrou nada, e a tradução foi pulada. A Gold e o site foram reconstruídos em seguida, e a execução inteira levou 22 minutos.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Execução do orquestrador no GitHub Actions, iniciada na camada Silver}
+    \label{fig:actions}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        job/.style={rectangle, rounded corners=3pt, draw=black!30, fill=white,
+                    text width=3.8cm, minimum height=7.5mm, align=left, font=\small,
+                    inner xsep=2mm,
+                    execute at begin node={\hyphenpenalty=10000\hspace*{4.4mm}}},
+        pulado/.style={text=black!50},
+        matriz/.style={rectangle, rounded corners=3pt, draw=black!30, fill=black!3, inner sep=1.3mm},
+        rotmatriz/.style={font=\scriptsize\ttfamily, text=black!70, anchor=south west, inner sep=1.5pt},
+        etapa/.style={font=\small\bfseries, anchor=east, align=right, text=black!75},
+        liga/.style={black!40, line width=0.7pt}
+    ]
+    \newcommand{\ok}[1]{%
+        \fill[green!50!black] ([xshift=3.4mm]#1.west) circle (1.5mm);
+        \draw[white, line width=0.9pt] ([xshift=2.75mm, yshift=0.05mm]#1.west) -- ([xshift=3.25mm, yshift=-0.5mm]#1.west) -- ([xshift=4.05mm, yshift=0.55mm]#1.west);}
+    \newcommand{\pul}[1]{\draw[black!45, line width=0.7pt] ([xshift=3.4mm]#1.west) circle (1.5mm);}
+    \newcommand{\dur}[1]{\hfill{\scriptsize\textcolor{black!55}{#1}}}
+
+    % colunas a cada 4,2: 0; 4,2; 8,4; 12,6
+    \node[etapa] at (-2.1,  0.0)  {Decisão};
+    \node[etapa] at (-2.1, -1.4)  {Bronze\\verificação};
+    \node[etapa] at (-2.1, -3.0)  {Bronze\\ingestão};
+    \node[etapa] at (-2.1, -4.6)  {Silver\\verificação};
+    \node[etapa] at (-2.1, -6.8)  {Silver\\tradução};
+    \node[etapa] at (-2.1, -9.2)  {Gold};
+    \node[etapa] at (-2.1, -10.75) {Publicação};
+
+    \node[job] (dec) at (6.75,0) {decidir\dur{2s}}; \ok{dec}
+
+    % Bronze: não executada nesta rodada
+    \node[job, pulado] (vdi) at (2.25,-1.4) {dicionario}; \pul{vdi}
+    \node[job, pulado] (vbc) at (6.75,-1.4) {bronze-caged}; \pul{vbc}
+    \node[job, pulado] (vbr) at (11.25,-1.4) {bronze-rais}; \pul{vbr}
+    \node[job, pulado] (abc) at (4.50,-3.0) {não executado}; \pul{abc}
+    \node[job, pulado] (abr) at (9.00,-3.0) {não executado}; \pul{abr}
+
+    % Silver
+    \node[job] (vsc) at (4.50,-4.6) {silver-caged-ti\dur{30s}}; \ok{vsc}
+    \node[job] (vsr) at (9.00,-4.6) {silver-rais-ti\dur{33s}};  \ok{vsr}
+    \node[job] (t1) at (4.50,-6.0) {caged\_mov\dur{1m39s}}; \ok{t1}
+    \node[job] (t2) at (4.50,-6.8) {caged\_exc\dur{46s}};   \ok{t2}
+    \node[job] (t3) at (4.50,-7.6) {caged\_for\dur{51s}};   \ok{t3}
+    \node[job, pulado] (t4) at (9.00,-6.0) {nada pendente}; \pul{t4}
+
+    % Gold e site
+    \node[job] (gc) at (0.00,-9.2) {gold-caged-\\\hspace*{4.4mm}consolidado\dur{13m55s}}; \ok{gc}
+    \node[job] (gr) at (4.50,-9.2) {gold-rais\dur{6m59s}};       \ok{gr}
+    \node[job] (gt) at (9.00,-9.2) {gold-territorio\dur{9m53s}}; \ok{gt}
+    \node[job] (gm) at (13.50,-9.2) {gold-modelos\dur{13m50s}};   \ok{gm}
+    \node[job] (st) at (6.75,-10.75) {site\dur{4s}};              \ok{st}
+
+    \begin{scope}[on background layer]
+        \node[matriz, fit=(abc)] (mbc) {};
+        \node[matriz, fit=(abr)] (mbr) {};
+        \node[matriz, fit=(t1)(t3)] (msc) {};
+        \node[matriz, fit=(t4)] (msr) {};
+        % ligações por camada, como a interface agrupa
+        \draw[liga] (dec.south) -- (6.75,-0.7) (2.25,-0.7) -- (11.25,-0.7);
+        \foreach \b in {vdi,vbc,vbr} \draw[liga] (\b.north |- 0,-0.7) -- (\b.north);
+        \foreach \a in {vdi,vbc,vbr} \draw[liga] (\a.south) -- (\a.south |- 0,-2.15);
+        \draw[liga] (2.25,-2.15) -- (11.25,-2.15);
+        \foreach \b in {mbc,mbr} \draw[liga] (\b.north |- 0,-2.15) -- (\b.north);
+        \foreach \a in {mbc,mbr} \draw[liga] (\a.south) -- (\a.south |- 0,-3.9);
+        \draw[liga] (4.50,-3.9) -- (9.00,-3.9);
+        \foreach \b in {vsc,vsr} \draw[liga] (\b.north |- 0,-3.9) -- (\b.north);
+        \draw[liga] (vsc.south) -- (msc.north) (vsr.south) -- (msr.north);
+        \draw[liga] (msc.south) -- (4.50,-8.4) (msr.south) -- (9.00,-8.4) (0.00,-8.4) -- (13.50,-8.4);
+        \foreach \b in {gc,gr,gt,gm} \draw[liga] (\b.north |- 0,-8.4) -- (\b.north);
+        \foreach \a in {gc,gr,gt,gm} \draw[liga] (\a.south) -- (\a.south |- 0,-10.05);
+        \draw[liga] (0.00,-10.05) -- (13.50,-10.05) (st.north |- 0,-10.05) -- (st.north);
+    \end{scope}
+    \node[rotmatriz] at (mbc.north west) {Matrix: atualizar};
+    \node[rotmatriz] at (mbr.north west) {Matrix: atualizar};
+    \node[rotmatriz] at (msc.north west) {Matrix: traduzir (2026)};
+    \node[rotmatriz] at (msr.north west) {Matrix: traduzir};
+
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize Círculo cheio: etapa executada; círculo vazio: etapa não executada. As ligações seguem o agrupamento por camada da interface do GitHub Actions; as dependências exatas entre as etapas estão na \autoref{fig:dag}.}
+    \\[2pt]
+    Fonte: Autoria própria, a partir da execução de 22/10/2026 registrada no GitHub Actions.
+\end{figure}
 
 \subsection{Particionamento e Organização dos Arquivos}
 

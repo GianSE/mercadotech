@@ -96,7 +96,7 @@ público. Não existe cópia local nem etapa de "publicar depois": o repositóri
 
 | Camada | O que guarda | Repositório |
 |---|---|---|
-| **Bronze** | Microdados como saíram do FTP, convertidos para Parquet (56,4 GB no período analisado) | [bronze-caged](https://huggingface.co/datasets/Gianpedro/bronze-caged) · [bronze-rais](https://huggingface.co/datasets/Gianpedro/bronze-rais) |
+| **Bronze** | Microdados como saíram do FTP, convertidos para Parquet ZSTD-3: 661 GB de texto viram 56,4 GB no período analisado | [bronze-caged](https://huggingface.co/datasets/Gianpedro/bronze-caged) · [bronze-rais](https://huggingface.co/datasets/Gianpedro/bronze-rais) |
 | **Dicionários** | Planilhas de *layout* do MTE convertidas, usadas para traduzir os códigos | [mte-dicionarios](https://huggingface.co/datasets/Gianpedro/mte-dicionarios) |
 | **Silver de TI** | Só o recorte de tecnologia, com os códigos traduzidos e a procedência de cada linha: 23,8 milhões de vínculos da RAIS e 12,4 milhões de movimentações do CAGED | [silver-caged-ti](https://huggingface.co/datasets/Gianpedro/silver-caged-ti) · [silver-rais-ti](https://huggingface.co/datasets/Gianpedro/silver-rais-ti) |
 | **Gold** | Agregados prontos para consumo, cubos do CAGED e resultados dos modelos (poucos MB) | [gold-analise-mercado-ti](https://huggingface.co/datasets/Gianpedro/gold-analise-mercado-ti) |

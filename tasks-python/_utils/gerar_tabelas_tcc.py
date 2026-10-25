@@ -154,19 +154,76 @@ tabela("tab-linhas-camada.tex",
 # das medianas dos grupos não é a mediana do conjunto — ver construir_gold.
 # Já o tempo médio pode ser ponderado: média de médias pesada pelo tamanho do
 # grupo é a média do conjunto.
-linhas = [[ano(r[0]), num(r[1]), num(r[2], 2), num(r[3])] for r in con.execute(f"""
+serie = con.execute(f"""
     SELECT e.ano, e.estoque, m.mediana_sm, e.meses
     FROM (SELECT ano, sum(estoque_3112) AS estoque,
                  sum(estoque_3112 * tempo_emprego_meses) / sum(estoque_3112) AS meses
           FROM read_parquet('{G}/rais_estoque_anual.parquet') GROUP BY 1) e
     JOIN read_parquet('{G}/rais_mediana.parquet') m ON m.ano = e.ano AND m.recorte = 'total'
     ORDER BY 1
-""").fetchall()]
+""").fetchall()
 tabela("tab-estoque-serie.tex",
        "Estoque de vínculos formais de TI, remuneração mediana e tempo de emprego",
        "tab:estoque-serie", "lrrr",
        ["Ano", "Vínculos em 31/12", "Remuneração mediana (SM)", "Tempo de emprego (meses)"],
-       linhas, nota="SM: salários mínimos do ano de referência. ")
+       [[ano(r[0]), num(r[1]), num(r[2], 2), num(r[3])] for r in serie],
+       nota="SM: salários mínimos do ano de referência. ")
+
+
+# ------------------------------------------------- gráficos
+# As séries no tempo vão para o texto como gráfico (pgfplots, vetorial e na
+# fonte do documento) e a tabela correspondente fica no apêndice, com os
+# valores exatos. Os pontos saem da mesma consulta da tabela.
+EIXO = r"""width=\linewidth, height=6.2cm, axis lines=left, tick align=outside,
+            ymajorgrids, grid style={black!12}, tick label style={font=\footnotesize},
+            label style={font=\footnotesize}, title style={font=\small\bfseries},
+            /pgf/number format/use comma, /pgf/number format/1000 sep={.}"""
+
+
+def figura(nome: str, caption: str, rotulo: str, corpo: str, nota: str = "",
+           fonte: str = "Autoria própria, a partir da camada Gold.") -> None:
+    escrever(nome, f"""% Gerado por scripts/gerar_tabelas.py --- não editar à mão.
+\\begin{{figure}}[htbp]
+    \\centering
+    \\caption{{{caption}}}
+    \\label{{{rotulo}}}
+{corpo}
+    \\\\[4pt]
+    {{\\footnotesize {nota}}}Fonte: {fonte}
+\\end{{figure}}""")
+
+
+def pontos(pares) -> str:
+    return " ".join(f"({x},{y})" for x, y in pares)
+
+
+p0, p1 = serie[0], serie[-1]
+figura("fig-estoque-serie.tex",
+       f"Estoque de vínculos formais de TI e remuneração mediana, {ano(p0[0])}--{ano(p1[0])}",
+       "fig:estoque-serie", f"""    \\begin{{minipage}}[t]{{0.49\\textwidth}}
+    \\begin{{tikzpicture}}
+    \\begin{{axis}}[{EIXO}, title={{Vínculos ativos em 31/12 (mil)}},
+            xmin={ano(p0[0])}, xmax={ano(p1[0])}, ymin=0, xtick distance=3,
+            x tick label style={{/pgf/number format/1000 sep={{}}}}]
+        \\addplot[very thick, black!80, mark=*, mark size=1.2pt] coordinates {{{pontos((r[0], round(r[1] / 1000, 1)) for r in serie)}}};
+        \\node[font=\\scriptsize, anchor=north west, yshift=-2pt] at (axis cs:{ano(p0[0])},{p0[1] / 1000:.1f}) {{{num(p0[1])}}};
+        \\node[font=\\scriptsize, anchor=south east] at (axis cs:{ano(p1[0])},{p1[1] / 1000:.1f}) {{{num(p1[1])}}};
+    \\end{{axis}}
+    \\end{{tikzpicture}}
+    \\end{{minipage}}\\hfill
+    \\begin{{minipage}}[t]{{0.49\\textwidth}}
+    \\begin{{tikzpicture}}
+    \\begin{{axis}}[{EIXO}, title={{Remuneração mediana (salários mínimos)}},
+            xmin={ano(p0[0])}, xmax={ano(p1[0])}, ymin=0, ymax=4, xtick distance=3,
+            x tick label style={{/pgf/number format/1000 sep={{}}}},
+            y tick label style={{/pgf/number format/.cd, use comma, fixed, fixed zerofill, precision=1}}]
+        \\addplot[very thick, black!80, mark=*, mark size=1.2pt] coordinates {{{pontos((r[0], round(r[2], 2)) for r in serie)}}};
+        \\node[font=\\scriptsize, anchor=north west, yshift=-4pt] at (axis cs:{ano(p0[0])},{p0[2]:.2f}) {{{num(p0[2], 2)}}};
+        \\node[font=\\scriptsize, anchor=north east] at (axis cs:{ano(p1[0])},{p1[2]:.2f}) {{{num(p1[2], 2)}}};
+    \\end{{axis}}
+    \\end{{tikzpicture}}
+    \\end{{minipage}}""",
+       nota="Valores anuais na \\autoref{tab:estoque-serie}, no \\autoref{apend:series}. ")
 
 # ------------------------------------------------- as duas lentes
 ANO = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/rais_estoque_anual.parquet')").fetchone()[0]
@@ -249,15 +306,37 @@ tabela("tab-nowcast.tex",
        ["Estimador", "Estimado", "Observado", "Erro", "Erro relativo"], linhas)
 
 # ------------------------------------------------- sobrevivencia
-linhas = [[r[0], num(r[1]), num(r[2]), pct(r[3])] for r in con.execute(f"""
+risco = con.execute(f"""
     SELECT tempo_de_casa, vinculos, desligamentos, \"risco_%\"
     FROM read_parquet('{G}/sobrevivencia_risco.parquet')
     ORDER BY list_position(['0-6m', '6-12m', '1-2a', '2-3a', '3-5a', '5-10a', '10-20a', '20a+'], tempo_de_casa)
-""").fetchall()]
+""").fetchall()
 ano_risco = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/sobrevivencia_risco.parquet')").fetchone()[0]
 tabela("tab-risco.tex", f"Risco de desligamento por tempo de casa em {int(ano_risco)}",
        "tab:risco", "lrrr",
-       ["Tempo de casa", "Vínculos", "Desligamentos", "Risco no ano"], linhas)
+       ["Tempo de casa", "Vínculos", "Desligamentos", "Risco no ano"],
+       [[r[0], num(r[1]), num(r[2]), pct(r[3])] for r in risco])
+
+# Coordenada simbólica sem traço (0-6m -> f0_6m); rótulo legível em duas linhas (0–6\\meses).
+chave = lambda f: "f" + f.replace("-", "_")
+faixa = lambda f: f.replace("-", "--").replace("m", "\\\\meses").replace("a", "\\\\anos")
+pico = max(risco, key=lambda r: r[3])[0]
+barras = "\n".join(
+    f"        \\addplot[ybar, bar width=16pt, fill={'black!75' if r[0] == pico else 'black!30'}, draw=none, "
+    f"nodes near coords, nodes near coords style={{font=\\scriptsize, /pgf/number format/.cd, use comma, fixed, fixed zerofill, precision=1}}] "
+    f"coordinates {{({chave(r[0])},{r[3]:.1f})}};"
+    for r in risco)
+figura("fig-risco.tex", f"Risco de desligamento no ano, por tempo de casa, em {int(ano_risco)}",
+       "fig:risco", f"""    \\begin{{tikzpicture}}
+    \\begin{{axis}}[{EIXO}, width=0.85\\textwidth, height=6cm, ymin=0, ymax={max(r[3] for r in risco) * 1.18:.0f},
+            ylabel={{Desligados no ano (\\%)}}, symbolic x coords={{{",".join(chave(r[0]) for r in risco)}}},
+            xtick={{{",".join(chave(r[0]) for r in risco)}}}, xticklabels={{{",".join("{" + faixa(r[0]) + "}" for r in risco)}}},
+            enlarge x limits=0.08, ybar=0pt, bar shift=0pt,
+            x tick label style={{font=\\footnotesize, align=center}}]
+{barras}
+    \\end{{axis}}
+    \\end{{tikzpicture}}""",
+       nota="Vínculos e desligamentos de cada faixa na \\autoref{tab:risco}, no \\autoref{apend:series}. ")
 
 # ------------------------------------------------- perfis de municipio
 linhas = [[r[0], num(r[1]), num(r[2]), num(r[3], 2), num(r[4], 2)] for r in con.execute(f"""

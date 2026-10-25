@@ -3,7 +3,7 @@
 \chapter{Resultados e Discussão}
 \label{cap:resultados}
 
-Este capítulo apresenta os resultados em três blocos. O primeiro trata da plataforma como artefato de engenharia: o que foi construído, quanto custa consultá-la, se o resultado é reproduzível e como ela opera em nuvem. O segundo relata os achados de qualidade do dado --- defeitos encontrados na fonte e um erro de método cometido e corrigido durante o trabalho. O terceiro responde, uma a uma, às cinco perguntas de pesquisa da \autoref{quadro:perguntas}.
+Este capítulo apresenta os resultados em três blocos. O primeiro trata da plataforma como artefato de engenharia: o que foi construído, quanto custa consultá-la, se o resultado é reproduzível e como ela opera em nuvem. O segundo relata os achados de qualidade do dado --- defeitos encontrados na fonte e um erro de método cometido e corrigido durante o trabalho. O terceiro responde, uma a uma, às cinco perguntas de pesquisa da \autoref{quadro:perguntas}. A ordem do capítulo não é a ordem em que os resultados surgiram: seguindo o ciclo do CRISP-DM, vários deles levaram o trabalho de volta a fases anteriores, e esses retornos estão no \autoref{quadro:crispdm-retornos}.
 
 Todas as tabelas numéricas deste capítulo são \textbf{geradas a partir dos repositórios públicos de dados} --- a camada Gold e a listagem das demais camadas --- por um \textit{script} do repositório do projeto, e não digitadas. A decisão tem motivo: durante o trabalho, uma lista de códigos mantida à mão passou a divergir do recorte efetivamente aplicado, e o texto afirmou por algum tempo algo que o dado não dizia.
 
@@ -15,7 +15,7 @@ O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2
 
 \input{estrutura/tabelas-geradas/tab-linhas-camada.tex}
 
-A redução de volume entre as camadas é informativa: os 56~GB de microdados brutos tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia e convertidos para Parquet com compressão. É essa redução que torna viável processar e consultar a série inteira sem infraestrutura dedicada: dentro de um executor gratuito do GitHub Actions, no navegador de quem visita o \textit{dashboard} ou em um computador pessoal.
+A redução de volume entre as camadas é informativa: os 661~GB de microdados em texto, guardados em 56~GB de Parquet na Bronze, tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia (\autoref{fig:fluxo-dado}). É essa redução que torna viável processar e consultar a série inteira sem infraestrutura dedicada: dentro de um executor gratuito do GitHub Actions, no navegador de quem visita o \textit{dashboard} ou em um computador pessoal.
 
 O número de arquivos importa tanto quanto o volume. A camada nasceu com 2.111 arquivos de menos de 2~MB --- um por arquivo de entrada ---, e foi consolidada em um arquivo por partição, conforme descrito na \autoref{sec:arquitetura} --- 628 na época; com os meses publicados depois, são os 634 da \autoref{tab:volumes}. Depois da consolidação, uma contagem completa dos vínculos de TI da RAIS respondia em 0,4~segundo, em medição feita antes da migração, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. O ganho não vem de \textit{hardware}, e sim de pedir ao formato o que ele sabe responder sem ler dado.
 
@@ -65,7 +65,7 @@ O resultado mais relevante dessa etapa, porém, não é o tempo. É que a plataf
 \section{Achados de Qualidade do Dado}
 \label{sec:achados-qualidade}
 
-A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e um erro de método próprio. Documentá-los é contribuição do trabalho: são obstáculos que qualquer pesquisa sobre as mesmas bases encontrará, e nenhum deles produz mensagem de erro.
+A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e um erro de método próprio. Documentá-los é contribuição do trabalho: são obstáculos que qualquer pesquisa sobre as mesmas bases encontrará, e nenhum deles produz mensagem de erro. Cada um foi também um retorno no ciclo do CRISP-DM: detectado na Avaliação ou no Entendimento dos Dados, levou de volta à Preparação ou à Modelagem.
 
 O \autoref{quadro:achados} relaciona os achados. Dois merecem discussão mais longa pela natureza do problema.
 
@@ -120,9 +120,9 @@ O efeito mais sério não foi no nível, e sim numa comparação. Pela média da
 \section{Pergunta 1: Quanto o Mercado Cresceu}
 \label{sec:resultado-q1}
 
-A \autoref{tab:estoque-serie} apresenta a série anual do estoque de vínculos formais de tecnologia, com a remuneração mediana em salários mínimos e o tempo médio de emprego.
+A \autoref{fig:estoque-serie} apresenta a série anual do estoque de vínculos formais de tecnologia e da remuneração mediana em salários mínimos; os valores de cada ano, com o tempo médio de emprego, estão na \autoref{tab:estoque-serie}, no \autoref{apend:series}.
 
-\input{estrutura/tabelas-geradas/tab-estoque-serie.tex}
+\input{estrutura/tabelas-geradas/fig-estoque-serie.tex}
 
 O estoque passou de 560.040 vínculos em 2007 para 1.361.231 em 2025, crescimento de 143\% em dezoito anos --- mais que o dobro. O ritmo, porém, não é uniforme: o salto se concentra em 2021 e 2022, período da aceleração digital que seguiu a pandemia de COVID-19, e os anos seguintes mostram desaceleração clara.
 
@@ -175,13 +175,13 @@ O agrupamento de municípios por trajetória, apresentado na \autoref{tab:cluste
 
 Crescer e melhorar são coisas diferentes, e a resposta aqui é negativa em uma dimensão central.
 
-A remuneração mediana, medida em salários mínimos para ser comparável ao longo de dezoito anos sem depender de escolha de deflator, era de 3,24 em 2007 e é de 3,41 em 2025 (\autoref{tab:estoque-serie}): alta de 5\% em dezoito anos, com oscilação entre 3,05 e 3,59 no caminho. Em outras palavras: o emprego de TI mais que dobrou em volume, mas a posição relativa do salário mediano do setor frente ao piso legal do país ficou praticamente onde estava. O crescimento foi de quantidade, não de remuneração relativa.
+A remuneração mediana, medida em salários mínimos para ser comparável ao longo de dezoito anos sem depender de escolha de deflator, era de 3,24 em 2007 e é de 3,41 em 2025 (\autoref{fig:estoque-serie}): alta de 5\% em dezoito anos, com oscilação entre 3,05 e 3,59 no caminho. Em outras palavras: o emprego de TI mais que dobrou em volume, mas a posição relativa do salário mediano do setor frente ao piso legal do país ficou praticamente onde estava. O crescimento foi de quantidade, não de remuneração relativa.
 
 O tempo médio de emprego caiu de 56 para 48 meses no mesmo período, indicando rotatividade maior --- consistente com um mercado em expansão, em que a troca de emprego é mais frequente e muitas vezes vantajosa para o trabalhador.
 
-\input{estrutura/tabelas-geradas/tab-risco.tex}
+\input{estrutura/tabelas-geradas/fig-risco.tex}
 
-A \autoref{tab:risco} detalha o risco de desligamento por tempo de casa. O padrão contraria uma expectativa comum: o risco \textbf{não} é máximo nos primeiros meses, e sim na faixa de 6 a 12 meses, caindo de forma monótona a partir daí. A leitura mais plausível é a interação com o contrato de experiência e com o primeiro ciclo de avaliação: quem passa do primeiro ano tende a ficar.
+A \autoref{fig:risco} detalha o risco de desligamento por tempo de casa. O padrão contraria uma expectativa comum: o risco \textbf{não} é máximo nos primeiros meses, e sim na faixa de 6 a 12 meses, caindo de forma monótona a partir daí. A leitura mais plausível é a interação com o contrato de experiência e com o primeiro ciclo de avaliação: quem passa do primeiro ano tende a ficar.
 
 A tábua de vida de período, calculada para 2024 --- último ano em que o desligamento pode ser observado ---, mostra que cerca de 77\% dos vínculos chegam a completar um ano e menos de 60\% chegam a dois, com mediana de permanência na faixa de dois a três anos. Separando pelas duas lentes do recorte, quem está fora de empresas de TI alcança patamares de permanência mais altos nas faixas longas: 20,3\% atingem a faixa de 5 a 10 anos, contra 15,6\% de quem está em empresa de TI --- segunda evidência, independente da remuneração, de que as posições fora do setor são mais estáveis.
 
@@ -209,7 +209,7 @@ Sobre composição: a participação feminina no estoque de TI caiu de 34,3\% em
 
 A \autoref{tab:previsao} traz o desempenho dos modelos na validação de origem móvel. A especificação vencedora supera o \textit{baseline} ingênuo sazonal em 31\% de erro absoluto médio, o que justifica o modelo: ele erra sensivelmente menos do que repetir o mesmo mês do ano anterior. A margem sobre o \textit{baseline}, porém, varia muito entre as seis especificações testadas --- de 31\% a apenas 3\% ---, e é isso que justifica o piso de comparação: sem ele, a especificação mais fraca pareceria tão aceitável quanto as demais. Em uma rodada anterior, com menos meses de série, uma delas chegou a ficar abaixo do \textit{baseline}.
 
-O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano de projeção com intervalo de predição que \textbf{cruza o zero}: o modelo não distingue, nessa distância, saldo positivo de negativo. Projetar até 2030, como previa a proposta, produziria um número sem conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos.
+O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano de projeção com intervalo de predição que \textbf{cruza o zero}: o modelo não distingue, nessa distância, saldo positivo de negativo. Projetar até 2030, como previa a proposta, produziria um número sem conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos. No ciclo do CRISP-DM, foi a Avaliação levando de volta ao Entendimento do Negócio: a pergunta deixou de ser apenas ``quanto haverá no futuro'' e passou a incluir ``quanto há agora'', que o \textit{nowcast} a seguir responde.
 
 \subsection{\textit{Nowcast} do Estoque}
 

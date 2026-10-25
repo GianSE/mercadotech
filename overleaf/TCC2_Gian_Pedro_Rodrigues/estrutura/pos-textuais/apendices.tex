@@ -96,13 +96,14 @@ As consultas a seguir podem ser executadas por qualquer pessoa, sem acesso à in
 Esta consulta aplica o recorte de tecnologia ao microdado bruto de um mês e compara o resultado com a camada tratada publicada. Diferença zero significa que o recorte é reproduzível a partir da fonte, conforme discutido na \autoref{sec:reprodutibilidade}.
 
 \begin{lstlisting}[language=SQL, basicstyle=\ttfamily\scriptsize, breaklines=true,
-                   frame=single, captionpos=b,
+                   frame=single, captionpos=b, columns=fullflexible, keepspaces=true,
                    caption={Verificação de reprodutibilidade do recorte},
                    label={lst:reprodutibilidade}]
 WITH rotulado AS (
     SELECT subclasse,
            lpad(regexp_replace(trim(cbo2002ocupacao), '[^0-9]', '', 'g'), 6, '0') AS cbo6
-    FROM read_parquet('hf://datasets/Gianpedro/bronze-caged/caged_mov/ano=2025/mes=6/*.parquet')
+    FROM read_parquet('hf://datasets/Gianpedro/bronze-caged/'
+                      || 'caged_mov/ano=2025/mes=6/*.parquet')
 ),
 cru AS (
     SELECT count(*) AS linhas FROM rotulado
@@ -114,7 +115,8 @@ cru AS (
 ),
 publicado AS (
     SELECT count(*) AS linhas
-    FROM read_parquet('hf://datasets/Gianpedro/silver-caged-ti/caged_mov/ano_particao=2025/mes_particao=6/*.parquet')
+    FROM read_parquet('hf://datasets/Gianpedro/silver-caged-ti/'
+                      || 'caged_mov/ano_particao=2025/mes_particao=6/*.parquet')
 )
 SELECT cru.linhas AS no_dado_cru, publicado.linhas AS na_camada_publicada,
        cru.linhas - publicado.linhas AS diferenca
@@ -130,12 +132,21 @@ Para a RAIS, a verificação percorre todos os arquivos da camada Bronze de cada
 A consulta do \autoref{lst:procedencia} recupera a origem de qualquer descrição aplicada pelo \textit{pipeline}: de qual planilha de \textit{layout}, de qual aba, de qual caminho no servidor público e em que data a extração foi feita.
 
 \begin{lstlisting}[language=SQL, basicstyle=\ttfamily\scriptsize, breaklines=true,
-                   frame=single, captionpos=b,
+                   frame=single, captionpos=b, columns=fullflexible, keepspaces=true,
                    caption={Procedência das traduções de uma coluna codificada},
                    label={lst:procedencia}]
 SELECT DISTINCT tabela, coluna, planilha, aba, caminho_ftp, extraido_em
 FROM read_parquet('hf://datasets/Gianpedro/bronze-caged/dicionarios.parquet')
 WHERE coluna = 'sexo';
 \end{lstlisting}
+
+\chapter{Séries anuais}
+\label{apend:series}
+
+As tabelas a seguir trazem os valores exatos dos gráficos do \autoref{cap:resultados}. Saem da mesma consulta à camada Gold que gera os gráficos, de modo que figura e tabela não podem divergir.
+
+\input{estrutura/tabelas-geradas/tab-estoque-serie.tex}
+
+\input{estrutura/tabelas-geradas/tab-risco.tex}
 
 \end{apendicesenv}
