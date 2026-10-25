@@ -333,7 +333,7 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
       <Grade>
         <CartaoGrafico
           titulo="Quem cresceu mais"
-          subtitulo={`RAIS · índice ${num(p, "ano") || ""} = 100 · não segue o filtro${s.some((l) => num(l, "ano") === 2022) ? " · 2022 subestimado" : ""}`}
+          subtitulo={`RAIS · índice ${num(p, "ano") || ""} = 100 · não segue o filtro`}
           opcao={op.indice}
           carregando={serie.carregando}
           erro={serie.erro}
@@ -349,7 +349,7 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
         />
         <CartaoGrafico
           titulo="Remuneração mediana"
-          subtitulo="RAIS · salários mínimos, ponderado pelo estoque"
+          subtitulo="RAIS · salários mínimos, mediana exata"
           opcao={op.mediana}
           carregando={serie.carregando}
           altura={300}

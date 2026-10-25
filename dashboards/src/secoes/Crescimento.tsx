@@ -43,7 +43,6 @@ export default function Crescimento() {
     };
   }, [a, raisL, anoParcial, c]);
 
-  const com2022 = periodo[0] <= 2022 && periodo[1] >= 2022;
   const parcial = periodo[1] >= anoParcial && anoParcial ? ` · ${anoParcial} até ${ultimoMes}` : "";
 
   return (
@@ -76,7 +75,7 @@ export default function Crescimento() {
       <Bloco titulo="Estoque">
         <CartaoGrafico
           titulo={`Vínculos de TI ativos em 31/12 · ${f.rotulo}`}
-          subtitulo={`RAIS · setor ou ocupação de TI${com2022 ? " · 2022 subestimado" : ""}`}
+          subtitulo="RAIS · setor ou ocupação de TI"
           opcao={op.estoque}
           carregando={rais.carregando}
           erro={rais.erro}

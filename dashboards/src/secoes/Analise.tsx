@@ -128,8 +128,6 @@ export default function Analise() {
   const corr = (linhas: typeof pares.linhas) =>
     linhas.length > 2 ? correlacao(linhas.map((l) => num(l, "fluxo")), linhas.map((l) => num(l, "delta"))) : NaN;
   const r = corr(pares.linhas);
-  // Sem 2022 e 2023: o estoque de 2022 subestimado distorce as duas variações.
-  const rSem2022 = corr(pares.linhas.filter((l) => ![2022, 2023].includes(num(l, "ano"))));
   const nc = retido.linhas[0];
   const pr = projecao.linhas[0];
   const totalMb = arquivos.reduce((s, a) => s + a.kb, 0) / 1024;
@@ -150,8 +148,8 @@ export default function Analise() {
           {estoque.linhas.length > 1 && <TextoEstoque anual={estoque.linhas} />}
           {arco && <TextoSaldo a={arco} />}
           <p>
-            O vale do estoque em 2022 nos gráficos é defeito do dado, não do mercado: parte dos arquivos daquele ano não chegou à camada tratada. A
-            correção foi feita e reprocessada; enquanto a Gold publicada não a incorporar, 2022 aparece subestimado.
+            As primeiras versões mostravam um vale no estoque de 2022 — defeito do dado, não do mercado: parte dos arquivos daquele ano não tinha
+            chegado à camada tratada. A falha foi corrigida, e a recontagem a partir do dado bruto confirma que todos os anos da RAIS reproduzem a fonte.
           </p>
         </Resposta>
 
@@ -261,8 +259,8 @@ export default function Analise() {
                 <>O saldo acumulado do CAGED acompanha de perto a variação do estoque da RAIS (correlação de <strong>{fmtDec(r, 2)}</strong>).</>
               ) : (
                 <>
-                  A correlação entre o saldo acumulado do CAGED e a variação do estoque da RAIS é de {fmtDec(r, 2)} nesta versão dos dados: o estoque de
-                  2022 subestimado (pergunta 1) distorce as variações de 2022 e 2023. Sem esses dois anos, ela é de <strong>{fmtDec(rSem2022, 2)}</strong>.
+                  A correlação entre o saldo acumulado do CAGED e a variação do estoque da RAIS é de <strong>{fmtDec(r, 2)}</strong>: as duas bases têm
+                  coberturas e prazos de declaração distintos.
                 </>
               )}{" "}
               É essa relação que permite o <em>nowcast</em>: estimar a RAIS do ano corrente, que o MTE só publica cerca de um ano depois, a partir do
