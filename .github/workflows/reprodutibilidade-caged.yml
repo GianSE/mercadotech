@@ -1,0 +1,34 @@
+name: Reprodutibilidade CAGED
+
+# Mesma verificação da Reprodutibilidade RAIS, para as cinco tabelas do
+# CAGED: conta o recorte de TI no microdado bruto (bronze-caged), por tabela
+# e ano, e compara com a silver-caged-ti publicada. Resultado em
+# auditoria/reprodutibilidade_caged.csv na Gold e no resumo desta execução.
+
+on:
+  workflow_dispatch:
+    inputs:
+      anos:
+        description: "Anos separados por espaço (vazio = 2007 a 2026)"
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-actions.txt
+
+      - name: Recontagem a partir da bronze
+        working-directory: tasks-python
+        run: |
+          ANOS="${{ inputs.anos }}"
+          python _utils/reprodutibilidade_caged.py ${ANOS:+--anos $ANOS}
