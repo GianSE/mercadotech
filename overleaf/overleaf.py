@@ -10,6 +10,7 @@ do projeto em .zip, envio de arquivo pelo upload do editor.
     python overleaf/overleaf.py enviar            # manda o que mudou no local
     python overleaf/overleaf.py baixar [pasta]    # traz o projeto (padrão: pasta temporária)
     python overleaf/overleaf.py compilar          # compila lá e diz se deu erro
+    python overleaf/overleaf.py comentarios       # notas do orientador: arquivo, linha e trecho
 
 Credenciais e projeto em overleaf/.env: OVERLEAF_USER, OVERLEAF_PASS e
 OVERLEAF_PROJECT (o id que `projetos` mostra).
@@ -22,6 +23,10 @@ versão do arquivo no histórico do git, alguém mexeu nela direto no editor
 (você ou o orientador). Esse arquivo é listado e pulado — traga a mudança
 para o local antes, ou use --forcar. O Overleaf guarda o histórico de cada
 arquivo, então até um envio forçado pode ser desfeito por lá.
+
+Comentário não altera o texto, e por isso não aparece no diff. Enquanto o
+projeto tiver comentário em aberto, o envio é recusado (salvo --forcar):
+substituir o arquivo pode soltar a nota do trecho a que ela se refere.
 
 Requer `requests` e `python-dotenv`.
 """
@@ -76,17 +81,122 @@ def projeto_id(args) -> str:
     return pid
 
 
+class Editor:
+    """Conexão em tempo real do editor (socket.io 0.9 por xhr-polling): é ela
+    que entrega a árvore do projeto e o conteúdo de cada documento com os
+    comentários e as sugestões ancorados no texto."""
+
+    def __init__(self, s: requests.Session, pid: str):
+        self.s, self.pid, self.ack = s, pid, 0
+        sid = s.get(f"{BASE}/socket.io/1/", params=self._params(), timeout=30).text.split(":")[0]
+        self.url = f"{BASE}/socket.io/1/xhr-polling/{sid}"
+        for _ in range(8):
+            for tipo, _id, dado in self._quadros():
+                if tipo == "5" and json.loads(dado).get("name") == "joinProjectResponse":
+                    self.projeto = json.loads(dado)["args"][0]["project"]
+                    return
+        sys.exit("❌ o editor não devolveu a árvore do projeto")
+
+    def _params(self) -> dict:
+        return {"projectId": self.pid, "esh": 1, "ssp": 1, "t": int(time.time() * 1000)}
+
+    def _quadros(self):
+        """Uma leitura do canal: cada quadro é `tipo:id:endpoint:dado`; vários
+        quadros na mesma resposta vêm separados por �<tamanho>�."""
+        texto = self.s.get(self.url, params=self._params(), timeout=40).text
+        quadros = texto.split("�")[2::2] if texto.startswith("�") else [texto]
+        for q in quadros:
+            partes = q.split(":", 3)
+            if len(partes) == 4:
+                yield partes[0], partes[1], partes[3]
+
+    def emitir(self, nome: str, args: list) -> list:
+        """Manda um evento e espera a confirmação (quadro 6) com a resposta."""
+        self.ack += 1
+        corpo = f"5:{self.ack}+::" + json.dumps({"name": nome, "args": args})
+        self.s.post(self.url, params=self._params(), data=corpo.encode("utf-8"), timeout=40)
+        for _ in range(10):
+            for tipo, _id, dado in self._quadros():
+                if tipo == "6" and dado.startswith(f"{self.ack}+"):
+                    return json.loads(dado[len(f"{self.ack}+"):])
+        sys.exit(f"❌ o editor não respondeu a {nome}")
+
+    def documentos(self) -> dict[str, str]:
+        """Caminho -> id de cada documento de texto do projeto."""
+        docs = {}
+
+        def percorrer(pasta: dict, prefixo: str) -> None:
+            for d in pasta.get("docs", []):
+                docs[prefixo + d["name"]] = d["_id"]
+            for sub in pasta.get("folders", []):
+                percorrer(sub, f"{prefixo}{sub['name']}/")
+
+        percorrer(self.projeto["rootFolder"][0], "")
+        return docs
+
+    def abrir(self, doc_id: str) -> tuple[str, dict]:
+        """Texto do documento e seus `ranges` (comentários e sugestões)."""
+        erro, linhas, _versao, _pendentes, ranges = self.emitir("joinDoc", [doc_id, {"encodeRanges": True}])[:5]
+        if erro:
+            sys.exit(f"❌ joinDoc: {erro}")
+        self.emitir("leaveDoc", [doc_id])
+        # O canal manda o texto como bytes UTF-8 em caracteres latin-1.
+        decodificar = lambda t: t.encode("latin-1").decode("utf-8")
+        texto = "\n".join(decodificar(l) for l in linhas)
+        for c in (ranges or {}).get("comments", []):
+            c["op"]["c"] = decodificar(c["op"]["c"])
+        for c in (ranges or {}).get("changes", []):
+            for k in ("i", "d"):
+                if k in c["op"]:
+                    c["op"][k] = decodificar(c["op"][k])
+        return texto, ranges or {}
+
+
 def pasta_raiz(s: requests.Session, pid: str) -> str:
-    """Id da pasta raiz, pela conexão em tempo real do editor (é ela que entrega a árvore)."""
-    t = lambda: int(time.time() * 1000)
-    params = {"projectId": pid, "esh": 1, "ssp": 1}
-    sid = s.get(f"{BASE}/socket.io/1/", params={**params, "t": t()}, timeout=30).text.split(":")[0]
-    for _ in range(6):
-        texto = s.get(f"{BASE}/socket.io/1/xhr-polling/{sid}", params={**params, "t": t()}, timeout=40).text
-        if "joinProjectResponse" in texto:
-            corpo = texto[texto.index("{"):].split("�")[0]
-            return json.loads(corpo)["args"][0]["project"]["rootFolder"][0]["_id"]
-    sys.exit("❌ o editor não devolveu a árvore do projeto")
+    """Id da pasta raiz, que o upload pede como destino."""
+    return Editor(s, pid).projeto["rootFolder"][0]["_id"]
+
+
+# ------------------------------------------------------------ comentários
+def discussoes(s: requests.Session, pid: str) -> dict:
+    """As discussões de comentário do projeto, com as mensagens e o estado."""
+    r = s.get(f"{BASE}/project/{pid}/threads", headers={"Accept": "application/json"}, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def abertas(s: requests.Session, pid: str) -> list[str]:
+    return [t for t, d in discussoes(s, pid).items() if not d.get("resolved")]
+
+
+def listar_comentarios(s: requests.Session, pid: str, todos: bool = False) -> int:
+    """Cada comentário com arquivo, linha e trecho, e cada sugestão de texto."""
+    threads = discussoes(s, pid)
+    ed = Editor(s, pid)
+    total = 0
+    for caminho, doc_id in sorted(ed.documentos().items()):
+        texto, ranges = ed.abrir(doc_id)
+        linha = lambda p: texto[:p].count("\n") + 1
+        for c in sorted(ranges.get("comments", []), key=lambda c: c["op"]["p"]):
+            t = threads.get(c["op"]["t"], {})
+            if t.get("resolved") and not todos:
+                continue
+            total += 1
+            trecho = " ".join(c["op"]["c"].split())
+            estado = " (resolvido)" if t.get("resolved") else ""
+            print(f"\n💬 {caminho}:{linha(c['op']['p'])}{estado}")
+            print(f"   trecho: \"{trecho[:200]}{'…' if len(trecho) > 200 else ''}\"")
+            for m in t.get("messages", []):
+                u = m.get("user") or {}
+                quem = " ".join(filter(None, [u.get("first_name"), u.get("last_name")])) or u.get("email") or "?"
+                quando = time.strftime("%d/%m %H:%M", time.localtime(m.get("timestamp", 0) / 1000)) if m.get("timestamp") else ""
+                print(f"   {quem} {quando}: {m.get('content', '').strip()}")
+        for c in sorted(ranges.get("changes", []), key=lambda c: c["op"]["p"]):
+            total += 1
+            tipo, valor = ("inserir", c["op"]["i"]) if "i" in c["op"] else ("apagar", c["op"].get("d", ""))
+            print(f"\n✏️  {caminho}:{linha(c['op']['p'])} sugestão de {tipo}: \"{' '.join(valor.split())[:200]}\"")
+    print(f"\n{total} item(ns)" if total else "✅ nenhum comentário nem sugestão em aberto")
+    return 0
 
 
 def baixar_zip(s: requests.Session, pid: str, destino: Path) -> Path:
@@ -191,10 +301,12 @@ def compilar(s: requests.Session, pid: str) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Sincroniza o TCC com o Overleaf da UTFPR.")
-    p.add_argument("comando", choices=("projetos", "diff", "enviar", "baixar", "compilar"))
+    p.add_argument("comando", choices=("projetos", "diff", "enviar", "baixar", "compilar", "comentarios"))
     p.add_argument("destino", nargs="?", help="pasta do `baixar`")
     p.add_argument("--projeto", help="id do projeto (padrão: OVERLEAF_PROJECT do .env)")
-    p.add_argument("--forcar", action="store_true", help="sobrescreve também o que foi editado no Overleaf")
+    p.add_argument("--forcar", action="store_true",
+                   help="envia mesmo com comentários em aberto e sobrescreve o que foi editado no Overleaf")
+    p.add_argument("--todos", action="store_true", help="`comentarios`: inclui os resolvidos")
     args = p.parse_args()
 
     s = entrar()
@@ -215,9 +327,18 @@ def main() -> int:
     if args.comando == "compilar":
         return compilar(s, pid)
 
+    if args.comando == "comentarios":
+        return listar_comentarios(s, pid, args.todos)
+
     c = comparar(s, pid)
     imprimir(c)
     if args.comando == "enviar":
+        # Comentário não altera o texto, então o diff não o vê; substituir o
+        # arquivo pode desancorá-lo. Enquanto houver nota em aberto, não envia.
+        if (n := len(abertas(s, pid))) and not args.forcar:
+            print(f"\n⛔ {n} comentário(s) em aberto no Overleaf: nada foi enviado. "
+                  "Leia com `comentarios`, resolva lá e envie de novo.")
+            return 1
         lista = c["novos"] + c["alterados"] + (c["editados_no_overleaf"] if args.forcar else [])
         if lista:
             print(f"\n📤 enviando {len(lista)} arquivo(s)")
