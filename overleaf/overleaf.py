@@ -173,6 +173,9 @@ def listar_comentarios(s: requests.Session, pid: str, todos: bool = False) -> in
     """Cada comentário com arquivo, linha e trecho, e cada sugestão de texto."""
     threads = discussoes(s, pid)
     ed = Editor(s, pid)
+    # Quem é quem, para as sugestões (que trazem só o id do usuário).
+    pessoas = {u["_id"]: " ".join(filter(None, [u.get("first_name"), u.get("last_name")])) or u.get("email", "?")
+               for u in [ed.projeto.get("owner", {})] + ed.projeto.get("members", []) if u.get("_id")}
     total = 0
     for caminho, doc_id in sorted(ed.documentos().items()):
         texto, ranges = ed.abrir(doc_id)
@@ -194,7 +197,8 @@ def listar_comentarios(s: requests.Session, pid: str, todos: bool = False) -> in
         for c in sorted(ranges.get("changes", []), key=lambda c: c["op"]["p"]):
             total += 1
             tipo, valor = ("inserir", c["op"]["i"]) if "i" in c["op"] else ("apagar", c["op"].get("d", ""))
-            print(f"\n✏️  {caminho}:{linha(c['op']['p'])} sugestão de {tipo}: \"{' '.join(valor.split())[:200]}\"")
+            quem = pessoas.get((c.get("metadata") or {}).get("user_id"), "?")
+            print(f"\n✏️  {caminho}:{linha(c['op']['p'])} sugestão de {tipo} ({quem}): \"{' '.join(valor.split())[:200]}\"")
     print(f"\n{total} item(ns)" if total else "✅ nenhum comentário nem sugestão em aberto")
     return 0
 
