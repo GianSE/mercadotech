@@ -47,7 +47,7 @@ Não. É um limite superior: contém tudo que afeta salário e não está no mod
 Foi tentado e deu mediana de 48 anos. O estimador supõe uma coorte acompanhada no tempo, e a RAIS é um corte transversal, que sobre-representa vínculos longos. A tábua de vida de período responde à pergunta que o dado permite: qual o risco de desligamento em cada faixa de tempo de casa naquele ano.
 
 **Por que o SARIMA e não o Prophet, como estava na proposta?**
-Os dois foram avaliados nas mesmas 5 dobras de origem móvel, contra o mesmo ingênuo sazonal, cada um com uma grade pequena. O melhor SARIMA erra 31% menos que o ingênuo; o melhor Prophet (tendência rígida), 16% menos; com a tendência padrão ou flexível, o Prophet fica pior que o ingênuo. A série é completa e de sazonalidade estável, terreno da diferenciação sazonal do SARIMA; as vantagens do Prophet (lacunas e mudanças de tendência) não se aplicavam.
+Os dois foram avaliados nas mesmas 5 dobras de origem móvel, contra o mesmo ingênuo sazonal, cada um com uma grade pequena. O melhor SARIMA erra 33% menos que o ingênuo; o melhor Prophet (tendência rígida), 10,5% menos; com a tendência padrão ou flexível, o Prophet fica pior que o ingênuo. A série é completa e de sazonalidade estável, terreno da diferenciação sazonal do SARIMA; as vantagens do Prophet (lacunas e mudanças de tendência) não se aplicavam.
 
 **Não dava para ajustar melhor o Prophet?**
 Dava, e seria o erro: com 5 dobras, testar muitas configurações acha por acaso a que se sai bem no teste. A grade do Prophet (3 configurações) é do mesmo tamanho da do SARIMA (6), e a tendência mais flexível piorou o resultado, o que indica que o Prophet lê ruído como mudança de tendência.

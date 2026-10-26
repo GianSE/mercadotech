@@ -5,7 +5,7 @@
 \chapter{Códigos CNAE e CBO que definem o recorte de tecnologia}
 \label{apend:cbos}
 
-Este apêndice documenta o recorte aplicado, discutido na \autoref{sec:recorte}. Um vínculo entra na pesquisa se o estabelecimento tem CNAE de atividade de TI \textbf{ou} se a ocupação tem CBO de TI. As duas condições são mantidas como rótulos independentes em cada registro da camada tratada, o que permite distinguir as duas lentes nas análises.
+Este apêndice documenta o recorte aplicado, discutido na \autoref{sec:recorte}. Um vínculo entra na pesquisa se o estabelecimento tem CNAE de atividade de TI ou se a ocupação tem CBO de TI. As duas condições são mantidas como rótulos independentes em cada registro da camada tratada, o que permite distinguir as duas lentes nas análises.
 
 \section{Atividades econômicas (CNAE 2.0)}
 
@@ -40,7 +40,7 @@ A \autoref{quadro:cnae} relaciona as subclasses CNAE que caracterizam a empresa 
 
 \section{Famílias ocupacionais (CBO 2002)}
 
-A seleção de ocupações é feita por \textbf{família} --- os quatro primeiros dígitos do código ---, mais três códigos avulsos, e menos cinco códigos excluídos. A \autoref{quadro:familias} apresenta essa definição com a justificativa de cada decisão.
+A seleção de ocupações é feita por família (os quatro primeiros dígitos do código), mais três códigos avulsos, e menos cinco códigos excluídos. A \autoref{quadro:familias} apresenta essa definição com a justificativa de cada decisão.
 
 \begin{quadro}[H]
     \centering
@@ -82,7 +82,7 @@ A seleção de ocupações é feita por \textbf{família} --- os quatro primeiro
 
 \section{Códigos observados no estoque}
 
-O \autoref{quadro:cbos} relaciona todos os códigos de seis dígitos efetivamente encontrados no estoque do último ano disponível, com a descrição oficial, a área atribuída e o número de vínculos. O quadro é \textbf{gerado a partir da camada Gold}, e não digitado: qualquer revisão do recorte se reflete nele automaticamente. É assim que se evita o problema descrito na \autoref{sec:achados-qualidade}, em que uma lista mantida à mão passou a divergir do recorte efetivamente aplicado.
+O \autoref{quadro:cbos} relaciona todos os códigos de seis dígitos efetivamente encontrados no estoque do último ano disponível, com a descrição oficial, a área atribuída e o número de vínculos. O quadro é gerado a partir da camada Gold, e não digitado: qualquer revisão do recorte se reflete nele automaticamente. É assim que se evita o problema descrito na \autoref{sec:achados-qualidade}, em que uma lista mantida à mão passou a divergir do recorte efetivamente aplicado.
 
 \input{estrutura/tabelas-geradas/tab-cbos.tex}
 
@@ -126,6 +126,8 @@ FROM cru, publicado;
 \section{Reprodutibilidade da RAIS, ano a ano}
 
 Para a RAIS, a verificação percorre todos os arquivos da camada Bronze de cada ano, porque o nome das colunas de atividade econômica e de ocupação muda entre layouts. Para cada arquivo, a contagem aplica o mesmo predicado da \autoref{lst:reprodutibilidade}, sobre as colunas daquele layout; a soma dos arquivos do ano é comparada com o total de linhas da partição correspondente da camada tratada. O procedimento está em \texttt{tasks-python/\_utils/reprodutibilidade\_rais.py}, executável pelo \textit{workflow} ``Reprodutibilidade RAIS'' do repositório, e o resultado é publicado junto da camada Gold, em \texttt{auditoria/reprodutibilidade\_rais.csv}.
+
+\input{estrutura/tabelas-geradas/tab-reprodutibilidade-rais.tex}
 
 \section{Procedência de uma tradução}
 

@@ -22,11 +22,11 @@ O obstáculo está na própria engenharia desses dados: formatos, \textit{layout
 \section{Problema de Pesquisa}
 \label{sec:problema}
 
-A questão central que orienta o trabalho é: \textbf{como construir uma plataforma analítica integrada que permita explorar e projetar o mercado formal de trabalho em TI no Brasil a partir dos microdados da RAIS e do CAGED, de forma reprodutível e com baixo custo operacional?}
+A questão central que orienta o trabalho é: como construir uma plataforma analítica integrada que permita explorar e projetar o mercado formal de trabalho em TI no Brasil a partir dos microdados da RAIS e do CAGED, de forma reprodutível e com baixo custo operacional?
 
 Essa pergunta tem uma face de engenharia e uma face de análise, e as duas foram tratadas. A face de engenharia pergunta se é possível tratar dezenas de gigabytes de microdados governamentais heterogêneos em uma infraestrutura modesta, de forma que outra pessoa consiga reproduzir o resultado. A face de análise pergunta o que esses dados, uma vez tratados, respondem sobre o mercado de trabalho.
 
-Para dar foco à segunda face, o trabalho se organiza em torno de uma pergunta substantiva --- \textit{o crescimento do emprego formal em tecnologia entre 2007 e 2026 veio acompanhado de melhores salários e de mais equidade?} --- desdobrada em cinco perguntas específicas, apresentadas na \autoref{quadro:perguntas}. Elas estruturam tanto o capítulo de resultados quanto as abas do \textit{dashboard} entregue.
+Para dar foco à segunda face, o trabalho se organiza em torno de uma pergunta substantiva, \textit{o crescimento do emprego formal em tecnologia entre 2007 e 2026 veio acompanhado de melhores salários e de mais equidade?}, desdobrada em cinco perguntas específicas, apresentadas na \autoref{quadro:perguntas}. Elas estruturam tanto o capítulo de resultados quanto as abas do \textit{dashboard} entregue.
 
 \begin{quadro}[htbp]
     \centering
@@ -52,7 +52,7 @@ Para dar foco à segunda face, o trabalho se organiza em torno de uma pergunta s
     Fonte: Autoria própria.
 \end{quadro}
 
-Nem as perguntas nem as fontes ficaram fixas desde a proposta. O trabalho seguiu o CRISP-DM, cujo ciclo prevê o retorno a fases anteriores sempre que uma descoberta o justifica, e foi exatamente assim que ele avançou: a cada achado nos dados, buscaram-se fontes novas, corrigiu-se a preparação ou reformulou-se uma pergunta, até chegar ao resultado apresentado aqui (\autoref{sec:metodo}).
+Nem as perguntas nem as fontes ficaram fixas desde a proposta. O trabalho seguiu o CRISP-DM, cujo ciclo prevê o retorno a fases anteriores sempre que uma descoberta o justifica, e foi assim que ele avançou: a cada achado nos dados, buscaram-se fontes novas, corrigiu-se a preparação ou reformulou-se uma pergunta, até chegar ao resultado apresentado aqui (\autoref{sec:metodo}).
 
 \section{Objetivos}
 \label{sec:objetivos}
@@ -64,7 +64,7 @@ O objetivo geral foi desenvolver uma plataforma integrada para análise históri
 \begin{itemize}
     \item Implementar um \textit{pipeline} de engenharia de dados nas camadas Bronze, Silver e Gold, processando os microdados brutos da RAIS (2007--2025) e do CAGED (2007--2026);
     \item Automatizar a execução desse \textit{pipeline} em nuvem, com etapas encadeadas por dependência real que detectam dado novo no servidor público e reprocessam apenas os anos afetados, sem depender de infraestrutura local;
-    \item Definir e documentar o recorte de tecnologia, delimitado pela união de dois critérios --- atividade econômica do estabelecimento (CNAE) e ocupação do vínculo (CBO) ---, mantendo os dois como rótulos analisáveis em vez de um filtro único;
+    \item Definir e documentar o recorte de tecnologia, delimitado pela união de dois critérios, atividade econômica do estabelecimento (CNAE) e ocupação do vínculo (CBO) mantendo os dois como rótulos analisáveis em vez de um filtro único;
     \item Traduzir os códigos dos microdados pelos dicionários oficiais do próprio MTE, preservando o código original ao lado da descrição, e auditar o resultado dessa tradução;
     \item Desenvolver um \textit{dashboard} interativo \textit{web}, publicado como site estático, que consulte os arquivos Parquet por meio do DuckDB no próprio navegador, sem servidor de aplicação nem etapa de importação prévia;
     \item Aplicar modelos de série temporal da família SARIMA ao saldo mensal de empregos, selecionando a especificação por validação de origem móvel contra um \textit{baseline} ingênuo sazonal;

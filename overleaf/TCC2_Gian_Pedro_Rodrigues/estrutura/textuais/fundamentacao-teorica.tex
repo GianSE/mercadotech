@@ -12,7 +12,7 @@ Nas últimas décadas, o setor de Tecnologia da Informação (TI) no Brasil cres
 Uma pesquisa da Federação do Comércio de Bens, Serviços e Turismo do Estado de São Paulo, baseada nos microdados da RAIS, mostrou que as profissões ligadas à tecnologia cresceram 95\% entre 2012 e 2022 e que, em alguns casos, como o de engenheiro de sistemas operacionais, a alta passou de 740\% no mesmo período \cite{Fecomercio2024}. Esse ritmo, porém, não vem sendo acompanhado pela oferta de mão de obra qualificada. Entre 2019 e 2024, o mercado precisou de 665.403 profissionais de TI, enquanto apenas 464.569 se formaram no período, um déficit estrutural de cerca de 30\%
 \cite{Brasscom2025}.
 
-A pandemia de COVID-19 acelerou esse cenário. A partir de 2020, empresas de todos os portes adotaram em escala maior ferramentas de colaboração remota, \textit{cloud computing} e automação, o que ampliou a procura por profissionais de TI justamente no momento em que o restante do mercado formal sofria forte contração \cite{CAGED2024}. Há também um efeito geográfico relevante. O emprego em TI segue concentrado no Sudeste, sobretudo em São Paulo, mas vem se espalhando pelo país desde 2020. Em 2024, a Região Norte registrou o maior crescimento percentual de contratações no setor TIC (7,4\%), movimento associado à difusão do trabalho remoto, que tornou estados fora do eixo Sul-Sudeste mais atrativos para a contratação de profissionais de TI \cite{Brasscom2024}.
+A pandemia de COVID-19 acelerou esse cenário. A partir de 2020, empresas de todos os portes adotaram em escala maior ferramentas de colaboração remota, \textit{cloud computing} e automação, o que ampliou a procura por profissionais de TI no momento em que o restante do mercado formal sofria forte contração \cite{CAGED2024}. Há também um efeito geográfico relevante. O emprego em TI segue concentrado no Sudeste, sobretudo em São Paulo, mas vem se espalhando pelo país desde 2020. Em 2024, a Região Norte registrou o maior crescimento percentual de contratações no setor TIC (7,4\%), movimento associado à difusão do trabalho remoto, que tornou estados fora do eixo Sul-Sudeste mais atrativos para a contratação de profissionais de TI \cite{Brasscom2024}.
 
 Estudar essas dinâmicas em profundidade exige fontes com cobertura nacional, série histórica longa e granularidade por ocupação. Entre as bases disponíveis no Brasil, RAIS e CAGED são as únicas que atendem a esses três requisitos ao mesmo tempo.
 
@@ -46,9 +46,9 @@ Em janeiro de 2020, o CAGED foi reformulado pela Portaria n.º 1.127/2019 e pass
 
 \begin{itemize}
     \item \textbf{Formato}: de um único arquivo de largura fixa para CSV compactado (\texttt{.7z}), com separador ponto e vírgula;
-    \item \textbf{Tipos de arquivo}: o arquivo único dá lugar a quatro tipos --- \textbf{MOV} (declarações regulares) e \textbf{FOR} (fora do prazo), que formam o fluxo principal; \textbf{EXC} (exclusões), que registra as retificações; e \textbf{AJUSTES}, com correções retroativas que remontam a 2010;
+    \item \textbf{Tipos de arquivo}: o arquivo único dá lugar a quatro tipos, \textbf{MOV} (declarações regulares) e \textbf{FOR} (fora do prazo), que formam o fluxo principal; \textbf{EXC} (exclusões), que registra as retificações; e \textbf{AJUSTES}, com correções retroativas que remontam a 2010;
     \item \textbf{Colunas}: esquema reformulado, com variáveis novas (horas contratuais, trabalho intermitente e parcial, categoria do trabalhador) e sem os campos de regionalização fina do formato antigo;
-    \item \textbf{Codificação}: MOV, FOR e EXC em Latin-1, e AJUSTES em UTF-8 --- duas codificações no mesmo período, que exigem tratamento explícito no \textit{parser}.
+    \item \textbf{Codificação}: MOV, FOR e EXC em Latin-1, e AJUSTES em UTF-8, duas codificações no mesmo período, que exigem tratamento explícito no \textit{parser}.
 \end{itemize}
 
 Com a divisão em vários arquivos, o saldo de cada competência deixa de sair de uma única fonte: passa a ser preciso somar as movimentações de MOV e FOR e descontar as de EXC para chegar ao número correto.
@@ -79,13 +79,13 @@ A \autoref{fig:cbo-hierarquia} mostra essa estrutura na prática, usando uma ocu
     ]
         % Niveis (esquerda para direita)
         \node[nivel, fill=blue!10,   minimum width=2.6cm] (n1) at (0,0)
-            {\textbf{2} \\ Grande Grupo};
+            {2 \\ Grande Grupo};
         \node[nivel, fill=orange!15, minimum width=2.6cm, right=8mm of n1] (n2)
-            {\textbf{21} \\ Subgrupo Principal};
+            {21 \\ Subgrupo Principal};
         \node[nivel, fill=green!12,  minimum width=2.6cm, right=8mm of n2] (n3)
-            {\textbf{2124} \\ Família Ocupacional};
+            {2124 \\ Família Ocupacional};
         \node[nivel, fill=purple!12, minimum width=2.8cm, right=8mm of n3] (n4)
-            {\textbf{212405} \\ Ocupação};
+            {212405 \\ Ocupação};
 
         % Setas
         \draw[seta] (n1) -- (n2);
@@ -134,7 +134,7 @@ O \textit{data lake} surgiu como alternativa ao \textit{data warehouse} tradicio
 A Arquitetura Medalhão (\textit{Medallion Architecture}), popularizada pelo ecossistema Databricks, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente. Segundo a \citeonline{MicrosoftMedallion2024}, as camadas Bronze (bruto), Silver (validado) e Gold (enriquecido) descrevem a qualidade crescente dos dados ao longo do fluxo. Neste trabalho, elas se organizam da seguinte forma:
 
 \begin{itemize}
-    \item \textbf{Bronze}: armazena os dados brutos exatamente como recebidos da fonte, sem nenhuma transformação. Essa camada é imutável e serve como fonte de verdade para reprocessamento. No contexto desta pesquisa, contém os arquivos originais da RAIS e do CAGED baixados do FTP do MTE;
+    \item \textbf{Bronze}: armazena os dados brutos como recebidos da fonte, sem nenhuma transformação. Essa camada é imutável e serve como fonte de verdade para reprocessamento. No contexto desta pesquisa, contém os arquivos originais da RAIS e do CAGED baixados do FTP do MTE;
 
     \item \textbf{Silver}: contém os dados após limpeza, padronização, enriquecimento e filtragem. Os dados brutos são parseados, os códigos são traduzidos por dicionários externos e os registros são filtrados ao domínio de interesse (setor de TI). O resultado é armazenado em formato otimizado para análise (Parquet);
 
@@ -251,28 +251,28 @@ Por dentro, o DuckDB usa execução vetorizada (\textit{vectorized execution}): 
 
 \subsection{Armazenamento de Objetos e Repositórios de Dados Versionados}
 
-Em vez de um \textit{bucket} de armazenamento de objetos, como o S3, este trabalho usa um repositório de dados versionado, o Hugging Face Hub \cite{HuggingFaceDatasets2026}. Neles, cada conjunto de dados é um repositório com histórico de \textit{commits}: um envio de arquivos cria uma nova versão do conjunto, e as versões anteriores continuam recuperáveis. Os arquivos são servidos por HTTP com suporte a requisições parciais e endereçados por um caminho estável, o que permite ao DuckDB lê-los no próprio repositório pelo protocolo \texttt{hf://} --- inclusive com padrões de \textit{glob} sobre a estrutura de partições --- sem cópia local \cite{DuckDB2024}.
+Em vez de um \textit{bucket} de armazenamento de objetos, como o S3, este trabalho usa um repositório de dados versionado, o Hugging Face Hub \cite{HuggingFaceDatasets2026}. Neles, cada conjunto de dados é um repositório com histórico de \textit{commits}: um envio de arquivos cria uma nova versão do conjunto, e as versões anteriores continuam recuperáveis. Os arquivos são servidos por HTTP com suporte a requisições parciais e endereçados por um caminho estável, o que permite ao DuckDB lê-los no próprio repositório pelo protocolo \texttt{hf://}, inclusive com padrões de \textit{glob} sobre a estrutura de partições, sem cópia local \cite{DuckDB2024}.
 
 A diferença em relação a um \textit{bucket} privado não é de desempenho, mas de papel. Em um \textit{bucket} privado, o \textit{data lake} é uma infraestrutura de trabalho, e publicar significa produzir uma segunda cópia para fora. Em um repositório público, o local de armazenamento e o ponto de publicação são o mesmo, e não existe uma cópia de trabalho e uma cópia publicada que possam divergir. É também o que os princípios FAIR \cite{WilkinsonFair2016} pedem de dados de pesquisa: que sejam localizáveis, acessíveis, interoperáveis e reutilizáveis.
 
-Uma propriedade desse modelo tem consequência direta na engenharia: o envio é \textbf{aditivo}. Um \textit{commit} acrescenta ou substitui os arquivos enviados, mas não remove os que deixaram de existir na origem \cite{HuggingFaceDatasets2026}. Se uma camada for reorganizada e seus arquivos renomeados, as versões antigas permanecem no repositório, e uma leitura da pasta inteira passa a contá-las junto com as novas.
+Uma propriedade desse modelo tem consequência direta na engenharia: o envio é aditivo. Um \textit{commit} acrescenta ou substitui os arquivos enviados, mas não remove os que deixaram de existir na origem \cite{HuggingFaceDatasets2026}. Se uma camada for reorganizada e seus arquivos renomeados, as versões antigas permanecem no repositório, e uma leitura da pasta inteira passa a contá-las junto com as novas.
 
 \subsection{Orquestração por Integração Contínua}
 \label{subsec:orquestracao}
 
 Um \textit{pipeline} de dados com várias etapas precisa de um orquestrador: um componente que decide quando cada etapa roda e garante que uma etapa só comece depois daquelas de que depende. Essa estrutura é descrita como um grafo acíclico dirigido (DAG), em que os nós são as etapas e as arestas, as dependências entre elas \cite{Reis2022}. Ferramentas dedicadas à orquestração, como o Apache Airflow, implementam esse modelo, mas pressupõem um servidor próprio em funcionamento contínuo.
 
-Plataformas de integração contínua, criadas para compilar e testar código a cada alteração, oferecem esses mesmos elementos como serviço. No GitHub Actions \cite{GitHubActions2026}, um \textit{workflow} é um arquivo de configuração versionado junto do código-fonte, composto de \textit{jobs} executados em máquinas virtuais efêmeras --- os executores (\textit{runners}) ---, criadas para a execução e descartadas ao final. Um \textit{workflow} pode ser disparado por agendamento, por alteração no código ou manualmente, e pode chamar outros \textit{workflows} como sub-rotinas reutilizáveis. A declaração de dependência entre \textit{jobs} define o DAG, e a plataforma executa em paralelo os \textit{jobs} que não dependem uns dos outros. Para repositórios públicos, a execução não tem custo.
+Plataformas de integração contínua, criadas para compilar e testar código a cada alteração, oferecem esses mesmos elementos como serviço. No GitHub Actions \cite{GitHubActions2026}, um \textit{workflow} é um arquivo de configuração versionado junto do código-fonte, composto de \textit{jobs} executados em máquinas virtuais efêmeras, os executores (\textit{runners}) criadas para a execução e descartadas ao final. Um \textit{workflow} pode ser disparado por agendamento, por alteração no código ou manualmente, e pode chamar outros \textit{workflows} como sub-rotinas reutilizáveis. A declaração de dependência entre \textit{jobs} define o DAG, e a plataforma executa em paralelo os \textit{jobs} que não dependem uns dos outros. Para repositórios públicos, a execução não tem custo.
 
-Duas características desse modelo condicionam o desenho de um \textit{pipeline} de dados. A primeira é que os executores são efêmeros e isolados: um \textit{job} não enxerga o disco de outro, e todo dado que passa de uma etapa à seguinte precisa ser persistido fora do executor. A segunda é que cada execução tem memória, disco e duração limitados, o que favorece dividir o trabalho em unidades pequenas e independentes --- que, além de caberem no executor, podem ser repetidas isoladamente quando uma delas falha.
+Duas características desse modelo condicionam o desenho de um \textit{pipeline} de dados. A primeira é que os executores são efêmeros e isolados: um \textit{job} não enxerga o disco de outro, e todo dado que passa de uma etapa à seguinte precisa ser persistido fora do executor. A segunda é que cada execução tem memória, disco e duração limitados, o que favorece dividir o trabalho em unidades pequenas e independentes, que, além de caberem no executor, podem ser repetidas isoladamente quando uma delas falha.
 
 
 \section{Visualização de Dados \textit{Web}}
 \label{sec:visualizacao}
 
-A entrega de análises por meio de \textit{dashboards} interativos na \textit{web} depende de onde a consulta é executada. Quando ela roda em um servidor, cada interação do usuário --- um filtro, uma mudança de página --- exige uma ida e volta pela rede, e a aplicação só existe enquanto houver um processo de servidor ativo. Quando roda no navegador de quem visita, o filtro responde sem rede, e o \textit{dashboard} se reduz a um conjunto de arquivos estáticos.
+A entrega de análises por meio de \textit{dashboards} interativos na \textit{web} depende de onde a consulta é executada. Quando ela roda em um servidor, cada interação do usuário (um filtro, uma mudança de página) exige uma ida e volta pela rede, e a aplicação só existe enquanto houver um processo de servidor ativo. Quando roda no navegador de quem visita, o filtro responde sem rede, e o \textit{dashboard} se reduz a um conjunto de arquivos estáticos.
 
-A segunda arquitetura tornou-se viável para análise de dados pela combinação de bibliotecas de interface, de um motor analítico que roda no navegador e de hospedagem estática. A interface é uma aplicação de página única, construída com uma biblioteca de componentes como o React \cite{React2026}, em que cada parte da tela é função declarada do estado --- muda o filtro, a biblioteca redesenha só o que depende dele. A peça decisiva é o DuckDB-Wasm \cite{Kohn2022}: o mesmo motor da \autoref{subsec:motores-in-process}, compilado para WebAssembly, executa SQL analítico sobre arquivos Parquet dentro do navegador, em uma \textit{thread} separada da interface. Como não há servidor de aplicação, o site é um conjunto de arquivos estáticos e pode ser hospedado em uma rede de distribuição de conteúdo, como o Cloudflare Pages \cite{CloudflarePages2026}, sem custo de processamento por visita. Os gráficos são declarados como configuração, e não desenhados passo a passo, em bibliotecas como o Apache ECharts \cite{Li2018}.
+A segunda arquitetura tornou-se viável para análise de dados pela combinação de bibliotecas de interface, de um motor analítico que roda no navegador e de hospedagem estática. A interface é uma aplicação de página única, construída com uma biblioteca de componentes como o React \cite{React2026}, em que cada parte da tela é função declarada do estado: muda o filtro, a biblioteca redesenha só o que depende dele. A peça decisiva é o DuckDB-Wasm \cite{Kohn2022}: o mesmo motor da \autoref{subsec:motores-in-process}, compilado para WebAssembly, executa SQL analítico sobre arquivos Parquet dentro do navegador, em uma \textit{thread} separada da interface. Como não há servidor de aplicação, o site é um conjunto de arquivos estáticos e pode ser hospedado em uma rede de distribuição de conteúdo, como o Cloudflare Pages \cite{CloudflarePages2026}, sem custo de processamento por visita. Os gráficos são declarados como configuração, e não desenhados passo a passo, em bibliotecas como o Apache ECharts \cite{Li2018}.
 
 Independentemente da arquitetura, o desenho da interação segue o princípio formulado por \citeonline{Shneiderman1996} para sistemas de busca visual de informação: primeiro a visão geral, depois aproximação e filtro, e os detalhes sob demanda. Em um \textit{dashboard} analítico, isso se traduz em abrir cada tela pela resposta agregada, permitir recortar o dado (por período, território ou grupo) e deixar a tabela com os valores exatos a um clique de cada gráfico.
 
@@ -287,20 +287,20 @@ A família ARIMA (\textit{AutoRegressive Integrated Moving Average}), formalizad
 \begin{equation}
     \text{SARIMA}(p, d, q)(P, D, Q)_m,
 \end{equation}
-em que $(P, D, Q)$ são as ordens sazonais e $m$ é o período --- 12, no caso de séries mensais com ciclo anual.
+em que $(P, D, Q)$ são as ordens sazonais e $m$ é o período, igual a 12 nas séries mensais com ciclo anual.
 
 A diferenciação sazonal ($D = 1$) é o que torna a família adequada à série de saldo de empregos: ela remove o ciclo anual de admissões e desligamentos subtraindo de cada mês o mesmo mês do ano anterior, em lugar de estimar uma forma funcional para esse ciclo. O preço é que a série diferenciada perde os primeiros $m$ pontos, o que importa quando o histórico é curto.
 
 Modelos dessa família pressupõem que o que resta após a modelagem seja ruído sem estrutura. Essa hipótese é verificável: o teste de \citeonline{Ljung1978} examina se as autocorrelações dos resíduos, tomadas em conjunto, diferem do que se esperaria de uma sequência aleatória. Resíduo com estrutura remanescente indica que há sinal que o modelo deixou passar.
 
-Uma alternativa de outra natureza é o Prophet \cite{Taylor2018}, que trata a série como uma regressão: uma tendência linear por partes, uma sazonalidade descrita por séries de Fourier e, quando houver, efeitos de feriados. Foi desenhado para séries de negócio com lacunas e mudanças de tendência, com poucos parâmetros a calibrar --- o principal é a flexibilidade da tendência (\textit{changepoint prior scale}), que controla quanto a inclinação pode mudar ao longo da série. Em vez de diferenciar a série para remover o ciclo anual, como o SARIMA, o Prophet o estima diretamente.
+Uma alternativa de outra natureza é o Prophet \cite{Taylor2018}, que trata a série como uma regressão: uma tendência linear por partes, uma sazonalidade descrita por séries de Fourier e, quando houver, efeitos de feriados. Foi desenhado para séries de negócio com lacunas e mudanças de tendência, com poucos parâmetros a calibrar: o principal é a flexibilidade da tendência (\textit{changepoint prior scale}), que controla quanto a inclinação pode mudar ao longo da série. Em vez de diferenciar a série para remover o ciclo anual, como o SARIMA, o Prophet o estima diretamente.
 
 \subsection{Validação de Origem Móvel}
 \label{subsec:origem-movel}
 
 Avaliar um modelo de série temporal por amostragem aleatória é inválido: embaralhar as observações permite ao modelo treinar com o futuro e prever o passado. A alternativa consagrada é a validação de origem móvel \cite{Tashman2000}, também chamada de validação em janelas expansivas: o modelo é treinado com os dados até um instante $T$, prevê os $h$ períodos seguintes, a origem avança e o procedimento se repete. O erro reportado é a média das dobras.
 
-Duas cautelas acompanham o método. A primeira é que o \textit{baseline} de comparação precisa ser avaliado nas mesmas dobras e no mesmo horizonte --- comparar um modelo medido em origem móvel com um \textit{baseline} medido de outra forma não compara nada. A segunda é que uma grade grande de especificações, avaliada em poucas dobras, encontra por acaso o modelo que se sai bem naquelas dobras: é sobreajuste deslocado da amostra de treino para a de validação.
+O \textit{baseline} de comparação precisa ser avaliado nas mesmas dobras e no mesmo horizonte: comparar um modelo medido em origem móvel com um \textit{baseline} medido de outra forma não compara nada. Do mesmo modo, uma grade grande de especificações, avaliada em poucas dobras, encontra por acaso o modelo que se sai bem naquelas dobras: é sobreajuste deslocado da amostra de treino para a de validação.
 
 Um \textit{baseline} usual em séries sazonais é o ingênuo sazonal, que prevê para cada mês o valor observado no mesmo mês do ano anterior \cite{Hyndman2021}. Ele é a referência mínima: um modelo que não o supera não se justifica.
 
@@ -332,22 +332,22 @@ Proposta de forma independente por \citeonline{Oaxaca1973} e \citeonline{Blinder
 \end{equation}
 em que $\bar{X}$ são as médias das características, $\hat{\beta}$ os coeficientes estimados em cada grupo e $\beta^{*}$ o vetor de referência.
 
-A parcela \textbf{explicada} é a diferença atribuível ao fato de os grupos terem características distintas --- escolaridade, experiência, ocupação, porte da empresa. A parcela \textbf{não explicada} é a diferença que permanece entre pessoas com características equivalentes, isto é, uma diferença de \textit{retorno} às mesmas características.
+A parcela explicada é a diferença atribuível ao fato de os grupos terem características distintas: escolaridade, experiência, ocupação, porte da empresa. A parcela não explicada é a diferença que permanece entre pessoas com características equivalentes, isto é, uma diferença de \textit{retorno} às mesmas características.
 
 A escolha de $\beta^{*}$ não é neutra: usar os coeficientes de um dos grupos como referência altera a magnitude das parcelas. \citeonline{Neumark1988} propõe usar os coeficientes da regressão conjunta dos dois grupos, convenção adotada neste trabalho e discutida em detalhe por \citeonline{Jann2008}.
 
-Uma advertência metodológica é essencial: a parcela não explicada \textbf{não é medida de discriminação}. Ela contém tudo que afeta salário e não está no modelo --- experiência anterior não registrada, interrupções de carreira, negociação, preferências por jornada. Ela é um limite superior para o que a discriminação poderia explicar, e não uma estimativa dela.
+A parcela não explicada não é medida de discriminação. Ela contém tudo que afeta salário e não está no modelo: experiência anterior não registrada, interrupções de carreira, negociação, preferências por jornada. Ela é um limite superior para o que a discriminação poderia explicar, e não uma estimativa dela.
 
 \subsection{Análise de Sobrevivência e Tábua de Vida de Período}
 \label{subsec:sobrevivencia}
 
 A permanência em um emprego é um fenômeno de duração, e o instrumental da análise de sobrevivência se aplica a ele. O estimador de \citeonline{Kaplan1958} é a ferramenta usual quando se acompanha uma coorte ao longo do tempo, tratando como censurados os casos cujo desfecho não foi observado até o fim do acompanhamento.
 
-Há, porém, uma incompatibilidade entre esse estimador e a estrutura da RAIS. A RAIS é um \textbf{corte transversal}: cada edição retrata os vínculos existentes em 31 de dezembro, e não uma coorte seguida no tempo. Em um corte transversal, vínculos longos estão sobre-representados --- quem permanece muitos anos aparece em muitas edições, enquanto quem passou poucos meses pode não aparecer em nenhuma. Aplicar Kaplan-Meier a esse corte produz estimativas de duração infladas.
+Há, porém, uma incompatibilidade entre esse estimador e a estrutura da RAIS. A RAIS é um corte transversal: cada edição retrata os vínculos existentes em 31 de dezembro, e não uma coorte seguida no tempo. Em um corte transversal, vínculos longos estão sobre-representados: quem permanece muitos anos aparece em muitas edições, enquanto quem passou poucos meses pode não aparecer em nenhuma. Aplicar Kaplan-Meier a esse corte produz estimativas de duração infladas.
 
-A alternativa adequada é a \textbf{tábua de vida de período}, instrumento clássico da demografia \cite{Preston2001}. Em vez de seguir uma coorte, ela toma as taxas de saída observadas em cada faixa de duração \textit{em um mesmo ano} e com elas constrói uma sobrevivência sintética: a probabilidade de permanência de uma coorte hipotética que experimentasse, ao longo da vida, as taxas observadas naquele ano. A leitura é diferente e precisa ser declarada --- a tábua descreve o risco vigente no período, não a trajetória de quem entrou em um ano específico.
+A alternativa adequada é a tábua de vida de período, instrumento clássico da demografia \cite{Preston2001}. Em vez de seguir uma coorte, ela toma as taxas de saída observadas em cada faixa de duração \textit{em um mesmo ano} e com elas constrói uma sobrevivência sintética: a probabilidade de permanência de uma coorte hipotética que experimentasse, ao longo da vida, as taxas observadas naquele ano. A leitura é diferente e precisa ser declarada: a tábua descreve o risco vigente no período, não a trajetória de quem entrou em um ano específico.
 
-Complementarmente, um modelo de risco em tempo discreto --- regressão logística da ocorrência do desligamento no ano sobre as características do vínculo --- permite estimar o efeito de cada característica mantendo as demais constantes.
+Complementarmente, um modelo de risco em tempo discreto (regressão logística da ocorrência do desligamento no ano sobre as características do vínculo) permite estimar o efeito de cada característica mantendo as demais constantes.
 
 \subsection{Agrupamento por $k$-Médias}
 \label{subsec:clusters}
@@ -359,7 +359,7 @@ Duas decisões são necessárias. A primeira é a padronização das variáveis:
 \section{Trabalhos Relacionados}
 \label{sec:relacionados}
 
-A análise quantitativa do mercado de trabalho brasileiro a partir dos microdados da RAIS e do CAGED é tema recorrente em estudos publicados nos últimos anos. \citeonline{SilvaLima2018} lembram que, apesar de cobrir apenas o mercado formal, a RAIS é uma das bases mais ricas para estudar o trabalho no país, justamente pela granularidade e pela longa série histórica que oferece, o que sustenta a escolha das fontes neste trabalho. Esta seção apresenta um recorte de trabalhos que se aproximam, por método ou por objeto, da proposta deste TCC, e termina indicando o que diferencia o presente trabalho dos demais.
+A análise quantitativa do mercado de trabalho brasileiro a partir dos microdados da RAIS e do CAGED é tema recorrente em estudos publicados nos últimos anos. \citeonline{SilvaLima2018} lembram que, apesar de cobrir apenas o mercado formal, a RAIS é uma das bases mais ricas para estudar o trabalho no país, pela granularidade e pela longa série histórica que oferece, o que sustenta a escolha das fontes neste trabalho. Esta seção apresenta um recorte de trabalhos que se aproximam, por método ou por objeto, da proposta deste TCC, e termina indicando o que diferencia o presente trabalho dos demais.
 
 O Instituto de Pesquisa Econômica Aplicada (IPEA) mantém uma série regular de relatórios de \textit{Conjuntura do Mercado de Trabalho no Brasil}, com edições trimestrais que cruzam dados da Pesquisa Nacional por Amostra de Domicílios Contínua (PNAD Contínua), do CAGED e da RAIS \cite{IPEA2023}. Esses relatórios oferecem uma fotografia agregada do mercado nacional, mas seu foco é macroeconômico: discutem população ocupada, taxa de desemprego e rendimento médio em recortes amplos, sem se aprofundar em um setor específico como TI.
 
@@ -403,6 +403,6 @@ A \autoref{tab:comparativo-relacionados} resume como este TCC se posiciona frent
     Fonte: Autoria própria.
 \end{table}
 
-Esses trabalhos, em conjunto, deixam três lacunas que este TCC pretende preencher. A primeira é a integração das duas bases (RAIS e CAGED) em uma série única e harmonizada, cobrindo dezoito anos de dados. A segunda é a aplicação de modelos formais --- previsão da série mensal com especificação escolhida por validação de origem móvel e estimação do estoque corrente por \textit{nowcast} ---, o que vai além da análise descritiva. A terceira é a oferta de uma plataforma analítica reprodutível, em que tanto o \textit{pipeline} quanto o \textit{dashboard} podem ser inspecionados, executados e estendidos por outros pesquisadores.
+Esses trabalhos, em conjunto, deixam três lacunas que este TCC pretende preencher. A primeira é a integração das duas bases (RAIS e CAGED) em uma série única e harmonizada, cobrindo dezoito anos de dados. A segunda é a aplicação de modelos formais (previsão da série mensal com especificação escolhida por validação de origem móvel e estimação do estoque corrente por \textit{nowcast}), o que vai além da análise descritiva. A terceira é a oferta de uma plataforma analítica reprodutível, em que tanto o \textit{pipeline} quanto o \textit{dashboard} podem ser inspecionados, executados e estendidos por outros pesquisadores.
 
 Os conceitos apresentados neste capítulo dão a base para entender as escolhas técnicas e metodológicas descritas no \autoref{cap:metodologia}.

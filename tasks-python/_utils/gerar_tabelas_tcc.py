@@ -415,4 +415,27 @@ tabela("tab-reprodutibilidade-rais.tex",
        ["Ano", "Arquivos brutos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas,
        fonte="Autoria própria, a partir das camadas Bronze e Silver publicadas.")
 
+# ------------------------------- reprodutibilidade, por tabela (RAIS e CAGED)
+# Soma da recontagem ano a ano das duas bases, uma linha por tabela tratada.
+# O CAGED vem de _utils/reprodutibilidade_caged.py (auditoria/reprodutibilidade_caged.csv).
+resumo = con.execute(f"""
+    SELECT 'rais_vinc' AS tabela, min(ano) AS de, max(ano) AS ate, sum(arquivos_bronze) AS arq,
+           sum(linhas_no_bruto) AS bruto, sum(linhas_publicadas) AS pub, sum(diferenca) AS dif
+    FROM read_csv('{G}/auditoria/reprodutibilidade_rais.csv')
+    UNION ALL
+    SELECT tabela, min(ano), max(ano), sum(arquivos_bronze), sum(linhas_no_bruto), sum(linhas_publicadas), sum(diferenca)
+    FROM read_csv('{G}/auditoria/reprodutibilidade_caged.csv') GROUP BY tabela
+""").fetchall()
+ordem = ["rais_vinc", "caged_mov", "caged_for", "caged_exc", "caged_old", "caged_ajustes"]
+resumo.sort(key=lambda r: ordem.index(r[0]) if r[0] in ordem else 99)
+linhas = [[f"\\texttt{{{r[0].replace('_', chr(92) + '_')}}}", f"{ano(r[1])}--{ano(r[2])}", num(r[3]), num(r[4]), num(r[5]), num(r[6])]
+          for r in resumo]
+linhas.append(["\\textbf{Total}", "", num(sum(r[3] for r in resumo)), num(sum(r[4] for r in resumo)),
+               num(sum(r[5] for r in resumo)), num(sum(r[6] for r in resumo))])
+tabela("tab-reprodutibilidade.tex",
+       "Recontagem do recorte de tecnologia a partir do dado bruto, por tabela",
+       "tab:reprodutibilidade", "llrrrr",
+       ["Tabela", "Anos", "Arquivos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas,
+       fonte="Autoria própria, a partir das camadas Bronze e Silver publicadas.")
+
 print(f"\n{len(list(DESTINO.glob('*.tex')))} tabela(s) geradas.")
