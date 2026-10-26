@@ -76,6 +76,19 @@ def main() -> int:
             linhas.append((tabela, ano, arquivos, bruto, publicado, publicado - bruto))
             print(f"   {tabela:14} {ano}: {arquivos:>3} arquivo(s) | bruto {bruto:>9,} | publicado {publicado:>9,} | diferença {publicado - bruto:+,}")
 
+    # Rodada parcial (alguns anos ou tabelas): atualiza só essas linhas do CSV já
+    # publicado, em vez de sobrescrevê-lo com um recorte. Assim, depois de
+    # corrigir um ano, basta repetir a verificação dele.
+    medidas = {(l[0], l[1]) for l in linhas}
+    try:
+        antigas = con.execute(
+            f"SELECT tabela, ano, arquivos_bronze, linhas_no_bruto, linhas_publicadas, diferenca "
+            f"FROM read_csv('hf://datasets/{nuvem.REPO_GOLD}/auditoria/reprodutibilidade_caged.csv')").fetchall()
+        linhas += [tuple(r) for r in antigas if (r[0], r[1]) not in medidas]
+        linhas.sort(key=lambda l: (list(mp.TODAS_TABELAS).index(l[0]) if l[0] in mp.TODAS_TABELAS else 99, l[1]))
+    except Exception:
+        pass  # primeira rodada: ainda não há CSV publicado
+
     total_bruto, total_pub = sum(l[3] for l in linhas), sum(l[4] for l in linhas)
     print(f"\n🏁 total: bruto {total_bruto:,} | publicado {total_pub:,} | diferença {total_pub - total_bruto:+,}")
 
