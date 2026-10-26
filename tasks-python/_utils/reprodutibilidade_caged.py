@@ -61,7 +61,7 @@ def contar(con, tabela: str, ano: int) -> tuple[int, int, int] | None:
 def main() -> int:
     p = argparse.ArgumentParser(description="Reprodutibilidade do CAGED a partir da bronze.")
     p.add_argument("--tabela", nargs="+", choices=mp.TODAS_TABELAS, default=list(mp.TODAS_TABELAS))
-    p.add_argument("--anos", type=int, nargs="+", default=list(range(2000, 2027)))
+    p.add_argument("--anos", type=int, nargs="+", default=list(range(2007, 2027)))
     p.add_argument("--sem-publicar", action="store_true", help="não grava o CSV na Gold")
     args = p.parse_args()
 

@@ -142,8 +142,9 @@ tabela("tab-volumes.tex", "Volume de cada camada do \\textit{data lake}",
 linhas = []
 for t in TABELAS_TI:
     # count(*) sai do rodapé de cada arquivo: lê metadado, não dado.
-    n = con.execute(f"SELECT count(*) FROM read_parquet({nuvem.fonte_silver_ti(t)}, union_by_name=true)"
-                    ).fetchone()[0]
+    # Só o período analisado: a Silver de caged_ajustes guarda também 2003 a 2006.
+    n = con.execute(f"SELECT count(*) FROM read_parquet({nuvem.fonte_silver_ti(t)}, union_by_name=true) "
+                    f"WHERE ano_particao >= 2007").fetchone()[0]
     linhas.append([f"\\texttt{{{t.replace('_', chr(92) + '_')}}}", num(n)])
 tabela("tab-linhas-camada.tex",
        "Registros no recorte de tecnologia, por tabela da camada tratada",

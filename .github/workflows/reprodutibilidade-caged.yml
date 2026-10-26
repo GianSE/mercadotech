@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       anos:
-        description: "Anos separados por espaço (vazio = 2000 a 2026)"
+        description: "Anos separados por espaço (vazio = 2007 a 2026)"
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
