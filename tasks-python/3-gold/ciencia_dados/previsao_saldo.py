@@ -171,21 +171,61 @@ def prever(y: pd.Series, ordem, sazonal, h: int = 12, alpha: float = 0.20):
     return saida, ajuste
 
 
-def prever_vencedor(y: pd.Series, modelo: str, h: int = 18, alpha: float = 0.20) -> pd.DataFrame:
-    """Previsão com intervalo pelo modelo que venceu a validação, seja qual for.
+def modelo_para_projecao(placar: pd.DataFrame) -> str:
+    """O modelo que projeta: o vencedor do placar, ou o melhor com intervalo.
 
-    Se o vencedor for o próprio baseline, a projeção usa o primeiro SARIMA da
-    grade: o baseline não tem intervalo, e o placar já diz que nenhum modelo o
-    superou — a leitura honesta fica registrada lá.
+    O baseline ingênuo não tem intervalo de predição. Se ele vencer, a
+    projeção usa o melhor modelo seguinte do placar — e é ESSE nome que vai no
+    rótulo da previsão, para o rótulo nunca dizer um modelo e o número vir de
+    outro. O placar continua mostrando que o baseline venceu.
+    """
+    for m in placar["modelo"]:
+        if m != "naive sazonal":
+            return m
+    return f"SARIMA{CANDIDATOS[0][0]}{CANDIDATOS[0][1]}"
+
+
+def trajetorias(y: pd.Series, modelo: str, h: int, n: int = 2000) -> np.ndarray:
+    """`n` trajetórias simuladas dos próximos `h` meses, shape (n, h).
+
+    É o que dá o intervalo de uma SOMA de meses: somar os limites mensais não
+    serve, porque os erros de meses diferentes não chegam todos juntos ao
+    extremo — o resultado seria largo demais e não teria a cobertura declarada.
     """
     escalas = {_nome_prophet(e): e for e in PROPHET_ESCALAS}
     if modelo in escalas:
-        p = _prever_prophet(_prophet(y, escalas[modelo], intervalo=1 - alpha), h)
-        return pd.DataFrame({"previsao": p["yhat"], "inferior": p["yhat_lower"],
-                             "superior": p["yhat_upper"]})
+        m = _prophet(y, escalas[modelo])
+        np.random.seed(42)
+        futuro = m.make_future_dataframe(periods=h, freq="MS", include_history=False)
+        return np.asarray(m.predictive_samples(futuro)["yhat"]).T
     nomes = [f"SARIMA{o}{s}" for o, s in CANDIDATOS]
     ordem, sazonal = CANDIDATOS[nomes.index(modelo)] if modelo in nomes else CANDIDATOS[0]
-    return prever(y, ordem, sazonal, h=h, alpha=alpha)[0]
+    ajuste = _ajustar(y, ordem, sazonal)
+    try:
+        sim = ajuste.simulate(nsimulations=h, repetitions=n, anchor="end", random_state=42)
+    except TypeError:  # statsmodels sem random_state
+        np.random.seed(42)
+        sim = ajuste.simulate(nsimulations=h, repetitions=n, anchor="end")
+    return np.asarray(sim).reshape(h, n).T
+
+
+def prever_vencedor(y: pd.Series, modelo: str, h: int = 18, alpha: float = 0.20) -> pd.DataFrame:
+    """Previsão com intervalo pelo modelo indicado, mais o acumulado com o
+    intervalo da SOMA (colunas acum_*), tirado das trajetórias simuladas."""
+    escalas = {_nome_prophet(e): e for e in PROPHET_ESCALAS}
+    if modelo in escalas:
+        p = _prever_prophet(_prophet(y, escalas[modelo], intervalo=1 - alpha), h)
+        saida = pd.DataFrame({"previsao": p["yhat"], "inferior": p["yhat_lower"],
+                              "superior": p["yhat_upper"]})
+    else:
+        nomes = [f"SARIMA{o}{s}" for o, s in CANDIDATOS]
+        ordem, sazonal = CANDIDATOS[nomes.index(modelo)] if modelo in nomes else CANDIDATOS[0]
+        saida = prever(y, ordem, sazonal, h=h, alpha=alpha)[0]
+    acumulada = trajetorias(y, modelo, h).cumsum(axis=1)
+    saida["acum_previsao"] = saida["previsao"].cumsum().to_numpy()
+    saida["acum_inferior"] = np.quantile(acumulada, alpha / 2, axis=0)
+    saida["acum_superior"] = np.quantile(acumulada, 1 - alpha / 2, axis=0)
+    return saida
 
 
 def main() -> int:
@@ -236,7 +276,7 @@ def main() -> int:
         print(f"\n✅ Escolhido: {vencedor['modelo']} — MAE {vencedor['mae']:,.0f}, "
               f"{vencedor['ganho_vs_naive_%']:+.1f}% vs baseline")
 
-    previsao = prever_vencedor(y, vencedor["modelo"], h=args.horizonte)
+    previsao = prever_vencedor(y, modelo_para_projecao(placar), h=args.horizonte)
     print(f"\n🔮 Próximos {args.horizonte} meses (intervalo de 80%)")
     print(f"{'mês':<10}{'previsão':>12}{'inferior':>12}{'superior':>12}")
     for idx, linha in previsao.iterrows():
@@ -244,8 +284,8 @@ def main() -> int:
               f"{linha['inferior']:>12,.0f}{linha['superior']:>12,.0f}")
 
     total = previsao["previsao"].sum()
-    faixa_inf = previsao["inferior"].sum()
-    faixa_sup = previsao["superior"].sum()
+    faixa_inf = previsao["acum_inferior"].iloc[-1]
+    faixa_sup = previsao["acum_superior"].iloc[-1]
     print(f"\n   Acumulado do horizonte: {total:,.0f} "
           f"(entre {faixa_inf:,.0f} e {faixa_sup:,.0f})")
     print("\n   O intervalo é largo porque a série é ruidosa. Ler o ponto")

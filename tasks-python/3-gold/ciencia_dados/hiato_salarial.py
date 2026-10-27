@@ -114,12 +114,19 @@ def carregar(ano: int, con=None) -> pd.DataFrame:
     return df.dropna(subset=["ln_salario"] + NUMERICAS + COVARIAVEIS)
 
 
-def _desenho(df: pd.DataFrame, colunas: list[str]) -> pd.DataFrame:
-    """Matriz de covariáveis alinhada entre os grupos."""
+def _desenho(df: pd.DataFrame) -> pd.DataFrame:
+    """Matriz de covariáveis dos DOIS grupos juntos, com constante.
+
+    As dummies são criadas uma vez só, sobre a amostra conjunta, e cada grupo
+    é um recorte de linhas dessa matriz. Criá-las por grupo seria errado:
+    `drop_first` descarta a primeira categoria PRESENTE no grupo, e se ela
+    faltar num deles a referência muda em silêncio — e a conferência de que
+    as parcelas somam o hiato não acusa nada, porque com intercepto elas
+    sempre somam.
+    """
     X = pd.get_dummies(df[COVARIAVEIS].astype(str), drop_first=True, dtype=float)
     for c in NUMERICAS:
         X[c] = df[c].astype(float)
-    X = X.reindex(columns=colunas, fill_value=0.0)
     X.insert(0, "const", 1.0)
     return X
 
@@ -138,17 +145,12 @@ def decompor(df: pd.DataFrame, dimensao: str, grupo_a: str, grupo_b: str) -> dic
     if len(a) < 500 or len(b) < 500:
         return {}
 
-    # Colunas do desenho vindas dos DOIS grupos: se uma categoria só existe em
-    # um deles, ela precisa existir (com zero) no outro, senão os vetores não
-    # se subtraem.
-    base = pd.get_dummies(df[COVARIAVEIS].astype(str), drop_first=True, dtype=float)
-    colunas = list(base.columns) + NUMERICAS
-
-    Xa, Xb = _desenho(a, colunas), _desenho(b, colunas)
-    Xp = _desenho(df[df[dimensao].isin([grupo_a, grupo_b])], colunas)
-    ya = a["ln_salario"].to_numpy()
-    yb = b["ln_salario"].to_numpy()
-    yp = df[df[dimensao].isin([grupo_a, grupo_b])]["ln_salario"].to_numpy()
+    conjunto = df[df[dimensao].isin([grupo_a, grupo_b])]
+    Xp = _desenho(conjunto)
+    em_a = (conjunto[dimensao] == grupo_a).to_numpy()
+    Xa, Xb = Xp[em_a], Xp[~em_a]
+    yp = conjunto["ln_salario"].to_numpy()
+    ya, yb = yp[em_a], yp[~em_a]
 
     ma = sm.OLS(ya, Xa.to_numpy()).fit()
     mb = sm.OLS(yb, Xb.to_numpy()).fit()

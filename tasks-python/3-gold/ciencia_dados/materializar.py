@@ -39,6 +39,10 @@ from _utils.nuvem import conectar_duckdb
 
 warnings.simplefilter("ignore")
 
+# Modelo escolhido pela etapa de previsão; o nowcast projeta os meses que
+# faltam do ano com o MESMO modelo.
+_MODELO_PROJECAO: str | None = None
+
 
 def _gravar(con, df: pd.DataFrame, nome: str) -> int:
     from _utils import nuvem
@@ -65,11 +69,14 @@ def previsao(con) -> dict[str, pd.DataFrame]:
     y = df["saldo"].dropna()
     placar = ps.validar(y, h=12, origens=5)
 
-    vencedor = placar.iloc[0]["modelo"]
-    prev = ps.prever_vencedor(y, vencedor, h=18)
+    # O rótulo é o do modelo que de fato projeta (ver modelo_para_projecao).
+    global _MODELO_PROJECAO
+    _MODELO_PROJECAO = ps.modelo_para_projecao(placar)
+    prev = ps.prever_vencedor(y, _MODELO_PROJECAO, h=18)
     prev = prev.reset_index().rename(columns={"index": "mes"})
-    prev.columns = ["mes", "previsao", "inferior", "superior"]
-    prev["modelo"] = vencedor
+    prev.columns = ["mes", "previsao", "inferior", "superior",
+                    "acum_previsao", "acum_inferior", "acum_superior"]
+    prev["modelo"] = _MODELO_PROJECAO
 
     # A série observada vai junto: o gráfico precisa do histórico e da
     # projeção na mesma escala, e buscá-los de tabelas diferentes convidaria a
@@ -110,7 +117,7 @@ def nowcast(con) -> dict[str, pd.DataFrame]:
     retro = nc.retrospectiva(df)
     ano_teste = int(df["ano"].max())
     detalhe = nc.detalhe_ano(df, ano_teste).assign(ano_teste=ano_teste)
-    proj = nc.projetar_ano_corrente(df, con)
+    proj = nc.projetar_ano_corrente(df, con, modelo=_MODELO_PROJECAO)
     return {"nowcast_retrospectiva": retro,
             "nowcast_retrospectiva_anos": nc.retrospectiva_anos(df),
             "nowcast_ano_retido": detalhe,
@@ -140,6 +147,7 @@ def main() -> int:
     print("=" * 74)
 
     total = 0
+    falhas: list[str] = []
     for nome, fn in ETAPAS.items():
         if nome in args.pular:
             print(f"\n⏭️  {nome} (pulado)")
@@ -158,6 +166,7 @@ def main() -> int:
                 print(f"   ✅ {tabela}: {n:,} linha(s)")
             print(f"   ⏱️  {time.time() - inicio:.0f}s")
         except Exception as e:
+            falhas.append(nome)
             print(f"   ❌ falhou: {str(e)[:200]}")
 
     if "hiato" not in args.pular:
@@ -172,11 +181,17 @@ def main() -> int:
                 print(f"   ✅ hiato_serie: {_gravar(con, tabela, 'hiato_serie'):,} linha(s)")
             print(f"   ⏱️  {time.time() - inicio:.0f}s")
         except Exception as e:
+            falhas.append("hiato")
             print(f"   ❌ falhou: {str(e)[:200]}")
 
     from _utils import nuvem
 
     print(f"\n🏁 {total} tabela(s) materializada(s) em {nuvem.DIR_GOLD_LOCAL}")
+    # Etapa que falha não pode virar "sucesso": sem isto, a Gold seria
+    # publicada com a tabela antiga daquela etapa e ninguém saberia.
+    if falhas:
+        print(f"❌ {len(falhas)} etapa(s) falharam: {', '.join(falhas)} — nada deve ser publicado.")
+        return 1
     return 0
 
 

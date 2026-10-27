@@ -11,7 +11,8 @@ import { useConsulta } from "../lib/useConsulta";
 export default function Futuro() {
   const { cores: c } = useTema();
   const serie = useConsulta("SELECT strftime(mes, '%Y-%m') AS mes, saldo FROM serie_mensal ORDER BY mes DESC LIMIT 72");
-  const prev = useConsulta("SELECT strftime(mes, '%Y-%m') AS mes, previsao, inferior, superior, modelo FROM previsao_saldo ORDER BY mes");
+  // SELECT * para aceitar a Gold com ou sem as colunas acum_* (intervalo da soma).
+  const prev = useConsulta("SELECT * REPLACE (strftime(mes, '%Y-%m') AS mes) FROM previsao_saldo ORDER BY mes");
   const placar = useConsulta(`SELECT modelo, mae, rmse, "ganho_vs_naive_%" AS ganho FROM previsao_placar ORDER BY mae`);
   const pares = useConsulta("SELECT ano, fluxo, delta FROM nowcast_pares ORDER BY ano");
   const retro = useConsulta("SELECT estimador, anos, erro_medio, erro_pct FROM nowcast_retrospectiva ORDER BY abs(erro_pct)");
@@ -22,7 +23,13 @@ export default function Futuro() {
   const p = prev.linhas;
   const modelo = String(p[0]?.modelo ?? "—");
   const acumulado = p.reduce((s, l) => s + num(l, "previsao"), 0);
-  const faixa = [p.reduce((s, l) => s + num(l, "inferior"), 0), p.reduce((s, l) => s + num(l, "superior"), 0)];
+  // Faixa da SOMA, das trajetórias simuladas na Gold. Somar os limites mensais
+  // daria uma faixa larga demais; fica só como reserva para uma Gold antiga.
+  const ultima = p.at(-1);
+  const temAcum = ultima != null && ultima.acum_inferior != null && ultima.acum_superior != null;
+  const faixa = temAcum
+    ? [num(ultima, "acum_inferior"), num(ultima, "acum_superior")]
+    : [p.reduce((s, l) => s + num(l, "inferior"), 0), p.reduce((s, l) => s + num(l, "superior"), 0)];
   const pr = proj.linhas[0];
   const anoTeste = num(retido.linhas[0], "ano_teste");
 

@@ -159,9 +159,15 @@ def tabua_periodo(df: pd.DataFrame, grupo: str | None = None) -> pd.DataFrame:
         linha = {"grupo": rotulo, "n": len(sub), "eventos": int(sub["evento"].sum())}
         sobrevivencia = 1.0
         acumulada = {}
+        interrompida = False
         for (ini, fim), nome in zip(FAIXAS, ROTULOS):
             faixa = sub[(t0 >= ini) & (t0 < fim)]
-            if len(faixa) < 30:
+            # Faixa com poucos vínculos não tem risco estimável. Pulá-la e
+            # seguir multiplicando equivaleria a supor risco zero nela, e a
+            # sobrevivência das faixas seguintes sairia inflada: a partir
+            # daqui a tábua fica sem valor.
+            if interrompida or len(faixa) < 30:
+                interrompida = True
                 acumulada[nome] = np.nan
                 continue
             risco = float(faixa["evento"].mean())

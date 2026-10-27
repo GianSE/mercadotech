@@ -212,7 +212,7 @@ def intervalo_ols(treino: pd.DataFrame, fluxo: float, estoque_anterior: float,
             modelo.rsquared, modelo.params.iloc[1], modelo.pvalues.iloc[1])
 
 
-def projetar_ano_corrente(df: pd.DataFrame, con=None) -> dict:
+def projetar_ano_corrente(df: pd.DataFrame, con=None, modelo: str | None = None) -> dict:
     """
     Estima o estoque do ano que a RAIS ainda não publicou.
 
@@ -220,12 +220,17 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None) -> dict:
     ela é estimada com o CAGED que já existe.
 
     O ano corrente tem só parte dos meses, então o saldo que falta vem do
-    SARIMA de `previsao_saldo`. Isso EMPILHA duas incertezas — a do fluxo
-    previsto e a da relação fluxo→estoque — e a faixa reportada soma as duas
-    em quadratura. É aproximação: assume que os dois erros são independentes,
-    o que é razoável (um é sazonalidade do mercado, outro é diferença de
-    universo entre as bases) mas não é demonstrado. A faixa deve ser lida como
-    ordem de grandeza da incerteza, não como intervalo exato.
+    modelo de previsão escolhido em `previsao_saldo`. Isso EMPILHA duas
+    incertezas, e as duas são medidas para o estimador que de fato projeta:
+
+    - a do fluxo que falta: metade da faixa de 80% da SOMA dos meses restantes,
+      tirada das trajetórias simuladas (somar os limites mensais exageraria);
+    - a da relação fluxo→estoque: o 80º percentil do erro da própria
+      identidade na retrospectiva (cada ano estimado só com os anteriores).
+
+    As duas se somam em quadratura, supondo erros independentes (um é o ruído
+    do saldo mensal, o outro a diferença de cobertura entre as bases). A faixa
+    é ordem de grandeza da incerteza, não intervalo exato.
     """
     from ciencia_dados import previsao_saldo as ps
 
@@ -241,10 +246,11 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None) -> dict:
     faltam = 12 - int(parciais.iloc[-1]["size"])
 
     y = mensal["saldo"].dropna()
-    ordem, sazonal = ps.CANDIDATOS[0]
-    previsao, _ = ps.prever(y, ordem, sazonal, h=faltam)
-    fluxo_previsto = float(previsao["previsao"].sum())
-    erro_fluxo = float((previsao["superior"] - previsao["previsao"]).sum())
+    modelo = modelo or f"SARIMA{ps.CANDIDATOS[0][0]}{ps.CANDIDATOS[0][1]}"
+    somas = ps.trajetorias(y, modelo, faltam).sum(axis=1)
+    fluxo_previsto = float(np.mean(somas))
+    q10, q90 = np.quantile(somas, [0.10, 0.90])
+    erro_fluxo = float((q90 - q10) / 2)
 
     fluxo_total = observado + fluxo_previsto
     ultimo = df.iloc[-1]
@@ -252,9 +258,9 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None) -> dict:
     # regressão aqui seria escolher o estimador pior por parecer mais técnico.
     estoque = float(ultimo["estoque"]) + fluxo_total
 
-    treino = df
-    _, sup_ols, *_ = intervalo_ols(treino, fluxo_total, float(ultimo["estoque"]))
-    erro_relacao = sup_ols - (float(ultimo["estoque"]) + _ols(treino, fluxo_total))
+    erros = retrospectiva_anos(df)
+    erros = erros[erros["estimador"] == "identidade (delta = fluxo)"]["erro_pct"].abs()
+    erro_relacao = float(np.quantile(erros, 0.80) / 100 * estoque) if len(erros) else 0.0
     margem = float(np.hypot(erro_fluxo, erro_relacao))
 
     return {
@@ -267,6 +273,9 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None) -> dict:
         "ano_base": int(ultimo["ano"]),
         "estoque_estimado": estoque,
         "margem": margem,
+        "margem_fluxo": erro_fluxo,
+        "margem_relacao": erro_relacao,
+        "modelo_fluxo": modelo,
     }
 
 

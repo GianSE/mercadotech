@@ -58,10 +58,20 @@ def carregar(con=None) -> pd.DataFrame:
     df = con.execute(SQL).df()
     df["mes"] = pd.to_datetime(df["mes"])
     df = df.set_index("mes").sort_index()
+    if not df.index.is_unique:
+        raise ValueError("série mensal com mês repetido")
     # `asfreq` deixa a frequência EXPLÍCITA para o statsmodels. Sem isso ele
     # avisa que vai supor a frequência e as previsões saem sem índice de data,
     # o que embaralha a leitura do resultado.
-    return df.asfreq("MS")
+    df = df.asfreq("MS")
+    # Mês sem dado vira NaN aqui, e um `dropna` adiante o removeria em
+    # silêncio: o SARIMA trataria a série como contínua e a sazonalidade de
+    # 12 meses sairia desalinhada. Lacuna tem de parar o processo.
+    lacunas = df.index[df["saldo"].isna()]
+    if len(lacunas):
+        raise ValueError(f"série mensal com {len(lacunas)} mês(es) sem dado: "
+                         + ", ".join(f"{m:%Y-%m}" for m in lacunas[:12]))
+    return df
 
 
 def diagnostico(df: pd.DataFrame) -> dict:
