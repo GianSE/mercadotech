@@ -108,24 +108,24 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
     Fonte: Autoria própria.
 \end{quadro}
 
-\section{Fontes de Dados}
+\section{Fontes de dados}
 
 A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (\nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}) e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor público distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A camada Bronze guarda esse mesmo conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,4~GB, 11,7 vezes menos que o texto e quase o tamanho dos pacotes compactados de origem, com a diferença de que o Parquet é lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os arquivos: o formato 7z registra o tamanho original de cada arquivo no cabeçalho, ao fim do pacote, e basta ler esse trecho. A \autoref{fig:fluxo-dado}, na \autoref{sec:arquitetura}, mostra o volume em cada etapa, do servidor público ao navegador.
 
 
-\subsection{Desafios de Engenharia da RAIS}
+\subsection{Desafios de engenharia da RAIS}
 
 A RAIS muda de esquema com frequência. No intervalo processado, o número de colunas varia de 47 a 67, refletindo portarias que introduziram novas variáveis ao longo do tempo: indicadores de trabalho intermitente e parcial (a partir de 2017), tipo de salário contratual (em 2018) e o sufixo \textit{``-- código''} nas colunas codificadas (a partir de 2023). No nível do arquivo, as bases chegam compactadas em \texttt{.7z}, com um \texttt{.txt} de largura fixa em seu interior; as edições de 2023 a 2025 trazem o arquivo de dados com a extensão \texttt{.COMT}, renomeada antes da ingestão.
 
 Um ponto não previsto na proposta apareceu aqui: a partir de 2023 os nomes de coluna deixam de ser estáveis mesmo dentro de um mesmo ano, e um arquivo de uma região pode nomear o mesmo campo de forma diferente de outro. Foi necessário construir uma rotina de harmonização de nomes, com tabela de equivalências explícita, aplicada sobre a camada já construída.
 
-\subsection{Desafios de Engenharia do CAGED}
+\subsection{Desafios de engenharia do CAGED}
 
 Entre os dois formatos do CAGED, descritos na \autoref{subsec:caged}, mudam também o vocabulário dos códigos e a própria data de referência da movimentação, o que impede tratar a série como uma só sem harmonização explícita.
 
 Há ainda três tabelas auxiliares do CAGED que a proposta não previa e que se mostraram necessárias para fechar a série: as movimentações fora do prazo (\textit{caged\_for}), as excluídas (\textit{caged\_exc}) e os ajustes (\textit{caged\_ajustes}). Esta última tem uma particularidade relevante: a competência da movimentação vem declarada na linha, e não no nome do arquivo, de modo que um arquivo de 2010 contém correções referentes a meses de anos anteriores.
 
-\subsection{Dicionários Oficiais e a Tradução dos Códigos}
+\subsection{Dicionários oficiais e a tradução dos códigos}
 \label{subsec:dicionarios}
 
 Os microdados são quase inteiramente compostos de códigos: sexo, grau de instrução, raça/cor, ocupação, atividade econômica e município chegam como números sem descrição. O MTE publica essas correspondências em planilhas de \textit{layout}, no mesmo servidor dos dados.
@@ -136,7 +136,7 @@ Duas decisões dessa etapa evitam falhas que o código não acusa. A primeira é
 
 Na arquitetura em nuvem, as planilhas convertidas ficam em um repositório próprio, separado dos microdados. O \textit{pipeline} verifica todo mês se o servidor público passou a ter planilhas de \textit{layout} ainda não extraídas e avisa quando isso ocorre, mas não as incorpora sozinho: a extração é executada manualmente, com conferência do resultado. A diferença é intencional. Um mês de microdados que deixe de ser processado é uma ausência visível; um dicionário substituído sem conferência produz traduções erradas que ninguém percebe, o modo de falha mais perigoso do projeto.
 
-\section{O Recorte de Tecnologia}
+\section{O recorte de tecnologia}
 \label{sec:recorte}
 
 Nem a RAIS nem o CAGED possuem um campo que identifique um vínculo como sendo de tecnologia. O recorte é, portanto, uma decisão metodológica, e foi construído como a união de dois critérios:
@@ -150,7 +150,7 @@ A opção pela união, e não pela interseção, é o que permite responder à s
 
 A seleção por família, e não por código individual, tem uma razão prática: o MTE cria códigos novos dentro de famílias existentes ao longo do tempo, e uma lista fechada de códigos ficaria desatualizada sem aviso. O custo dessa escolha é trazer, junto, ocupações que compartilham a família sem serem de tecnologia, e esse custo foi medido e corrigido.
 
-\subsection{Revisão do Recorte}
+\subsection{Revisão do recorte}
 \label{subsec:revisao-recorte}
 
 O TCC~1 previa que a relação definitiva de códigos seria produzida na fase de Entendimento dos Dados e consolidada no TCC~2. Foi o que ocorreu, em duas direções.
@@ -161,7 +161,7 @@ Saíram cinco códigos que a seleção por família trazia sem aderência ao esc
 
 A família 2031 permaneceu representada por um único código, 203105 (pesquisador em ciências da computação e informática), que é a razão de ela estar na lista desde o início. A relação completa dos códigos, com a descrição oficial e o estoque de cada um, é apresentada no \autoref{apend:cbos} e foi gerada a partir do próprio dado, e não digitada: a tabela do apêndice é um agregado da camada Gold, de modo que qualquer revisão futura do recorte se reflete nela automaticamente.
 
-\section{Arquitetura Implementada}
+\section{Arquitetura implementada}
 \label{sec:arquitetura}
 
 A plataforma foi construída primeiro sobre infraestrutura local (um \textit{data lake} em MinIO na máquina de desenvolvimento, com as etapas disparadas manualmente) e migrada, na fase final do trabalho, para uma arquitetura executada inteiramente em nuvem. Esta seção descreve a arquitetura final; os motivos da migração estão na \autoref{subsec:migracao}. A \autoref{fig:fluxo-dado} mostra os componentes e o caminho do dado entre eles.
@@ -253,7 +253,7 @@ A segunda é que o processamento não tem mais máquina fixa. Cada etapa roda em
 
 A cadeia de camadas é Bronze, Silver de TI e Gold. A Silver não traduz o mercado inteiro para depois recortá-lo: como o recorte é definido de antemão pelos códigos de CBO e de CNAE, a tradução é aplicada só às linhas que pertencem a ele, diretamente a partir da Bronze. A alternativa (uma Silver de mercado completo, da qual se extrairia a área de interesse) teria volume da mesma ordem da Bronze, ou maior, já que a tradução acrescenta uma coluna de descrição ao lado de cada código, para servir a uma análise que consome 1,3~GB. Analisar outra área não exige essa camada intermediária: basta construir outra Silver a partir da mesma Bronze, com outro recorte.
 
-\subsection{Orquestração do \textit{Pipeline}}
+\subsection{Orquestração do \textit{pipeline}}
 \label{subsec:orquestracao-pipeline}
 
 O \textit{pipeline} é dividido em nove etapas, cada uma um \textit{workflow} próprio do GitHub Actions, com uma única responsabilidade. Um décimo \textit{workflow}, o orquestrador, encadeia as nove pela dependência real entre elas, e não por horários escalonados: uma etapa só começa quando as etapas de que depende terminaram. A \autoref{fig:actions}, adiante, mostra esse grafo em uma execução real.
@@ -358,13 +358,13 @@ O orquestrador roda toda semana e também pode ser disparado manualmente a parti
     Fonte: Autoria própria, a partir da execução de 22/10/2026 registrada no GitHub Actions.
 \end{figure}
 
-\subsection{Particionamento e Organização dos Arquivos}
+\subsection{Particionamento e organização dos arquivos}
 
 Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o ano (e o mês, quando a tabela é mensal) expresso no caminho: \nolinkurl{caged_mov/ano_particao=2025/mes_particao=6/}. Essa convenção permite ao DuckDB descartar partições inteiras pela leitura do caminho, antes de abrir qualquer arquivo.
 
 A camada nasceu com um arquivo de saída por arquivo de entrada, o que é natural quando a ingestão é feita arquivo a arquivo, mas produziu 2.111 arquivos de menos de 2~MB cada, 35 por ano apenas na tabela de vínculos da RAIS. O custo está menos no espaço do que no número de objetos: cada arquivo é uma conexão, um rodapé de metadados e um plano de execução à parte; sobre HTTP, é uma requisição por arquivo. Uma rotina de consolidação reduziu a camada a 628 arquivos, um por partição, preservando a procedência de cada linha em colunas de linhagem (\texttt{arquivo\_fonte}, \texttt{caminho\_fonte}, \texttt{data\_ingestao} e \texttt{arquivo\_bronze}) em vez de no nome do arquivo.
 
-\section{Auditoria e Garantia de Qualidade}
+\section{Auditoria e garantia de qualidade}
 \label{sec:auditoria}
 
 A validação prevista na proposta (confrontar os agregados com os painéis oficiais) foi complementada por uma rotina de auditoria automatizada, executada sobre a camada construída antes de qualquer análise. Ela aplica três verificações a cada tabela:
@@ -379,20 +379,20 @@ As três verificações passaram sem apontamentos na camada final. Mais relevant
 
 Os defeitos apontados durante a construção foram corrigidos por rotinas idempotentes (harmonização de nomes, tipagem de colunas numéricas, consolidação de arquivos e aplicação da revisão do recorte), o que permitiu revisar o recorte por poda e complemento, sem reprocessar a camada inteira. O construtor atual da Silver incorpora as duas correções mais importantes, a harmonização de nomes entre as eras de \textit{layout} e a tipagem dos campos numéricos, de modo que um ano novo já entra correto.
 
-\section{Ferramentas Utilizadas}
+\section{Ferramentas utilizadas}
 
 O \textit{pipeline} foi escrito em Python \cite{Python2024} e é executado pelo GitHub Actions \cite{GitHubActions2026}. O \textit{data lake} fica no Hugging Face Hub \cite{HuggingFaceDatasets2026}, e a biblioteca \textit{huggingface\_hub} publica os arquivos de cada etapa em um único \textit{commit}, para que uma etapa interrompida não deixe a camada pela metade. As consultas usam o DuckDB \cite{DuckDB2024}, que lê o Apache Parquet \cite{ApacheParquet2024} direto do repositório pelo protocolo \texttt{hf://} e devolve os resultados em Apache Arrow \cite{PyArrow2024}. Os modelos usam o \textit{statsmodels} \cite{Seabold2010} (SARIMA, regressões da decomposição salarial e modelo de risco) e o \textit{scikit-learn} \cite{Pedregosa2011}, no $k$-médias e na silhueta. O \textit{dashboard} é escrito em React e TypeScript \cite{React2026}, consulta os dados com o DuckDB-Wasm \cite{Kohn2022}, desenha os gráficos com o Apache ECharts \cite{Li2018} e é hospedado no Cloudflare Pages \cite{CloudflarePages2026}.
 
-\section{Modelos Aplicados}
+\section{Modelos aplicados}
 
-\subsection{Previsão do Saldo Mensal}
+\subsection{Previsão do saldo mensal}
 \label{subsec:metodo-sarima}
 
 A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12, e um \textit{baseline} ingênuo sazonal. O Prophet \cite{Taylor2018}, modelo previsto na proposta, entrou na mesma comparação, em três configurações que variam apenas a flexibilidade da tendência (0,01, 0,05 e 0,5, sendo a segunda o padrão da biblioteca), com sazonalidade anual aditiva, já que o saldo é negativo em parte dos meses. As duas grades são pequenas de propósito, pelo risco de sobreajuste na validação discutido na \autoref{subsec:origem-movel}.
 
 A avaliação seguiu validação de origem móvel \cite{Tashman2000}: o modelo é treinado até um instante $T$, prevê os 12 meses seguintes, a origem avança 12 meses e o procedimento se repete, totalizando cinco dobras. O \textit{baseline} é avaliado nas mesmas dobras e com o mesmo horizonte. As métricas são MAE e RMSE, apresentadas na \autoref{subsec:metricas}.
 
-\subsection{\textit{Nowcast} do Estoque}
+\subsection{\textit{Nowcast} do estoque}
 \label{subsec:metodo-nowcast}
 
 A RAIS de um ano só é publicada no ano seguinte, de modo que o estoque do ano corrente é sempre desconhecido. O CAGED, por outro lado, é mensal e já publicou parte do ano. Isso permite estimar o estoque corrente pela identidade contábil
@@ -405,7 +405,7 @@ A identidade é aproximada, e não exata: a variação do estoque entre dois 31 
 
 A validação é retrospectiva, com janela expansiva: cada ano de 2014 a 2025 é estimado com os estimadores ajustados apenas com os anos anteriores, como se o ano estivesse em curso, e o erro é medido contra o estoque que a RAIS publicou depois. O resultado é reportado em média, em mediana e no pior ano, além do último ano retido, que é o mais próximo do uso real.
 
-\subsection{Permanência e Sobrevivência no Vínculo}
+\subsection{Permanência e sobrevivência no vínculo}
 \label{subsec:metodo-sobrevivencia}
 
 A permanência no emprego foi analisada a partir do tempo de vínculo declarado na RAIS, com desligamentos por iniciativa não comparável (aposentadoria, falecimento, transferência e fim de contrato de experiência, entre outros) tratados como censura.
@@ -416,7 +416,7 @@ A escolha do método decorre de um erro corrigido durante o trabalho: o estimado
 
 Complementarmente, um modelo de risco em tempo discreto (regressão logística do desligamento no ano sobre faixa de tempo de casa, sexo, escolaridade, área de TI, porte e região) estima o efeito de cada característica mantendo as demais constantes.
 
-\subsection{Decomposição do Hiato Salarial}
+\subsection{Decomposição do hiato salarial}
 \label{subsec:metodo-oaxaca}
 
 As diferenças de remuneração por sexo e por raça/cor foram decompostas pelo método de Oaxaca-Blinder \cite{Oaxaca1973, Blinder1973}, apresentado na \autoref{subsec:oaxaca}. A variável dependente é o logaritmo da remuneração média em salários mínimos; as covariáveis são escolaridade, área de TI, porte do estabelecimento, região, setor (TI ou não), tempo de emprego, idade, idade ao quadrado e horas contratuais.
@@ -425,24 +425,24 @@ A referência é o vetor de coeficientes da regressão conjunta dos dois grupos 
 
 A decomposição foi calculada ano a ano, de 2007 a 2025, o que permite observar a trajetória das duas parcelas (a explicada por características e a não explicada) em lugar de uma fotografia única.
 
-\subsection{Agrupamento de Municípios}
+\subsection{Agrupamento de municípios}
 \label{subsec:metodo-clusters}
 
 Para caracterizar a geografia do mercado além do \textit{ranking} de maiores estoques, os municípios foram agrupados por $k$-médias \cite{MacQueen1967} sobre seis variáveis padronizadas de trajetória: logaritmo do estoque, estoque por mil habitantes, crescimento no período, intensidade de fluxo, rotatividade e remuneração mediana em salários mínimos. O número de grupos foi escolhido pelo coeficiente de silhueta \cite{Rousseeuw1987}, e não fixado \textit{a priori}.
 
-\section{Publicação dos Dados e Migração para a Nuvem}
+\section{Publicação dos dados e migração para a nuvem}
 \label{sec:publicacao}
 
 A proposta do TCC~1 previa publicar o código-fonte e mencionava a possibilidade de publicar os dados tratados. A possibilidade virou necessidade por uma razão de implantação: o \textit{data lake} em MinIO era local, e um \textit{dashboard} hospedado em nuvem não tinha acesso a ele. O Hugging Face Hub \cite{HuggingFaceDatasets2026} foi escolhido por aceitar Parquet particionado, servir os arquivos com requisições parciais, o que permite ao DuckDB ler só os trechos necessários, e versionar os conjuntos, atendendo aos princípios FAIR \cite{WilkinsonFair2016}.
 
-\subsection{Migração para a Nuvem}
+\subsection{Migração para a nuvem}
 \label{subsec:migracao}
 
 Nessa primeira forma, a publicação era uma cópia do \textit{data lake} local. Três problemas da operação local levaram a fazer do repositório público o próprio \textit{data lake}. O primeiro foi de espaço: o \textit{data lake} local chegou a 72~GB, em um disco com 27~GB livres, e 56~GB eram uma duplicata da Bronze já publicada. O segundo foi de ambiente: a política de integridade de código do Windows passou a bloquear as bibliotecas nativas de \textit{scipy}, \textit{statsmodels} e \textit{scikit-learn}, e foi nos executores Linux do GitHub Actions que os modelos voltaram a ser calculados. O terceiro foi de atualização: incorporar um mês novo dependia de alguém executar as etapas na ordem certa e republicar, e enquanto isso o \textit{dashboard} mostrava dado desatualizado sem nenhum sinal. Com o orquestrador da \autoref{subsec:orquestracao-pipeline}, a verificação passou a ser semanal e automática, e a reconstrução do site é a última etapa da mesma fila.
 
 Antes da migração, um \textit{workflow} piloto confirmou que a latência e os limites do repositório permitiam processar a Bronze a partir de um executor; depois, cada etapa foi reescrita para ler e gravar direto no repositório, e o código ligado ao MinIO foi removido. Um cuidado operacional acompanha essa escolha: o envio ao repositório apenas acrescenta arquivos, e uma camada reorganizada somaria as versões antigas às novas, contando linhas em dobro sem acusar erro. Por isso a publicação da Silver consolida cada partição em um arquivo e remove, no mesmo \textit{commit}, tudo o que existia daquele ano; e um ano só é publicado se todos os seus arquivos de origem foram processados.
 
-\section{Camada de Apresentação}
+\section{Camada de apresentação}
 \label{sec:apresentacao}
 
 O \textit{dashboard} segue a arquitetura apresentada na \autoref{sec:visualizacao}: um site estático em React \cite{React2026}, com gráficos em Apache ECharts \cite{Li2018}, publicado no Cloudflare Pages \cite{CloudflarePages2026}, em que as consultas rodam no navegador com o DuckDB-Wasm \cite{Kohn2022}. Mudar um filtro é uma consulta local, não há servidor de aplicação para manter, e o motor é o mesmo DuckDB do \textit{pipeline}: uma consulta escrita para a Gold vale igual no site.
@@ -455,7 +455,7 @@ A organização segue o princípio de \citeonline{Shneiderman1996}. Cada página
 
 Um cuidado de método acompanha o filtro: mediana não se soma (\autoref{sec:achados-qualidade}). A Gold guarda a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo por ano, estado e lente. Sem filtro, o site mostra a mediana exata; com filtro, soma as faixas dos estados escolhidos e interpola dentro da faixa que contém o meio da distribuição, com erro máximo de 0,05 salário mínimo.
 
-\section{Revisões em Relação à Proposta do TCC~1}
+\section{Revisões em relação à proposta do TCC~1}
 \label{sec:revisoes}
 
 Projetos de dados raramente terminam idênticos ao que foram propostos, e declarar as mudanças é parte do método. O \autoref{quadro:revisoes} relaciona o que foi proposto, o que foi efetivamente feito e por quê.
@@ -487,7 +487,7 @@ Projetos de dados raramente terminam idênticos ao que foram propostos, e declar
     Fonte: Autoria própria.
 \end{quadro}
 
-\section{Limitações e Reprodutibilidade}
+\section{Limitações e reprodutibilidade}
 \label{sec:limitacoes-metodo}
 
 A RAIS e o CAGED cobrem exclusivamente o mercado formal. Trabalhadores por conta própria, profissionais autônomos sem CNPJ, microempreendedores individuais e a parcela informal do setor ficam fora do escopo, o que é especialmente relevante em uma área em que a contratação como pessoa jurídica é comum. A CBO, por sua vez, é atualizada lentamente em relação à criação de ocupações no setor de tecnologia.

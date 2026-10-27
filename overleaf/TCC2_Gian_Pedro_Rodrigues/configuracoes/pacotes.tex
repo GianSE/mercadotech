@@ -55,28 +55,31 @@
 \let\cleardoublepage\clearpage
 \let\clearforchapter\clearpage
 
-% ABNT NBR 6024 — FORMATAÇÃO DE TÍTULOS DE SEÇÃO
+% ABNT NBR 6024 — FORMATAÇÃO DE TÍTULOS DE SEÇÃO (igual no texto e no sumário)
 % Primária   (\chapter):       CAIXA ALTA + negrito
-% Secundária (\section):       CAIXA ALTA + sem negrito
-% Terciária  (\subsection):    caixa baixa + negrito
-% Quaternária(\subsubsection): caixa baixa + sem negrito
+% Secundária (\section):       caixa baixa + negrito
+% Terciária  (\subsection):    caixa baixa + sem negrito
+% Quaternária(\subsubsection): caixa baixa + sem negrito + sublinhado
 % Quinária   (\paragraph):     caixa baixa + itálico
+\usepackage[normalem]{ulem}                                 % \uline: sublinhado que quebra linha (normalem preserva o \emph)
 \setboolean{ABNTEXupperchapter}{true}
-\setboolean{ABNTEXuppersection}{true}
-\newcommand{\ABNTsecformat}[1]{\normalfont\MakeUppercase{#1}}
-\setsecheadstyle{\ABNTsecformat}
-\setsubsecheadstyle{\normalfont\bfseries}
-\setsubsubsecheadstyle{\normalfont}
+\setboolean{ABNTEXuppersection}{false}
+\setsecheadstyle{\normalfont\bfseries}
+\setsubsecheadstyle{\normalfont}
+\newcommand{\ABNTsubsubsecformat}[1]{\normalfont\uline{#1}}
+\setsubsubsecheadstyle{\ABNTsubsubsecformat}
+\setsubsubsecindent{0pt}                                    % todos os títulos alinhados à margem
 \setparaheadstyle{\normalfont\itshape}
-% Sumário: entradas de capítulo e seção em caixa alta
+% Sumário: capítulo em caixa alta. A subsubseção sai sublinhada no sumário
+% pelo título curto: use \subsubsecaobnt{Título}, que sublinha o título (não o
+% número) no sumário e deixa o marcador do PDF sem formatação.
 \makeatletter
 \AtBeginDocument{%
   \let\ABNTEXorig@l@chapter\l@chapter
   \renewcommand{\l@chapter}[2]{\ABNTEXorig@l@chapter{\MakeUppercase{#1}}{#2}}%
-  \let\ABNTEXorig@l@section\l@section
-  \renewcommand{\l@section}[2]{\ABNTEXorig@l@section{\MakeUppercase{#1}}{#2}}%
 }
 \makeatother
+\newcommand{\subsubsecaobnt}[1]{\subsubsection[\texorpdfstring{\protect\uline{#1}}{#1}]{#1}}
 
 % Sumário SEM RECUO (replica a opção "semrecuonosumario" do modelo oficial UTFPR):
 % todos os níveis alinhados à margem esquerda, conforme NBR 6027:2012.
@@ -88,11 +91,11 @@
 
 % Sumário — estilo por nível espelhando a NBR 6024 (mesma formatação do texto):
 %   nível 1 (capítulo):     CAIXA ALTA + negrito  (classe + \l@chapter)
-%   nível 2 (seção):        CAIXA ALTA + sem negrito (\l@section faz a caixa alta)
-%   nível 3 (subseção):     caixa baixa + negrito
-%   nível 4 (subsubseção):  caixa baixa + sem negrito
-\renewcommand{\cftsectionfont}{\normalfont}
-\renewcommand{\cftsubsectionfont}{\normalfont\bfseries}
+%   nível 2 (seção):        caixa baixa + negrito
+%   nível 3 (subseção):     caixa baixa + sem negrito
+%   nível 4 (subsubseção):  caixa baixa + sem negrito + sublinhado (\l@subsubsection)
+\renewcommand{\cftsectionfont}{\normalfont\bfseries}
+\renewcommand{\cftsubsectionfont}{\normalfont}
 \renewcommand{\cftsubsubsectionfont}{\normalfont}
 
 % A numeração e o sumário vão até a seção quaternária (\subsubsection). O

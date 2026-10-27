@@ -35,14 +35,11 @@
 
 \def\license{}
 
-% CAPA (modelo UTFPR TCC 1 — 3 linhas de instituição + label Proposta)
+% CAPA: instituição, autor, título, local e ano. Departamento, curso e a
+% natureza do trabalho ficam na folha de rosto.
 \begin{capa}
     \begin{center}
-        \begin{SingleSpacing}
-            \large\bfseries\MakeUppercase{\imprimirinstituicao}\\
-            \large\bfseries\MakeUppercase{\imprimirdepartamento}\\
-            \large\bfseries\MakeUppercase{\imprimirprograma}
-        \end{SingleSpacing}
+        \large\bfseries\MakeUppercase{\imprimirinstituicao}
     \end{center}
 
     \vfill
@@ -55,12 +52,6 @@
 
     \begin{center}
         \ABNTEXchapterfont\large\bfseries\MakeUppercase{\imprimirtitulo}
-    \end{center}
-
-    \vfill
-
-    \begin{center}
-        \large\bfseries\MakeUppercase{\imprimirprojeto}
     \end{center}
 
     \vfill

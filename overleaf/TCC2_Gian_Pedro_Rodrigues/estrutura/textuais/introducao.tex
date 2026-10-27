@@ -19,7 +19,7 @@ Estudos sobre o mercado de TI brasileiro costumam trabalhar com recortes tempora
 
 O obstáculo está na própria engenharia desses dados: formatos, \textit{layouts} e codificações mudam ao longo da série, e os registros são só códigos, que precisam ser cruzados com tabelas de referência externas para fazer sentido. Construir um \textit{pipeline} reproduzível capaz de transformar essa massa heterogênea em séries temporais comparáveis é, por si só, uma contribuição relevante para quem trabalha com bases governamentais brasileiras.
 
-\section{Problema de Pesquisa}
+\section{Problema de pesquisa}
 \label{sec:problema}
 
 A questão central que orienta o trabalho é: como construir uma plataforma analítica integrada que permita explorar e projetar o mercado formal de trabalho em TI no Brasil a partir dos microdados da RAIS e do CAGED, de forma reprodutível e com baixo custo operacional?
@@ -59,7 +59,7 @@ Nem as perguntas nem as fontes ficaram fixas desde a proposta. O trabalho seguiu
 
 O objetivo geral foi desenvolver uma plataforma integrada para análise histórica, visualização interativa e previsão do mercado de trabalho em TI no Brasil, a partir dos microdados da RAIS e do CAGED, com base em uma arquitetura Medalhão executada em nuvem, com o \textit{data lake} em repositórios públicos de dados e o processamento automatizado por \textit{workflows} de integração contínua.
 
-\subsection{Objetivos Específicos}
+\subsection{Objetivos específicos}
 
 \begin{itemize}
     \item Implementar um \textit{pipeline} de engenharia de dados nas camadas Bronze, Silver e Gold, processando os microdados brutos da RAIS (2007--2025) e do CAGED (2007--2026);
@@ -81,6 +81,6 @@ No plano técnico, o \textit{pipeline} mostra que é possível substituir infrae
 
 Há ainda uma terceira contribuição, não prevista na proposta: a auditoria do dado publicado pelo MTE revelou defeitos concretos na fonte, e documentá-los, com os testes que os detectam, é útil para qualquer pesquisa futura sobre as mesmas bases.
 
-\section{Estrutura do Trabalho}
+\section{Estrutura do trabalho}
 
 Este trabalho está organizado em cinco capítulos. O \autoref{cap:referencial} apresenta a fundamentação teórica, começando pelos trabalhos relacionados e seguindo para as bases de dados, a arquitetura de dados, os modelos de série temporal e os métodos de decomposição salarial, sobrevivência e agrupamento utilizados. O \autoref{cap:metodologia} descreve os materiais e o método: as fontes, o recorte de tecnologia, a arquitetura implementada, as ferramentas e as revisões feitas em relação à proposta do TCC~1. O \autoref{cap:resultados} apresenta e discute os resultados, organizados pelas cinco perguntas da \autoref{quadro:perguntas}, incluindo os achados de qualidade do dado e as medidas de desempenho e reprodutibilidade da plataforma. O \autoref{cap:consideracoes} retoma as contribuições, declara as limitações e indica caminhos de continuidade.
