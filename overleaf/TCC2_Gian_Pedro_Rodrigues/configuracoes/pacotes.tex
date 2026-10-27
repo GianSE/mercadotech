@@ -66,7 +66,10 @@
 \setboolean{ABNTEXuppersection}{false}
 \setsecheadstyle{\normalfont\bfseries}
 \setsubsecheadstyle{\normalfont}
-\newcommand{\ABNTsubsubsecformat}[1]{\normalfont\uline{#1}}
+% O memoir entrega número e título juntos a este estilo: o sublinhado já vai do
+% número ao fim do título. O \noindent evita o recuo de parágrafo que o \uline
+% abriria.
+\newcommand{\ABNTsubsubsecformat}[1]{\normalfont\noindent\uline{#1}}
 \setsubsubsecheadstyle{\ABNTsubsubsecformat}
 \setsubsubsecindent{0pt}                                    % todos os títulos alinhados à margem
 \setparaheadstyle{\normalfont\itshape}
@@ -80,6 +83,12 @@
 }
 \makeatother
 \newcommand{\subsubsecaobnt}[1]{\subsubsection[\texorpdfstring{\protect\uline{#1}}{#1}]{#1}}
+% Nível 4: o sublinhado é contínuo, do número até o fim do título.
+% Posição fixa do traço, para o número e o título ficarem na mesma linha.
+\setlength{\ULdepth}{2.5pt}
+% Sumário: um traço na largura da caixa do número, emendado ao do título.
+\renewcommand{\cftsubsubsectionpresnum}{%
+  \rlap{\rule[-\ULdepth]{\cftsubsubsectionnumwidth}{\ULthickness}}}% mesma altura e espessura do \uline
 
 % Sumário SEM RECUO (replica a opção "semrecuonosumario" do modelo oficial UTFPR):
 % todos os níveis alinhados à margem esquerda, conforme NBR 6027:2012.
