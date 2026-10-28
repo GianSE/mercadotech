@@ -9,9 +9,10 @@ import { literal, num, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
-// A visão geral só situa quem chega: o tamanho do mercado e da base, o que
-// conta como TI (CBO e CNAE) e as cinco perguntas. As respostas ficam nas
-// páginas de cada pergunta e na Análise.
+// A visão geral só situa quem chega, nesta ordem: o que é o painel e as duas
+// bases (RAIS e CAGED), as cinco perguntas, os números do recorte e o que
+// conta como TI (CBO e CNAE). As respostas ficam nas páginas de cada
+// pergunta e na Análise.
 const PAGINAS = [
   { id: "crescimento", p: "Quanto o mercado cresceu, e em que ritmo?" },
   { id: "onde", p: "Onde está o trabalho de TI?" },
