@@ -15,12 +15,19 @@ on:
         description: "Ano inicial (vazio = ano atual - 1)"
       ano_fim:
         description: "Ano final (vazio = ano atual)"
+      forcar:
+        description: "Reingerir os anos pedidos mesmo que já estejam publicados"
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       ano_inicio:
         type: string
       ano_fim:
         type: string
+      forcar:
+        type: boolean
+        default: false
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -53,7 +60,7 @@ jobs:
         run: |
           ANO_INICIO="${{ inputs.ano_inicio }}"
           ANO_FIM="${{ inputs.ano_fim }}"
-          python bronze-caged.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}"
+          python bronze-caged.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}" ${{ inputs.forcar && '--forcar' || '' }}
 
   atualizar:
     needs: verificar
@@ -75,4 +82,4 @@ jobs:
         working-directory: tasks-python/1-bronze
         run: |
           python bronze-caged.py --modo processar --tabela ${{ matrix.item.tabela }} \
-            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }}
+            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }} ${{ inputs.forcar && '--forcar' || '' }}

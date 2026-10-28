@@ -15,7 +15,7 @@ O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2
 
 \input{estrutura/tabelas-geradas/tab-linhas-camada.tex}
 
-A redução de volume entre as camadas é o que viabiliza a plataforma: os 661~GB de microdados em texto, guardados em 56~GB de Parquet na Bronze, tornam-se pouco mais de 1~GB quando restritos ao recorte de tecnologia (\autoref{fig:fluxo-dado}), volume que se processa em um executor gratuito e se consulta no navegador. O número de arquivos importa tanto quanto o volume: depois da consolidação em um arquivo por partição (\autoref{sec:arquitetura}), uma contagem completa dos vínculos de TI da RAIS passou a responder em 0,4~segundo, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. Em nuvem, a Gold inteira cabe com folga em um executor gratuito: na execução da \autoref{fig:actions}, a etapa mais longa levou 14 minutos. Mais importante que o tempo, a plataforma deixou de depender de uma máquina específica estar ligada, com espaço livre e com as bibliotecas certas funcionando (\autoref{subsec:migracao}).
+A redução de volume entre as camadas (\autoref{fig:fluxo-dado}) é o que viabiliza a plataforma: restrito ao recorte de tecnologia, o dado cabe em pouco mais de 1~GB, que se processa em um executor gratuito e se consulta no navegador. O número de arquivos importa tanto quanto o volume: depois da consolidação em um arquivo por partição (\autoref{sec:arquitetura}), uma contagem completa dos vínculos de TI da RAIS passou a responder em 0,4~segundo, lendo apenas os rodapés de metadados dos 19 arquivos da tabela. Em nuvem, a Gold inteira cabe com folga em um executor gratuito: na execução da \autoref{fig:actions}, a etapa mais longa levou 14 minutos. Mais importante que o tempo, a plataforma deixou de depender de uma máquina específica estar ligada, com espaço livre e com as bibliotecas certas funcionando (\autoref{subsec:migracao}).
 
 \section{Reprodutibilidade do recorte}
 \label{sec:reprodutibilidade}
@@ -79,7 +79,7 @@ O \autoref{quadro:achados} relaciona os achados. Três merecem discussão mais l
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 \subsection{Ingestão parcial: o limite de uma auditoria por arquivo}
@@ -165,7 +165,7 @@ A concentração em São Paulo levanta uma pergunta de método: as conclusões n
     \label{fig:dashboard-sp}
     \includegraphics[width=\textwidth]{figuras/dashboard-sao-paulo.png}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{figure}
 
 A localização, como declarado na \autoref{sec:limitacoes-metodo}, é a do estabelecimento declarante, e não a de onde a pessoa vive e trabalha. A concentração paulista, portanto, mede onde estão os empregadores, e com o trabalho remoto é provavelmente maior do que a concentração de quem faz o trabalho.
@@ -246,54 +246,24 @@ Essa assimetria (previsão de futuro incerta, estimação de presente bem mais p
 
 \section{O \textit{dashboard} entregue}
 
-A camada de apresentação, descrita na \autoref{sec:apresentacao}, foi organizada pelas cinco perguntas de pesquisa, e não pela origem do dado, correção de uma primeira versão em que as abas, organizadas por base, mostravam gráficos corretos que não chegavam a uma conclusão. Um gráfico só permanece em uma página se sustenta a resposta daquela pergunta; os recortes que não sustentam uma resposta, como o saldo por setor e por ocupação, foram para a página de exploração livre. A \autoref{fig:dashboard-pergunta} mostra a abertura de uma página de pergunta: a pergunta, os filtros e os indicadores, antes dos gráficos.
+A camada de apresentação, descrita na \autoref{sec:apresentacao}, foi organizada pelas cinco perguntas de pesquisa, e não pela origem do dado, correção de uma primeira versão em que as abas, organizadas por base, mostravam gráficos corretos que não chegavam a uma conclusão. Um gráfico só permanece em uma página se sustenta a resposta daquela pergunta; os recortes que não sustentam uma resposta, como o saldo por setor e por ocupação, saíram do painel, que ficou com a visão geral, as cinco perguntas e a página de análise. A \autoref{fig:dashboard}(a) mostra a abertura de uma página de pergunta: a pergunta, os filtros e os indicadores, antes dos gráficos.
+
+O filtro de território torna a interface um instrumento de verificação, e não só de leitura. A \autoref{fig:dashboard}(b) mostra o efeito do recorte ``Brasil sem SP'' sobre o mapa: o estado excluído sai da escala de cor, que passa a distinguir os demais, e os indicadores são recalculados para o recorte. A análise de sensibilidade sobre São Paulo apresentada na \autoref{sec:resultado-q2} tem uma seção própria na página da segunda pergunta e pode ser estendida a qualquer outro gráfico com um clique.
 
 \begin{figure}[htbp]
     \centering
-    \caption{Página de uma pergunta de pesquisa no \textit{dashboard}}
-    \label{fig:dashboard-pergunta}
-    \includegraphics[width=\textwidth]{figuras/dashboard-pergunta.png}
+    \caption{O \textit{dashboard}: página de uma pergunta de pesquisa (a) e mapa com o recorte ``Brasil sem SP'' (b)}
+    \label{fig:dashboard}
+    \begin{minipage}[t]{0.495\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figuras/dashboard-pergunta.png}\\[2pt]
+        {\footnotesize (a) Abertura da página da primeira pergunta}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.495\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figuras/dashboard-mapa-filtro.png}\\[2pt]
+        {\footnotesize (b) Mapa e \textit{ranking} de estados sem São Paulo}
+    \end{minipage}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{figure}
-
-O filtro de território torna a interface um instrumento de verificação, e não só de leitura. A \autoref{fig:dashboard-mapa} mostra o efeito do recorte ``Brasil sem SP'' sobre o mapa: o estado excluído sai da escala de cor, que passa a distinguir os demais, e os indicadores são recalculados para o recorte.
-
-\begin{figure}[htbp]
-    \centering
-    \caption{Mapa e \textit{ranking} de estados com o recorte ``Brasil sem SP''}
-    \label{fig:dashboard-mapa}
-    \includegraphics[width=\textwidth]{figuras/dashboard-mapa-filtro.png}
-    \\[4pt]
-    Fonte: Autoria própria.
-\end{figure} A análise de sensibilidade sobre São Paulo apresentada na \autoref{sec:resultado-q2} tem uma seção própria na página da segunda pergunta e pode ser estendida a qualquer outro gráfico com um clique.
-
-\section{Síntese das respostas}
-
-O \autoref{quadro:sintese} reúne as respostas às cinco perguntas.
-
-\begin{quadro}[htbp]
-    \centering
-    \caption{Síntese das respostas às perguntas de pesquisa}
-    \label{quadro:sintese}
-    \footnotesize
-    \renewcommand{\arraystretch}{1.3}
-    \begin{tabularx}{\textwidth}{%
-        >{\raggedright\arraybackslash\hsize=0.70\hsize}X
-        >{\raggedright\arraybackslash\hsize=1.30\hsize}X}
-        \toprule
-        \rowcolor{black!8}
-        \textbf{Pergunta} & \textbf{Resposta} \\
-        \midrule
-        1. Quanto cresceu? & 162\% em dezoito anos, de 519.271 para 1.361.231 vínculos, ou 5,5\% ao ano, em ondas: queda na recessão de 2014--2017, 38\% de todo o crescimento concentrado em 2020--2022 e desaceleração depois. \\
-        2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, mas eram 71\% em 2007: o crescimento se concentrou nas empresas de TI, que quadruplicaram seus profissionais. O crescimento recente é um pouco mais rápido fora das capitais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
-        3. Melhorou em qualidade? & Não em remuneração relativa: a mediana do recorte em salários mínimos ficou estável (3,39 para 3,41), e a dos profissionais de TI caiu cerca de um quinto. O tempo de emprego oscila com o ciclo, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
-        4. Quem ganha menos? & Pessoas negras, com hiato em queda (de 64\% para 38\% entre brancos e pardos) por melhora de acesso. Mulheres, com um hiato que surgiu depois de 2015, chegou a 7,8\% em 2025 e é inteiramente de retorno; a participação feminina caiu de 32,5\% para 30,6\%. \\
-        5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso; o SARIMA superou o Prophet. O \textit{nowcast} do estoque corrente errou em média 1,1\% em doze anos retidos e projeta 1,37 milhão de vínculos em 2026, alta de 0,7\%. \\
-        \bottomrule
-    \end{tabularx}
-    \\[4pt]
-    Fonte: Autoria própria.
-\end{quadro}
-
-Tomadas em conjunto, as respostas sustentam a tese que organiza o trabalho: o emprego formal de tecnologia no Brasil cresceu muito, mas em ondas, e cresceu sobretudo dentro das próprias empresas de TI. Esse crescimento não elevou a remuneração em relação ao salário mínimo e teve efeitos opostos nos dois eixos de desigualdade: o hiato racial caiu, porque pessoas negras passaram a chegar mais às posições que pagam melhor, enquanto o hiato de gênero surgiu e as mulheres perderam participação no setor.

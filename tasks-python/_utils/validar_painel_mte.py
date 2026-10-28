@@ -181,7 +181,7 @@ def main() -> int:
         \\bottomrule
     \\end{{tabular}}
     \\\\[4pt]
-    Fonte: Autoria própria, a partir do painel público do MTE e da camada Gold.
+    Fonte: Elaborado pelo autor com dados do painel do MTE \\cite{{PainelMTE2026}} e da RAIS \\cite{{RAIS2024}}.
 \\end{{table}}
 """, encoding="utf-8")
     (args.destino / "tab-validacao-caged.tex").write_text(f"""% Gerado por _utils/validar_painel_mte.py --- não editar à mão.
@@ -203,7 +203,7 @@ def main() -> int:
     \\end{{tabular}}
     \\\\[4pt]
     Nota: o trabalho inclui as declarações fora do prazo e desconta as exclusões, como o painel. \\\\
-    Fonte: Autoria própria, a partir do painel público do MTE e da camada Silver.
+    Fonte: Elaborado pelo autor com dados do painel do MTE \\cite{{PainelMTE2026}} e do CAGED \\cite{{CAGED2024}}.
 \\end{{table}}
 """, encoding="utf-8")
     print("✅ tab-validacao-rais.tex e tab-validacao-caged.tex gerados; detalhe em overleaf/validacao/")

@@ -68,11 +68,44 @@ def escrever(nome: str, corpo: str):
     print(f"   {nome}")
 
 
+# Fonte de cada tabela e figura: a base de onde vem o dado, com citação. O
+# trabalho de agregação é do autor, mas o número é da RAIS ou do CAGED, e é
+# isso que a fonte precisa dizer (ABNT NBR 14724: a fonte identifica a origem
+# da informação, mesmo quando a elaboração é própria).
+RAIS = "Elaborado pelo autor com dados da RAIS \\cite{RAIS2024}."
+CAGED = "Elaborado pelo autor com dados do CAGED \\cite{CAGED2024}."
+AMBAS = "Elaborado pelo autor com dados da RAIS e do CAGED \\cite{RAIS2024, CAGED2024}."
+FONTES = {
+    "tab-volumes.tex": "Elaborado pelo autor a partir dos repositórios de dados do projeto, com microdados da RAIS e do CAGED \\cite{RAIS2024, CAGED2024}.",
+    "tab-linhas-camada.tex": AMBAS,
+    "tab-artefato-ro.tex": RAIS,
+    "tab-estoque-serie.tex": RAIS,
+    "fig-estoque-serie.tex": RAIS,
+    "tab-fases.tex": RAIS,
+    "tab-lentes.tex": RAIS,
+    "tab-lentes-evolucao.tex": RAIS,
+    "tab-areas.tex": RAIS,
+    "tab-uf.tex": RAIS,
+    "tab-hiato.tex": RAIS,
+    "fig-hiato-serie.tex": RAIS,
+    "tab-previsao.tex": CAGED,
+    "tab-nowcast.tex": AMBAS,
+    "fig-nowcast-anos.tex": AMBAS,
+    "tab-risco.tex": RAIS,
+    "fig-risco.tex": RAIS,
+    "tab-clusters.tex": AMBAS,
+    "tab-cbos.tex": RAIS,
+    "tab-reprodutibilidade-rais.tex": RAIS,
+    "tab-reprodutibilidade.tex": AMBAS,
+}
+
+
 def tabela(nome: str, caption: str, rotulo: str, colunas: str,
            cabecalho: list[str], linhas: list[list[str]],
-           fonte: str = "Autoria própria, a partir da camada Gold.",
+           fonte: str | None = None,
            nota: str = "", ambiente: str = "table") -> None:
     """Monta uma tabela ABNT com booktabs e grava o arquivo."""
+    fonte = fonte or FONTES[nome]
     cab = " & ".join(f"\\textbf{{{c}}}" for c in cabecalho) + " \\\\"
     corpo = "\n".join("        " + " & ".join(l) + " \\\\" for l in linhas)
     escrever(nome, f"""% Gerado por scripts/gerar_tabelas.py --- não editar à mão.
@@ -136,8 +169,7 @@ for rotulo, listas in camadas:
     tam = sum(arqs) / 2**30
     linhas.append([rotulo, num(len(arqs)), f"{num(tam, 2)} GB" if tam >= 0.01 else "< 10 MB"])
 tabela("tab-volumes.tex", "Volume de cada camada do \\textit{data lake}",
-       "tab:volumes", "lrr", ["Camada", "Arquivos", "Tamanho"], linhas,
-       fonte="Autoria própria, a partir da listagem dos repositórios de dados.")
+       "tab:volumes", "lrr", ["Camada", "Arquivos", "Tamanho"], linhas)
 
 # ------------------------------------------------- linhas por tabela
 linhas = []
@@ -172,8 +204,7 @@ tabela("tab-artefato-ro.tex",
        "tab:artefato-ro", "lrrr",
        ["Ano", "Vínculos ativos do grupo", "Estoque de TI sem o grupo", "Peso do grupo"], linhas,
        nota="Grupo: Poder Executivo Estadual, Porto Velho, CBO 317110. Peso: parcela do estoque "
-            "de TI que o grupo representaria se não fosse excluído. ",
-       fonte="Autoria própria, a partir da camada Silver e da camada Gold.")
+            "de TI que o grupo representaria se não fosse excluído. ")
 
 # ------------------------------------------------- estoque e qualidade
 # A mediana vem de rais_mediana (exata, sobre os vínculos). A média ponderada
@@ -207,7 +238,8 @@ EIXO = r"""width=\linewidth, height=6.2cm, axis lines=left, tick align=outside,
 
 
 def figura(nome: str, caption: str, rotulo: str, corpo: str, nota: str = "",
-           fonte: str = "Autoria própria, a partir da camada Gold.") -> None:
+           fonte: str | None = None) -> None:
+    fonte = fonte or FONTES[nome]
     escrever(nome, f"""% Gerado por scripts/gerar_tabelas.py --- não editar à mão.
 \\begin{{figure}}[htbp]
     \\centering
@@ -517,8 +549,7 @@ linhas.append(["\\textbf{Total}", num(sum(r[1] for r in rep)), num(sum(r[2] for 
 tabela("tab-reprodutibilidade-rais.tex",
        "Recontagem do recorte de tecnologia na RAIS a partir do dado bruto",
        "tab:reprodutibilidade-rais", "lrrrr",
-       ["Ano", "Arquivos brutos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas,
-       fonte="Autoria própria, a partir das camadas Bronze e Silver publicadas.")
+       ["Ano", "Arquivos brutos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas)
 
 # ------------------------------- reprodutibilidade, por tabela (RAIS e CAGED)
 # Soma da recontagem ano a ano das duas bases, uma linha por tabela tratada.
@@ -540,7 +571,6 @@ linhas.append(["\\textbf{Total}", "", num(sum(r[3] for r in resumo)), num(sum(r[
 tabela("tab-reprodutibilidade.tex",
        "Recontagem do recorte de tecnologia a partir do dado bruto, por tabela",
        "tab:reprodutibilidade", "llrrrr",
-       ["Tabela", "Anos", "Arquivos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas,
-       fonte="Autoria própria, a partir das camadas Bronze e Silver publicadas.")
+       ["Tabela", "Anos", "Arquivos", "Linhas no dado bruto", "Linhas publicadas", "Diferença"], linhas)
 
 print(f"\n{len(list(DESTINO.glob('*.tex')))} tabela(s) geradas.")

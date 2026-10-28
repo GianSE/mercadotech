@@ -41,6 +41,22 @@ from extracao_ftp.config_extracao import (
 )
 
 RE_NAO_ALFANUM = re.compile(r"[^0-9a-z]+")
+# Fração de linhas do texto que a leitura pode descartar (malformadas) sem
+# que a conversão seja recusada.
+TOLERANCIA_LINHAS = 0.001
+
+
+def _contar_linhas(arquivo: Path) -> int:
+    """Linhas de dados do texto (sem o cabeçalho), contando quebras de linha."""
+    quebras = 0
+    ultimo = b"\n"
+    with open(arquivo, "rb") as f:
+        while bloco := f.read(16 * 1024 * 1024):
+            quebras += bloco.count(b"\n")
+            ultimo = bloco[-1:]
+    # Última linha sem quebra no fim também conta.
+    linhas = quebras + (0 if ultimo == b"\n" else 1)
+    return max(linhas - 1, 0)
 
 
 def _sql_str(valor: str) -> str:
@@ -217,7 +233,7 @@ def detectar_encoding(arquivo: Path, amostra_bytes: int = 8 * 1024 * 1024) -> st
     return "latin-1"
 
 
-def _copiar(con, leitura: str, item: ItemTrabalho) -> int:
+def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
     """
     Executa o COPY, publica o resultado no Hugging Face e devolve a
     contagem de linhas gravadas. O destino é um arquivo local temporário
@@ -253,6 +269,14 @@ def _copiar(con, leitura: str, item: ItemTrabalho) -> int:
         f"SELECT count(*) FROM read_parquet('{_sql_str(str(destino))}')"
     ).fetchone()[0]
 
+    # O `ignore_errors` descarta linha malformada sem avisar. Uma ou outra é
+    # o preço de ler a fonte como ela é; uma fatia do arquivo, não: antes de
+    # publicar, o total gravado é conferido com as linhas do texto.
+    esperadas = sum(_contar_linhas(a) for a in arquivos)
+    if esperadas and total < esperadas * (1 - TOLERANCIA_LINHAS):
+        destino.unlink()
+        raise RuntimeError(f"leitura incompleta: {total:,} de {esperadas:,} linhas do texto")
+
     nuvem.publicar_arquivo(destino, nuvem.repo_bronze(item.tabela), item.destino_rel)
     destino.unlink()
 
@@ -280,7 +304,7 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
     delimitador = detectar_delimitador(arquivos[0])
     print(f"      🔤 Encoding detectado: {encoding}  |  delimitador: '{delimitador}'")
     try:
-        linhas = _copiar(con, _opcoes_leitura(arquivos, encoding, delimitador), item)
+        linhas = _copiar(con, _opcoes_leitura(arquivos, encoding, delimitador), item, arquivos)
         return True, linhas
     except Exception as e:
         print(f"      ⚠️  Leitura direta falhou: {str(e)[:200]}")
@@ -291,7 +315,7 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
             return False, 0
 
     try:
-        linhas = _copiar(con, _opcoes_leitura(arquivos, "utf-8", delimitador), item)
+        linhas = _copiar(con, _opcoes_leitura(arquivos, "utf-8", delimitador), item, arquivos)
         return True, linhas
     except Exception as e:
         print(f"      ❌ Conversão falhou definitivamente: {str(e)[:300]}")

@@ -12,7 +12,9 @@ let banco: Promise<duckdb.AsyncDuckDB> | null = null;
 const tabelas = new Map<string, Promise<void>>();
 
 export function obterManifesto(): Promise<Manifesto> {
-  manifesto ??= fetch("/dados/manifesto.json").then((r) => {
+  // Sempre conferido com o servidor (a resposta é um 304 quando nada mudou):
+  // é ele que diz qual versão dos dados acompanha o código publicado.
+  manifesto ??= fetch("/dados/manifesto.json", { cache: "no-cache" }).then((r) => {
     if (!r.ok) throw new Error("manifesto.json não encontrado — rode `npm run dados`");
     return r.json();
   });
@@ -71,7 +73,10 @@ function garantirTabela(nome: string, arquivo: string): Promise<void> {
   let pronta = tabelas.get(nome);
   if (!pronta) {
     pronta = (async () => {
-      const [db, resposta] = await Promise.all([obterBanco(), fetch(`/dados/${arquivo}`)]);
+      // A data de geração no endereço: depois de uma Gold nova, o navegador
+      // não reaproveita a cópia antiga de uma tabela junto do código novo.
+      const versao = encodeURIComponent((await obterManifesto()).gerado_em);
+      const [db, resposta] = await Promise.all([obterBanco(), fetch(`/dados/${arquivo}?v=${versao}`)]);
       if (!resposta.ok) throw new Error(`falha ao baixar ${arquivo}`);
       await db.registerFileBuffer(arquivo, new Uint8Array(await resposta.arrayBuffer()));
       const con = await db.connect();

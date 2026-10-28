@@ -9,11 +9,33 @@ Este trabalho partiu de uma pergunta com duas faces: se é possível construir u
 
 A face de engenharia tem resposta afirmativa. A plataforma trata 661~GB de microdados em texto, guardados em 56~GB de Parquet, sem servidor próprio nem custo de infraestrutura, e se atualiza sozinha toda semana. A recontagem do recorte a partir do dado bruto deu diferença zero em 35,9 milhões de registros, e os totais ficaram a cerca de 1\% dos de um painel público do Ministério. A resposta à segunda face dependeu dessa base: foi a auditoria sistemática que encontrou os defeitos que, sem ela, teriam virado conclusão, como o funcionalismo de Rondônia declarado como programador, que sozinho invertia a tendência do hiato de gênero.
 
-A face de análise se organizou em torno de uma pergunta substantiva: o crescimento do emprego formal em tecnologia veio acompanhado de melhores salários e de mais equidade? A resposta é que não veio acompanhado de melhores salários relativos, e que trouxe mais equidade em um eixo e menos no outro.
+A face de análise se organizou em torno de uma pergunta substantiva: o crescimento do emprego formal em tecnologia veio acompanhado de melhores salários e de mais equidade? A resposta é que não veio acompanhado de melhores salários relativos, e que trouxe mais equidade em um eixo e menos no outro. O emprego formal de tecnologia cresceu muito, mas em ondas, e sobretudo dentro das próprias empresas de TI; esse crescimento não afastou a remuneração do salário mínimo e teve efeitos opostos nos dois eixos de desigualdade: o hiato racial caiu, porque pessoas negras passaram a chegar mais às posições que pagam melhor, enquanto o hiato de gênero surgiu e as mulheres perderam participação no setor. O \autoref{quadro:sintese} reúne a resposta a cada uma das cinco perguntas.
 
-O emprego de TI cresceu 162\% entre 2007 e 2025, 5,5\% ao ano, mas em ondas: perdeu vínculos na recessão de 2015--2016, concentrou 38\% de todo o ganho em 2021 e 2022 e desacelerou depois, para 3,7\% ao ano. A maior parte dos profissionais de TI está fora das empresas de TI, mas o crescimento se concentrou nelas: a parcela de fora caiu de 71\% para 58\%. A remuneração mediana do recorte acompanhou o salário mínimo, sem se afastar dele, e a dos profissionais de TI caiu cerca de um quinto em salários mínimos. Na equidade, os eixos se separam. O hiato racial caiu de 64\% para 38\% entre brancos e pardos, porque pessoas negras passaram a chegar mais às posições que pagam melhor. O hiato de gênero, que não existia até 2015, surgiu e chegou a 7,8\% em 2025, inteiramente na parcela que as características observáveis não explicam, enquanto a participação feminina no setor caiu de 32,5\% para 30,6\%.
+\begin{quadro}[htbp]
+    \centering
+    \caption{Síntese das respostas às perguntas de pesquisa}
+    \label{quadro:sintese}
+    \footnotesize
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabularx}{\textwidth}{%
+        >{\raggedright\arraybackslash\hsize=0.70\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.30\hsize}X}
+        \toprule
+        \rowcolor{black!8}
+        \textbf{Pergunta} & \textbf{Resposta} \\
+        \midrule
+        1. Quanto cresceu? & 162\% em dezoito anos, de 519.271 para 1.361.231 vínculos, ou 5,5\% ao ano, em ondas: queda na recessão (fase de 2014 a 2017), 38\% de todo o crescimento concentrado na aceleração de 2021 e 2022 e desaceleração depois, para 3,7\% ao ano. \\
+        2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, mas eram 71\% em 2007: o crescimento se concentrou nas empresas de TI, que quadruplicaram seus profissionais. O crescimento recente é um pouco mais rápido fora das capitais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
+        3. Melhorou em qualidade? & Não em remuneração relativa: a mediana do recorte em salários mínimos ficou estável (3,39 para 3,41), e a dos profissionais de TI caiu cerca de um quinto. O tempo de emprego oscila com o ciclo, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
+        4. Quem ganha menos? & Pessoas negras, com hiato em queda (de 64\% para 38\% entre brancos e pardos) por melhora de acesso. Mulheres, com um hiato que surgiu depois de 2015, chegou a 7,8\% em 2025 e está inteiramente na parcela que as características observáveis não explicam; a participação feminina caiu de 32,5\% para 30,6\%. \\
+        5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso; o SARIMA superou o Prophet. O \textit{nowcast} do estoque corrente errou em média 1,1\% em doze anos retidos e projeta 1,37 milhão de vínculos em 2026, alta de 0,7\%. \\
+        \bottomrule
+    \end{tabularx}
+    \\[4pt]
+    Fonte: Elaborado pelo autor.
+\end{quadro}
 
-Sobre o futuro, o trabalho conclui que estimar o presente rende mais do que prever adiante. A previsão do saldo mensal é útil por cerca de um ano, e o intervalo cruza o zero depois disso; já o \textit{nowcast} do estoque corrente errou em média 1,1\% em doze anos retidos. Para 2026, ele projeta 1,37 milhão de vínculos, alta de 0,7\%, o que confirma a desaceleração.
+Sobre o futuro, a lição é que estimar o presente rende mais do que prever adiante: a RAIS chega com mais de um ano de atraso, e o fluxo do CAGED, já publicado, basta para estimar o estoque corrente com erro próximo de 1\%, enquanto a previsão do saldo perde conteúdo depois de um ano. A projeção para 2026 confirma a desaceleração.
 
 \section{Cumprimento dos objetivos}
 
@@ -45,7 +67,7 @@ O \autoref{quadro:objetivos} confronta cada objetivo específico da \autoref{sec
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 \section{Contribuições}
@@ -58,7 +80,7 @@ A contribuição sobre a qualidade da fonte não estava prevista. A auditoria en
 
 \section{Limitações}
 
-As limitações de fonte, detalhadas na \autoref{sec:limitacoes-metodo}, delimitam o alcance das conclusões. A RAIS e o CAGED cobrem só o emprego formal: ficam fora os profissionais contratados como pessoa jurídica e os brasileiros que trabalham para empresas estrangeiras. O mercado de tecnologia em que brasileiros atuam é, portanto, maior que o medido aqui, e as conclusões valem para a parte dele que tem vínculo formal no país. A localização é a do empregador, e não a de quem trabalha, o que o trabalho remoto torna mais relevante: a concentração em São Paulo mede onde estão as empresas.
+As limitações de fonte declaradas na \autoref{sec:limitacoes-metodo} delimitam o alcance das conclusões. Sem os contratados como pessoa jurídica e os brasileiros que trabalham para empresas estrangeiras, o mercado de tecnologia em que brasileiros atuam é maior que o medido aqui, e as conclusões valem para a parte dele que tem vínculo formal no país. E, com a localização do empregador, a concentração em São Paulo mede onde estão as empresas, e não onde as pessoas vivem.
 
 Três limitações de método também precisam ficar registradas. A parcela não explicada da decomposição salarial não mede discriminação: ela é um limite superior para o que a discriminação poderia explicar. A tábua de vida de período descreve o risco vigente em um ano, e não a trajetória de uma coorte. E o \textit{nowcast} erra mais nos anos de mudança brusca do estoque, como 2022, que nenhum estimador apoiado no fluxo do CAGED antecipa.
 

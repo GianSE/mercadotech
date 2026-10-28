@@ -4,7 +4,7 @@ import { SeletorEstados } from "../componentes/SeletorUF";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { useFiltro } from "../lib/filtro";
 import { fmtCompacto, fmtDec, fmtNum, fmtSinal, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoLinhas } from "../lib/graficos";
+import { opcaoFluxo, opcaoLinhas, type SerieFluxo } from "../lib/graficos";
 import { coluna, entre, intervalo, literal, num, rotulos, tabelaRais, TI } from "../lib/sql";
 import { escreverPeriodo, lerPeriodo, useParametro } from "../lib/url";
 import { useTema } from "../lib/tema";
@@ -12,12 +12,21 @@ import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
 type Grao = "ano" | "mes";
+const SERIES_FLUXO: { chave: SerieFluxo; rotulo: string }[] = [
+  { chave: "admissoes", rotulo: "Admissões" },
+  { chave: "desligamentos", rotulo: "Desligamentos" },
+  { chave: "saldo", rotulo: "Saldo" },
+];
 
 export default function Crescimento() {
   const { cores: c } = useTema();
   const f = useFiltro();
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const [grao, setGrao] = useState<Grao>("ano");
+  const [visiveis, setVisiveis] = useState<SerieFluxo[]>(["admissoes", "desligamentos", "saldo"]);
+  // Pelo menos uma série fica ligada: um gráfico vazio não diz nada.
+  const alternarSerie = (s: SerieFluxo) =>
+    setVisiveis((v) => (v.includes(s) ? (v.length > 1 ? v.filter((x) => x !== s) : v) : SERIES_FLUXO.map((x) => x.chave).filter((x) => x === s || v.includes(x))));
 
   const referencia = useConsulta("SELECT strftime(max(mes), '%m/%Y') AS ultimo, year(max(mes)) AS ano FROM serie_mensal");
   const ultimoMes = String(referencia.linhas[0]?.ultimo ?? "");
@@ -52,14 +61,14 @@ export default function Crescimento() {
     // O ano corrente (incompleto) fica esmaecido nas barras anuais.
     const parcialIdx = grao === "ano" ? [x.indexOf(String(anoParcial))] : [];
     return {
-      saldo: fluxo.length ? opcaoBarras(c, x, coluna(fluxo, "saldo"), { divergente: true, formato: fmtSinal, nome: "Saldo", esmaecer: parcialIdx }) : null,
-      admissoes: fluxo.length ? opcaoLinhas(c, x, [{ nome: "Admissões", dados: coluna(fluxo, "admissoes"), rotuloFinal: true, cor: c.series[0], area: true }], { formato: fmtNum, zero: true }) : null,
-      desligamentos: fluxo.length ? opcaoLinhas(c, x, [{ nome: "Desligamentos", dados: coluna(fluxo, "desligamentos"), rotuloFinal: true, cor: c.series[1], area: true }], { formato: fmtNum, zero: true }) : null,
+      fluxo: fluxo.length
+        ? opcaoFluxo(c, x, { admissoes: coluna(fluxo, "admissoes"), desligamentos: coluna(fluxo, "desligamentos"), saldo: coluna(fluxo, "saldo") }, { visiveis, esmaecer: parcialIdx })
+        : null,
       estoque: raisL.length
         ? opcaoLinhas(c, rotulos(raisL, "ano"), [{ nome: "Vínculos ativos em 31/12", dados: coluna(raisL, "estoque"), area: true, rotuloFinal: true }], { formato: fmtNum, zero: true })
         : null,
     };
-  }, [fluxo, grao, raisL, anoParcial, c]);
+  }, [fluxo, grao, visiveis, raisL, anoParcial, c]);
 
   const parcial = periodo[1] >= anoParcial && anoParcial ? ` · ${anoParcial} até ${ultimoMes}` : "";
   const nomeGrao = grao === "ano" ? "anual" : "mensal";
@@ -124,38 +133,42 @@ export default function Crescimento() {
       <Bloco titulo="Fluxo: quem entra, quem sai e o que sobra">
         <div className="flex flex-wrap items-end gap-4">
           <Seletor<Grao> rotulo="Ver por" valor={grao} opcoes={[{ valor: "ano", rotulo: "Ano" }, { valor: "mes", rotulo: "Mês" }]} aoMudar={setGrao} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="sobrelinha">Mostrar</span>
+            <div className="flex flex-wrap gap-2 sm:gap-1.5" role="group" aria-label="Séries do gráfico">
+              {SERIES_FLUXO.map((s, i) => {
+                const ligada = visiveis.includes(s.chave);
+                return (
+                  <button
+                    key={s.chave}
+                    type="button"
+                    aria-pressed={ligada}
+                    onClick={() => alternarSerie(s.chave)}
+                    className={`flex h-10 items-center gap-2 rounded-full border px-4 text-[14px] transition-colors sm:h-8 sm:px-3 sm:text-[13px] ${ligada ? "border-tinta-3 bg-superficie text-tinta" : "border-borda bg-superficie text-tinta-3 line-through decoration-tinta-3/60 hover:text-tinta-2"}`}
+                  >
+                    <span
+                      aria-hidden
+                      className={i === 2 ? "h-0.5 w-3.5 rounded-full" : "h-2.5 w-2.5 rounded-[3px]"}
+                      style={{ background: ligada ? (i === 2 ? c.tinta : c.series[i]) : c.grade }}
+                    />
+                    {s.rotulo}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
         <CartaoGrafico
-          titulo={`Saldo ${nomeGrao} de empregos · ${soNacional ? "Brasil" : f.rotulo}`}
-          subtitulo={`CAGED · saldo = admissões − desligamentos${grao === "ano" ? parcial : ""}`}
+          titulo={`Admissões, desligamentos e saldo · ${nomeGrao} · ${soNacional ? "Brasil" : f.rotulo}`}
+          subtitulo={`CAGED · admissões para cima, desligamentos para baixo; a linha é o saldo, o quanto uma barra passa da outra${grao === "ano" ? parcial : ""}`}
           ajuda="saldo"
           nacional={soNacional}
-          opcao={op.saldo}
+          opcao={op.fluxo}
           carregando={fonteFluxo.carregando}
           erro={grao === "ano" ? anual.erro : mensalNacional.erro}
-          altura={320}
+          altura={380}
           tabela={{ colunas: colunasFluxo, linhas: fluxo }}
         />
-        <Grade>
-          <CartaoGrafico
-            titulo={`Admissões · ${soNacional ? "Brasil" : f.rotulo}`}
-            subtitulo={`CAGED · contratações ${grao === "ano" ? "por ano" : "por mês"}`}
-            nacional={soNacional}
-            opcao={op.admissoes}
-            carregando={fonteFluxo.carregando}
-            altura={260}
-            tabela={{ colunas: colunasFluxo.slice(0, 2), linhas: fluxo }}
-          />
-          <CartaoGrafico
-            titulo={`Desligamentos · ${soNacional ? "Brasil" : f.rotulo}`}
-            subtitulo={`CAGED · demissões e saídas ${grao === "ano" ? "por ano" : "por mês"}`}
-            nacional={soNacional}
-            opcao={op.desligamentos}
-            carregando={fonteFluxo.carregando}
-            altura={260}
-            tabela={{ colunas: [colunasFluxo[0], colunasFluxo[2]], linhas: fluxo }}
-          />
-        </Grade>
       </Bloco>
 
       <Comparar periodo={periodo} />

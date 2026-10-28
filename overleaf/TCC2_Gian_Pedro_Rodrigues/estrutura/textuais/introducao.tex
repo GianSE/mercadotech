@@ -3,7 +3,7 @@
 \chapter{Introdução}
 \label{cap:introducao}
 
-Poucos setores da economia brasileira se transformaram tão rápido quanto o de Tecnologia da Informação (TI). A transformação digital de empresas e órgãos públicos tem puxado a demanda por profissionais especializados, e entender como esse mercado se comporta passou a ser uma preocupação tanto de quem formula política pública quanto de gestores e dos próprios trabalhadores.
+Poucos setores da economia brasileira se transformaram tão rápido quanto o de Tecnologia da Informação (TI). A transformação digital de empresas e órgãos públicos tem puxado a demanda por profissionais especializados \cite{Brasscom2024, Fecomercio2024}, e entender como esse mercado se comporta passou a ser uma preocupação tanto de quem formula política pública quanto de gestores e dos próprios trabalhadores.
 
 No Brasil, as duas principais fontes oficiais sobre o emprego formal são mantidas pelo Ministério do Trabalho e Emprego (MTE): a Relação Anual de Informações Sociais (RAIS) e o Cadastro Geral de Empregados e Desempregados (CAGED). Combinadas, elas cobrem os vínculos formais em todo o país, trazendo informações sobre admissões, desligamentos, salários, jornadas e ocupações classificadas pela Classificação Brasileira de Ocupações (CBO) \cite{RAIS2024, CAGED2024}.
 
@@ -11,7 +11,7 @@ No Brasil, as duas principais fontes oficiais sobre o emprego formal são mantid
 
 Segundo \citeonline{Reis2022}, a engenharia de dados se firmou como uma disciplina central nas organizações modernas: é dela a responsabilidade de construir e manter os sistemas que transformam dados brutos em ativos úteis para a tomada de decisão. No âmbito público, a RAIS e o CAGED acumulam décadas de registros do mercado formal e formam um acervo de grande valor para análises de longo prazo.
 
-O problema é que esses arquivos não foram pensados para consulta direta. Cada ano gera dezenas de gigabytes em formato texto, distribuídos em diferentes \textit{layouts} e codificações, o que inviabiliza qualquer análise feita com ferramentas convencionais. Sem uma camada de engenharia de dados que organize e padronize esse acervo, ele permanece subutilizado.
+O problema é que esses arquivos não foram pensados para consulta direta. Cada ano gera dezenas de gigabytes em formato texto, distribuídos em diferentes \textit{layouts} e codificações \cite{RAIS2024, CAGED2024}, o que inviabiliza qualquer análise feita com ferramentas convencionais. Sem uma camada de engenharia de dados que organize e padronize esse acervo, ele permanece subutilizado.
 
 \section{Motivação}
 
@@ -49,7 +49,7 @@ Para dar foco à segunda face, o trabalho se organiza em torno de uma pergunta s
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 Nem as perguntas nem as fontes ficaram fixas desde a proposta. O trabalho seguiu o CRISP-DM, cujo ciclo prevê o retorno a fases anteriores sempre que uma descoberta o justifica, e foi assim que ele avançou: a cada achado nos dados, buscaram-se fontes novas, corrigiu-se a preparação ou reformulou-se uma pergunta, até chegar ao resultado apresentado aqui (\autoref{sec:metodo}).
@@ -77,7 +77,7 @@ Para alcançá-lo, foram definidos os seguintes objetivos específicos:
 
 Do lado científico, a pesquisa oferece um retrato quantitativo do mercado de TI nacional cobrindo quase duas décadas, com detalhamento por ocupação (CBO), unidade federativa, setor econômico (CNAE) e porte de estabelecimento, um nível de granularidade que costuma ficar fora das análises publicadas sobre o setor. Esse tipo de evidência pode alimentar decisões na formulação de políticas de formação profissional, no planejamento de recursos humanos e em estudos de economia do trabalho.
 
-No plano técnico, o \textit{pipeline} mostra que é possível substituir infraestruturas pesadas e caras por ferramentas leves e de código aberto, como DuckDB e Apache Parquet, sem perder desempenho analítico em volumes dessa ordem. Consultas interativas passam a ser feitas direto sobre o \textit{data lake}, dispensando a etapa de importação prévia que costuma encarecer e atrasar esse tipo de projeto. Mostra também que esse \textit{pipeline} pode rodar sem servidor próprio e sem custo de infraestrutura: o armazenamento fica em repositórios públicos de dados e o processamento, em executores de integração contínua, de modo que a plataforma se atualiza sozinha na verificação semanal seguinte à publicação de um mês novo pelo MTE. O mesmo desenho pode ser reaproveitado em outras bases governamentais brasileiras de grande volume.
+No plano técnico, o \textit{pipeline} mostra que é possível substituir infraestruturas pesadas e caras por ferramentas leves e de código aberto, como DuckDB e Apache Parquet, sem perder desempenho analítico em volumes dessa ordem \cite{Raasveldt2019, ApacheParquet2024}. Consultas interativas passam a ser feitas direto sobre o \textit{data lake}, dispensando a etapa de importação prévia que costuma encarecer e atrasar esse tipo de projeto. Mostra também que esse \textit{pipeline} pode rodar sem servidor próprio e sem custo de infraestrutura: o armazenamento fica em repositórios públicos de dados e o processamento, em executores de integração contínua, de modo que a plataforma se atualiza sozinha na verificação semanal seguinte à publicação de um mês novo pelo MTE. O mesmo desenho pode ser reaproveitado em outras bases governamentais brasileiras de grande volume.
 
 Há ainda uma terceira contribuição, não prevista na proposta: a auditoria do dado publicado pelo MTE revelou defeitos concretos na fonte, e documentá-los, com os testes que os detectam, é útil para qualquer pesquisa futura sobre as mesmas bases.
 

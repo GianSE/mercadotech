@@ -49,7 +49,7 @@ O trabalho seguiu o CRISP-DM (\textit{Cross-Industry Standard Process for Data M
 
     \end{tikzpicture}
     \\[4pt]
-    Fonte: Autoria própria, adaptado de \citeonline{Chapman2000}.
+    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
 \end{figure}
 
 A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM e as etapas efetivamente executadas.
@@ -73,7 +73,7 @@ A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM 
         \bottomrule
     \end{tabular}
     \\[4pt]
-    Fonte: Autoria própria, adaptado de \citeonline{Chapman2000}.
+    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
 \end{table}
 
 O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes, o recorte e as perguntas iniciais, e a execução mostrou várias vezes que algo precisava mudar: a cada descoberta, voltou-se a uma fase anterior para buscar dados não previstos, corrigir a preparação, trocar um modelo ou reformular uma pergunta. O \autoref{quadro:crispdm-retornos} relaciona os principais retornos; quase todos partiram da Avaliação, isto é, do confronto de um resultado com o que era plausível ou com uma segunda conta do mesmo número.
@@ -106,7 +106,7 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 \section{Fontes de dados}
@@ -217,7 +217,7 @@ A plataforma foi construída primeiro sobre infraestrutura local (um \textit{dat
     \\[4pt]
     {\footnotesize Contorno duplo: conjunto de dados público no Hugging Face Hub. Todas as etapas, do \textit{download} à Gold, rodam em executores do GitHub Actions; o \textit{dashboard} é publicado na Cloudflare Pages.}
     \\[2pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor, com base na arquitetura Medalhão \cite{MicrosoftMedallion2024}.
 \end{figure}
 
 Duas diferenças estruturais separam esta arquitetura da implementação local que a precedeu.
@@ -247,7 +247,7 @@ A primeira é que armazenamento e publicação deixaram de ser etapas distintas.
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 A segunda é que o processamento não tem mais máquina fixa. Cada etapa roda em um executor efêmero do GitHub Actions, que é criado para a execução, instala as dependências, processa e é descartado. Nada persiste entre execuções além do que foi gravado no repositório de dados, o que, como se verá na \autoref{subsec:orquestracao-pipeline}, determinou a forma de dividir o trabalho.
@@ -354,7 +354,7 @@ O orquestrador roda toda semana e também pode ser disparado manualmente a parti
     \\[4pt]
     {\footnotesize Círculo cheio: etapa executada; círculo vazio: etapa não executada. As ligações seguem o agrupamento por camada da interface do GitHub Actions; as dependências exatas da Gold estão descritas no texto.}
     \\[2pt]
-    Fonte: Autoria própria, a partir da execução de 22/10/2026 registrada no GitHub Actions.
+    Fonte: Elaborado pelo autor, a partir da execução de 22/10/2026 registrada no GitHub Actions \cite{GitHubActions2026}.
 \end{figure}
 
 \subsection{Particionamento e organização dos arquivos}
@@ -381,8 +381,41 @@ Uma quarta verificação foi acrescentada na Gold, depois que um único órgão 
 Os defeitos apontados durante a construção foram corrigidos por rotinas idempotentes (harmonização de nomes, tipagem de colunas numéricas, consolidação de arquivos e aplicação da revisão do recorte), o que permitiu revisar o recorte por poda e complemento, sem reprocessar a camada inteira. O construtor atual da Silver incorpora as duas correções mais importantes, a harmonização de nomes entre as eras de \textit{layout} e a tipagem dos campos numéricos, de modo que um ano novo já entra correto.
 
 \section{Ferramentas utilizadas}
+\label{sec:ferramentas}
 
-O \textit{pipeline} foi escrito em Python \cite{Python2024} e é executado pelo GitHub Actions \cite{GitHubActions2026}. O \textit{data lake} fica no Hugging Face Hub \cite{HuggingFaceDatasets2026}, e a biblioteca \textit{huggingface\_hub} publica os arquivos de cada etapa em um único \textit{commit}, para que uma etapa interrompida não deixe a camada pela metade. As consultas usam o DuckDB \cite{DuckDB2024}, que lê o Apache Parquet \cite{ApacheParquet2024} direto do repositório pelo protocolo \texttt{hf://} e devolve os resultados em Apache Arrow \cite{PyArrow2024}. Os modelos usam o \textit{statsmodels} \cite{Seabold2010} (SARIMA, regressões da decomposição salarial e modelo de risco) e o \textit{scikit-learn} \cite{Pedregosa2011}, no $k$-médias e na silhueta. O \textit{dashboard} é escrito em React e TypeScript \cite{React2026}, consulta os dados com o DuckDB-Wasm \cite{Kohn2022}, desenha os gráficos com o Apache ECharts \cite{Li2018} e é hospedado no Cloudflare Pages \cite{CloudflarePages2026}.
+Cada ferramenta foi escolhida por um requisito do projeto: processar volumes maiores que a memória da máquina, sem servidor próprio e sem custo, com o dado tratado publicado e o resultado reproduzível. O \autoref{quadro:ferramentas} relaciona cada uma ao papel que cumpre e ao motivo da escolha, frente à alternativa mais comum; os fundamentos estão no \autoref{cap:referencial}.
+
+\begin{quadro}[htbp]
+    \centering
+    \caption{Ferramentas utilizadas e justificativa da escolha}
+    \label{quadro:ferramentas}
+    \footnotesize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{%
+        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.88\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.50\hsize}X}
+        \toprule
+        \rowcolor{black!8}
+        \textbf{Ferramenta} & \textbf{Uso no trabalho} & \textbf{Por que esta} \\
+        \midrule
+        Python \cite{Python2024} & Linguagem do \textit{pipeline} e dos modelos & Reúne no mesmo ambiente o motor de consulta, as bibliotecas estatísticas e o acesso ao repositório de dados, e já vem instalado nos executores do GitHub Actions. \\
+        Apache Parquet \cite{ApacheParquet2024} & Formato de todas as camadas & Leitura só das colunas pedidas e descarte de blocos pelos metadados; com ZSTD, reduziu o texto bruto em 11,7 vezes e é consultado sem importação (\autoref{subsec:parquet}). Um CSV seria lido inteiro a cada consulta. \\
+        DuckDB \cite{DuckDB2024, Raasveldt2019} & Transformações e agregações de todas as camadas & Motor \textit{in-process}: roda dentro do próprio \textit{script}, sem servidor, processa arquivos maiores que a memória e lê o Parquet direto do repositório pelo protocolo \texttt{hf://}, devolvendo os resultados em Apache Arrow \cite{PyArrow2024}. Um arquivo da RAIS de São Paulo passa de 10~GB, o que inviabiliza carregar a tabela em memória com o \textit{pandas}; o Spark resolveria, mas exige um \textit{cluster}. \\
+        Hugging Face Hub \cite{HuggingFaceDatasets2026} & Armazenamento do \textit{data lake} e publicação dos dados & Gratuito para dados públicos, versionado e servido por HTTP com leitura parcial: o lugar onde o dado é guardado é o mesmo em que é publicado (\autoref{subsec:repositorios-dados}). A biblioteca \textit{huggingface\_hub} envia cada etapa em um único \textit{commit}, e uma etapa interrompida não deixa a camada pela metade. Substituiu o MinIO local (\autoref{sec:publicacao}). \\
+        GitHub Actions \cite{GitHubActions2026} & Execução e orquestração do \textit{pipeline} & Gratuito em repositório público, com os \textit{workflows} versionados junto do código e as dependências entre \textit{jobs} formando o grafo de execução; dispensa o servidor permanente que um orquestrador como o Airflow exigiria (\autoref{subsec:orquestracao}). \\
+        \textit{statsmodels} \cite{Seabold2010} & SARIMA, regressões do Oaxaca-Blinder e modelo de risco & Implementação de referência dos modelos estatísticos em Python. O SARIMA foi escolhido por superar o Prophet na validação de origem móvel, em uma série completa e de sazonalidade estável (\autoref{sec:resultado-q5}). \\
+        Prophet \cite{Taylor2018} & Alternativa avaliada para a previsão & Previsto na proposta; mantido na mesma validação do SARIMA para que a escolha entre os dois fosse medida, e não presumida (\autoref{sec:revisoes}). \\
+        \textit{scikit-learn} \cite{Pedregosa2011} & $k$-médias e coeficiente de silhueta & Implementação de referência dos dois algoritmos, com padronização das variáveis na mesma biblioteca. \\
+        React e TypeScript \cite{React2026} & Interface do \textit{dashboard} & Cada parte da tela é função do estado dos filtros, e a biblioteca redesenha só o que depende do filtro alterado; a tipagem estática reduz erros na manipulação dos dados. \\
+        DuckDB-Wasm \cite{Kohn2022} & Consultas no navegador & O mesmo motor e o mesmo SQL do \textit{pipeline} rodam no site, sem servidor de aplicação: um filtro é uma consulta local (\autoref{sec:visualizacao}). \\
+        Apache ECharts \cite{Li2018} & Gráficos e mapas & Gráficos declarados como configuração, com mapa, interação e animação prontos; com uma biblioteca de baixo nível, como o D3, cada elemento teria de ser programado. \\
+        Cloudflare Pages \cite{CloudflarePages2026} & Hospedagem do site & Hospedagem estática gratuita em rede de distribuição de conteúdo, sem custo por visita, com a reconstrução disparada pela última etapa do orquestrador. \\
+        \bottomrule
+    \end{tabularx}
+    \\[4pt]
+    Fonte: Elaborado pelo autor.
+\end{quadro}
 
 \section{Modelos aplicados}
 
@@ -391,7 +424,7 @@ O \textit{pipeline} foi escrito em Python \cite{Python2024} e é executado pelo 
 
 A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12, e um \textit{baseline} ingênuo sazonal. O Prophet \cite{Taylor2018}, modelo previsto na proposta, entrou na mesma comparação, em três configurações que variam apenas a flexibilidade da tendência (0,01, 0,05 e 0,5, sendo a segunda o padrão da biblioteca), com sazonalidade anual aditiva, já que o saldo é negativo em parte dos meses. As duas grades são pequenas de propósito, pelo risco de sobreajuste na validação discutido na \autoref{subsec:origem-movel}.
 
-A avaliação seguiu validação de origem móvel \cite{Tashman2000}: o modelo é treinado até um instante $T$, prevê os 12 meses seguintes, a origem avança 12 meses e o procedimento se repete, totalizando cinco dobras. O \textit{baseline} é avaliado nas mesmas dobras e com o mesmo horizonte. As métricas são MAE e RMSE, apresentadas na \autoref{subsec:metricas}.
+A avaliação seguiu a validação de origem móvel (\autoref{subsec:origem-movel}) com horizonte de 12 meses, origem avançando 12 meses a cada dobra e cinco dobras, com o \textit{baseline} nas mesmas dobras e as métricas MAE e RMSE (\autoref{subsec:metricas}).
 
 \subsection{\textit{Nowcast} do estoque}
 \label{subsec:metodo-nowcast}
@@ -433,20 +466,16 @@ Para caracterizar a geografia do mercado além do \textit{ranking} de maiores es
 
 \section{Publicação dos dados e migração para a nuvem}
 \label{sec:publicacao}
-
-A proposta do TCC~1 previa publicar o código-fonte e mencionava a possibilidade de publicar os dados tratados. A possibilidade virou necessidade por uma razão de implantação: o \textit{data lake} em MinIO era local, e um \textit{dashboard} hospedado em nuvem não tinha acesso a ele. O Hugging Face Hub \cite{HuggingFaceDatasets2026} foi escolhido por aceitar Parquet particionado, servir os arquivos com requisições parciais, o que permite ao DuckDB ler só os trechos necessários, e versionar os conjuntos, atendendo aos princípios FAIR \cite{WilkinsonFair2016}.
-
-\subsection{Migração para a nuvem}
 \label{subsec:migracao}
 
-Nessa primeira forma, a publicação era uma cópia do \textit{data lake} local. Três problemas da operação local levaram a fazer do repositório público o próprio \textit{data lake}. O primeiro foi de espaço: o \textit{data lake} local chegou a 72~GB, em um disco com 27~GB livres, e 56~GB eram uma duplicata da Bronze já publicada. O segundo foi de ambiente: a política de integridade de código do Windows passou a bloquear as bibliotecas nativas de \textit{scipy}, \textit{statsmodels} e \textit{scikit-learn}, e foi nos executores Linux do GitHub Actions que os modelos voltaram a ser calculados. O terceiro foi de atualização: incorporar um mês novo dependia de alguém executar as etapas na ordem certa e republicar, e enquanto isso o \textit{dashboard} mostrava dado desatualizado sem nenhum sinal. Com o orquestrador da \autoref{subsec:orquestracao-pipeline}, a verificação passou a ser semanal e automática, e a reconstrução do site é a última etapa da mesma fila.
+A proposta do TCC~1 previa publicar o código-fonte e mencionava a possibilidade de publicar os dados tratados. A possibilidade virou necessidade por uma razão de implantação: o \textit{data lake} em MinIO era local, e um \textit{dashboard} hospedado em nuvem não tinha acesso a ele. O Hugging Face Hub (\autoref{subsec:repositorios-dados}) foi escolhido por aceitar Parquet particionado, servir os arquivos com requisições parciais e versionar os conjuntos. Nessa primeira forma, a publicação era uma cópia do \textit{data lake} local, e três problemas da operação local levaram a fazer do repositório público o próprio \textit{data lake}. O primeiro foi de espaço: o \textit{data lake} local chegou a 72~GB, em um disco com 27~GB livres, e 56~GB eram uma duplicata da Bronze já publicada. O segundo foi de ambiente: a política de integridade de código do Windows passou a bloquear as bibliotecas nativas de \textit{scipy}, \textit{statsmodels} e \textit{scikit-learn}, e foi nos executores Linux do GitHub Actions que os modelos voltaram a ser calculados. O terceiro foi de atualização: incorporar um mês novo dependia de alguém executar as etapas na ordem certa e republicar, e enquanto isso o \textit{dashboard} mostrava dado desatualizado sem nenhum sinal. Com o orquestrador da \autoref{subsec:orquestracao-pipeline}, a verificação passou a ser semanal e automática, e a reconstrução do site é a última etapa da mesma fila.
 
-Antes da migração, um \textit{workflow} piloto confirmou que a latência e os limites do repositório permitiam processar a Bronze a partir de um executor; depois, cada etapa foi reescrita para ler e gravar direto no repositório, e o código ligado ao MinIO foi removido. Um cuidado operacional acompanha essa escolha: o envio ao repositório apenas acrescenta arquivos, e uma camada reorganizada somaria as versões antigas às novas, contando linhas em dobro sem acusar erro. Por isso a publicação da Silver consolida cada partição em um arquivo e remove, no mesmo \textit{commit}, tudo o que existia daquele ano; e um ano só é publicado se todos os seus arquivos de origem foram processados.
+Antes da migração, um \textit{workflow} piloto confirmou que a latência e os limites do repositório permitiam processar a Bronze a partir de um executor; depois, cada etapa foi reescrita para ler e gravar direto no repositório, e o código ligado ao MinIO foi removido. Como o envio ao repositório é aditivo (\autoref{subsec:repositorios-dados}), uma camada reorganizada somaria as versões antigas às novas, contando linhas em dobro sem acusar erro. Por isso a publicação da Silver consolida cada partição em um arquivo e remove, no mesmo \textit{commit}, tudo o que existia daquele ano; e um ano só é publicado se todos os seus arquivos de origem foram processados.
 
 \section{Camada de apresentação}
 \label{sec:apresentacao}
 
-O \textit{dashboard} segue a arquitetura apresentada na \autoref{sec:visualizacao}: um site estático em React \cite{React2026}, com gráficos em Apache ECharts \cite{Li2018}, publicado no Cloudflare Pages \cite{CloudflarePages2026}, em que as consultas rodam no navegador com o DuckDB-Wasm \cite{Kohn2022}. Mudar um filtro é uma consulta local, não há servidor de aplicação para manter, e o motor é o mesmo DuckDB do \textit{pipeline}: uma consulta escrita para a Gold vale igual no site.
+O \textit{dashboard} segue a arquitetura da \autoref{sec:visualizacao}, com consultas no navegador pelo DuckDB-Wasm; como o motor é o mesmo DuckDB do \textit{pipeline}, uma consulta escrita para a Gold vale igual no site.
 
 Os dados do site são os da Gold. Para que o CAGED pudesse ser filtrado livremente no navegador, a etapa da Gold do CAGED passou a agregar a camada tratada em dois cubos, publicados junto das demais tabelas: um no grão de ano, unidade federativa, setor da empresa, lente do recorte, área de TI, sexo, raça/cor, escolaridade e faixa etária, com 840.935 linhas, e outro no grão de ano, ocupação e lente. Os cubos guardam a soma e a contagem do salário, e não a média: a divisão é feita na consulta, para que qualquer combinação de filtros produza a média ponderada correta: a média de médias de grupos de tamanhos diferentes seria plausível e errada.
 
@@ -485,7 +514,7 @@ Projetos de dados raramente terminam idênticos ao que foram propostos, e declar
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Autoria própria.
+    Fonte: Elaborado pelo autor.
 \end{quadro}
 
 \section{Limitações e reprodutibilidade}

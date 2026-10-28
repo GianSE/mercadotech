@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts";
 import type { Cores } from "./tema";
-import { escapar, fmtCompacto, fmtDec, fmtNum } from "./formato";
+import { escapar, fmtCompacto, fmtDec, fmtNum, fmtSinal } from "./formato";
 
 export type Formato = (v: number) => string;
 
@@ -420,6 +420,62 @@ export function opcaoBarrasAgrupadas(
   };
   const porCategoria = o.empilhar ? 1 : series.length;
   return comAltura(opcao, h && c.compacto ? categorias.length * (porCategoria * 16 + 34) + 44 : undefined);
+}
+
+// ------------------------------------------------------------------ fluxo
+// Admissões para cima, desligamentos para baixo (negativos) e o saldo como
+// linha: a conta saldo = admissões − desligamentos aparece no próprio
+// desenho, sem um segundo eixo. Cada série tem cor fixa — esconder uma não
+// repinta as outras — e só as escolhidas entram.
+export type SerieFluxo = "admissoes" | "desligamentos" | "saldo";
+
+export function opcaoFluxo(
+  c: Cores,
+  x: string[],
+  d: { admissoes: (number | null)[]; desligamentos: (number | null)[]; saldo: (number | null)[] },
+  o: { visiveis: SerieFluxo[]; esmaecer?: number[] },
+): EChartsOption {
+  const barras = [
+    { chave: "admissoes" as const, nome: "Admissões", dados: d.admissoes, cor: c.series[0] },
+    { chave: "desligamentos" as const, nome: "Desligamentos", dados: d.desligamentos.map((v) => (v === null ? null : -v)), cor: c.series[1] },
+  ].filter((s) => o.visiveis.includes(s.chave));
+  const comSaldo = o.visiveis.includes("saldo");
+  const opcao = opcaoBarrasAgrupadas(c, x, barras, {
+    empilhar: true,
+    formato: fmtSinal,
+    formatoEixo: fmtCompacto,
+    linha: comSaldo ? { nome: "Saldo", dados: d.saldo } : undefined,
+  });
+  const muitos = x.length > 40;
+  const series = (opcao.series as Record<string, unknown>[]).map((s) => {
+    if (s.type === "line") {
+      // Mês a mês, 200 pontos com marcador viram uma faixa preta: só a linha.
+      return { ...s, showSymbol: !muitos, symbolSize: muitos ? 4 : (s.symbolSize as number) };
+    }
+    const dados = (s.data as { value: number | null; itemStyle: Record<string, unknown> }[]).map((p, i) => ({
+      ...p,
+      // Barras finas não comportam a fenda de 1px de cada lado.
+      itemStyle: { ...p.itemStyle, borderWidth: muitos ? 0 : p.itemStyle.borderWidth, opacity: o.esmaecer?.includes(i) ? 0.45 : 1 },
+    }));
+    return { ...s, data: dados, barMaxWidth: muitos ? undefined : 34, barCategoryGap: muitos ? "12%" : "30%" };
+  });
+  // A seleção vem dos botões acima do gráfico; a legenda só identifica.
+  const legend = opcao.legend ? { ...(opcao.legend as Record<string, unknown>), selectedMode: false } : undefined;
+  // No tooltip, o desligamento aparece como número positivo: o sinal é só desenho.
+  const tooltip = {
+    ...(opcao.tooltip as Record<string, unknown>),
+    valueFormatter: undefined,
+    formatter: (pontos: unknown) => {
+      const lista = pontos as { seriesName: string; value: number | null; color: unknown; axisValueLabel: string }[];
+      if (!lista.length) return "";
+      const linhas = lista.map((p) => {
+        const v = p.value === null ? "—" : p.seriesName === "Desligamentos" ? fmtNum(-p.value) : p.seriesName === "Saldo" ? fmtSinal(p.value) : fmtNum(p.value);
+        return linhaTooltip(p.seriesName === "Saldo" ? c.tinta : p.color, v, p.seriesName);
+      });
+      return `<div style="font-size:11px;opacity:.7">${escapar(lista[0].axisValueLabel)}</div>` + linhas.join("");
+    },
+  };
+  return { ...opcao, series: series as EChartsOption["series"], legend, tooltip } as EChartsOption;
 }
 
 // --------------------------------------------------------------- halteres

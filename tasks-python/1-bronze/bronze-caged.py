@@ -69,8 +69,10 @@ def modo_verificar(args) -> int:
     print(f"   {len(itens)} arquivo(s) no catálogo do FTP")
 
     estado = EstadoLake()
-    faltantes = [i for i in itens if not estado.ja_existe(i)]
-    print(f"   {len(faltantes)} arquivo(s) ainda não publicado(s)")
+    # --forcar: todos os anos pedidos entram, mesmo os já publicados — é o
+    # caminho para refazer um ano ingerido pela metade.
+    faltantes = itens if args.forcar else [i for i in itens if not estado.ja_existe(i)]
+    print(f"   {len(faltantes)} arquivo(s) {'a reprocessar' if args.forcar else 'ainda não publicado(s)'}")
 
     pares = sorted({(i.tabela, i.ano) for i in faltantes})
     saida = {"tem_novidade": bool(pares),

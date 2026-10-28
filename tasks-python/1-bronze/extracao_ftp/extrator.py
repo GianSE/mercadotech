@@ -227,5 +227,34 @@ def extrair(arquivo: Path, destino: Path) -> list[Path]:
         if resgatado:
             encontrados = [resgatado]
 
+    # Extração interrompida não dá erro: deixa um arquivo menor no disco, que
+    # vira um mês com 4% das linhas na Bronze e nunca mais é baixado de novo
+    # (já "existe"). Foi o que aconteceu com dez meses do CAGED antigo. O
+    # tamanho original de cada arquivo está no índice do pacote; menor que
+    # ele, a extração não é publicada.
+    if encontrados and arquivo.suffix.lower() != ".zip" and _tem_7z():
+        declarados = _tamanhos_declarados(arquivo)
+        incompletos = [(p.name, p.stat().st_size, declarados[p.name]) for p in encontrados
+                       if p.name in declarados and p.stat().st_size < declarados[p.name]]
+        if incompletos:
+            for nome, obtido, esperado in incompletos:
+                print(f"      ❌ extração incompleta: {nome} com {obtido:,} de {esperado:,} bytes")
+            return []
+
     encontrados.sort()
     return encontrados
+
+
+def _tamanhos_declarados(arquivo: Path) -> dict[str, int]:
+    """Tamanho original de cada arquivo do pacote, lido do índice do 7z."""
+    saida = subprocess.run([_binario_7z(), "l", "-slt", str(arquivo)],
+                           capture_output=True, text=True, errors="replace").stdout
+    tamanhos: dict[str, int] = {}
+    nome = None
+    for linha in saida.splitlines():
+        if linha.startswith("Path = "):
+            nome = Path(linha[7:].strip()).name
+        elif linha.startswith("Size = ") and nome:
+            tamanhos[nome] = int(linha[7:].strip() or 0)
+            nome = None
+    return tamanhos
