@@ -6,7 +6,8 @@ import { SeletorUF } from "./SeletorUF";
 // página Análise — as páginas de pergunta são painel, não texto.
 export function CabecalhoPergunta({ numero, pergunta }: { numero: number; pergunta: string }) {
   return (
-    <header className="mb-6">
+    // data-fixo: no modo apresentação, aparece em todos os slides da página.
+    <header data-fixo className="mb-6">
       <p className="sobrelinha">
         <span className="mr-2 inline-block h-2 w-2 rounded-[2px] bg-acento align-middle" />
         Pergunta {String(numero).padStart(2, "0")} / 05
@@ -18,7 +19,8 @@ export function CabecalhoPergunta({ numero, pergunta }: { numero: number; pergun
 
 export function Bloco({ titulo, descricao, children }: { titulo: string; descricao?: ReactNode; children: ReactNode }) {
   return (
-    <section className="mt-12 first:mt-0">
+    // data-bloco: cada bloco é um slide no modo apresentação.
+    <section data-bloco className="mt-12 first:mt-0">
       <div className="mb-4">
         <h2 className="flex items-center gap-2.5 text-lg font-semibold text-tinta">
           <span aria-hidden className="faixa-azul h-5 w-1.5 flex-none rounded-full" />
@@ -65,7 +67,7 @@ export function LinhaFiltros({ children, nota, resumo, territorio = true }: { ch
   const filtro = useFiltro();
   const resumoCompleto = territorio ? [filtro.rotulo, resumo].filter(Boolean).join(" · ") : resumo;
   return (
-    <div className="sticky top-[57px] z-10 -mx-4 mb-8 border-b border-borda bg-fundo/85 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 sm:py-3 lg:top-[57px]">
+    <div data-fixo data-filtros className="sticky top-[57px] z-10 -mx-4 mb-8 border-b border-borda bg-fundo/85 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6 sm:py-3 lg:top-[57px]">
       <button
         type="button"
         onClick={() => setAberto((a) => !a)}

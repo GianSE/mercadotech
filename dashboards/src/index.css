@@ -40,12 +40,17 @@
   --marca: #0b0c0f;
   --sobre-marca: #f0efec;
 
-  --serie-1: #1d5bd0;
-  --serie-2: #3fb8f0;
-  --serie-3: #0b7f9f;
-  --serie-4: #8c96f5;
-  --serie-5: #3442a8;
-  --serie-6: #6aa8f2;
+  /* Categórica validada (CVD e visão normal, no par adjacente) sobre a
+     superfície clara: azul, laranja, verde-água, amarelo, magenta, verde,
+     roxo e vermelho, nesta ordem. A ordem é o que garante a separação. */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-7: #6250d6;
+  --serie-8: #e34948;
 
   --positivo: #17a058;
   --negativo: #e04646;
@@ -72,12 +77,15 @@
   --marca: #000000;
   --sobre-marca: #f0efec;
 
-  --serie-1: #3b82f6;
-  --serie-2: #03a9a9;
-  --serie-3: #1a68a3;
-  --serie-4: #8c87df;
-  --serie-5: #494bf2;
-  --serie-6: #2089ae;
+  /* As mesmas oito cores, em degraus validados para a superfície escura. */
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
 
   --positivo: #2fbf71;
   --negativo: #ef6363;
@@ -107,6 +115,8 @@
   --color-serie-4: var(--serie-4);
   --color-serie-5: var(--serie-5);
   --color-serie-6: var(--serie-6);
+  --color-serie-7: var(--serie-7);
+  --color-serie-8: var(--serie-8);
   --color-positivo: var(--positivo);
   --color-negativo: var(--negativo);
 
@@ -146,7 +156,7 @@
   }
   /* Faixa azul de destaque: o degradê da marca de dados (royal → céu). */
   .faixa-azul {
-    background-image: linear-gradient(90deg, var(--serie-1), var(--serie-2));
+    background-image: linear-gradient(90deg, var(--serie-1), #3fb8f0);
   }
   /* Fundo da faixa de marca: grade fina, lembrando papel milimetrado/circuito. */
   .grade-marca {
@@ -161,4 +171,13 @@
       radial-gradient(60% 140% at 85% 0%, rgb(59 130 246 / 0.28), transparent 60%),
       radial-gradient(40% 120% at 10% 100%, rgb(3 169 169 / 0.14), transparent 60%);
   }
+}
+
+/* Modo apresentação: um bloco por vez (o resto da página fica escondido pelo
+   App), filtros sem a posição presa ao cabeçalho, que some nesse modo. */
+.apresentando [data-oculto] {
+  display: none !important;
+}
+.apresentando [data-filtros] {
+  position: static;
 }

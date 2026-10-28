@@ -45,7 +45,9 @@ function Grafico({ opcao, altura, aoClicar }: { opcao: EChartsOption; altura: nu
 
   useEffect(() => {
     const el = elemento.current!;
-    const grafico = echarts.init(el, null, { renderer: "canvas" });
+    // Resolução de no mínimo 2x: no modo apresentação o gráfico é ampliado
+    // por escala CSS, e o canvas em 1x ficaria borrado no projetor.
+    const grafico = echarts.init(el, null, { renderer: "canvas", devicePixelRatio: Math.max(2, window.devicePixelRatio || 1) });
     instancia.current = grafico;
     grafico.on("click", (p) => {
       // Marca de dado traz `name`; rótulo de eixo (triggerEvent) traz `value`.
@@ -65,7 +67,9 @@ function Grafico({ opcao, altura, aoClicar }: { opcao: EChartsOption; altura: nu
     instancia.current?.setOption(opcao, true);
   }, [opcao]);
 
-  return <div ref={elemento} style={{ height: altura }} className="w-full" />;
+  // Mapa arrasta para navegar: o gesto de trocar de slide não vale sobre ele.
+  const semGesto = "geo" in opcao;
+  return <div ref={elemento} style={{ height: altura }} className="w-full" data-sem-gesto={semGesto ? "" : undefined} />;
 }
 
 function VistaTabela({ tabela }: { tabela: Tabela }) {

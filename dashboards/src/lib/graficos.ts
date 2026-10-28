@@ -16,6 +16,9 @@ type Ponto = {
 };
 
 const FONTE = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+// O amarelo da marca (--acento), igual nos dois temas: contorno do que a
+// busca destacou.
+const ACENTO = "#ffc20e";
 
 // Celular: cada categoria de barra horizontal ganha uma "linha" própria —
 // rótulo em cima, barra embaixo. A altura do gráfico passa a depender do
@@ -671,7 +674,9 @@ export function opcaoMosaico(
 export type GrupoDispersao = {
   nome: string;
   cor?: string;
-  pontos: { x: number; y: number; tamanho?: number; rotulo: string; detalhe?: string }[];
+  // `nome` do ponto é o que o clique entrega (ex.: "Londrina (PR)" filtra o
+  // PR); `destaque` vem da busca por nome e acende o ponto sobre os demais.
+  pontos: { x: number; y: number; tamanho?: number; rotulo: string; detalhe?: string; nome?: string; destaque?: boolean }[];
 };
 
 export function opcaoDispersao(
@@ -692,6 +697,9 @@ export function opcaoDispersao(
     ...(o.identidade ? [{ nome: "Identidade (1:1)", icone: "linha" as const }] : []),
   ]);
   const nomeEixo = { color: c.tinta3, fontSize: c.compacto ? 10 : 11 };
+  // Com algum ponto em destaque, os demais recuam: o destacado ganha
+  // tamanho, contorno no acento e o nome escrito.
+  const haDestaque = grupos.some((g) => g.pontos.some((p) => p.destaque));
   return {
     ...base(c, !!leg),
     // No celular o título do eixo Y vai acima do eixo, na horizontal — girado
@@ -721,10 +729,26 @@ export function opcaoDispersao(
     series: [
       ...grupos.map((g, i) => {
         const cor = g.cor ?? c.series[i];
+        const tamanho = (p: GrupoDispersao["pontos"][number]) => c.compacto ? Math.max(6, (p.tamanho ?? 12) * 0.7) : (p.tamanho ?? 12);
         return {
           type: "scatter" as const,
           name: g.nome,
-          data: g.pontos.map((p) => ({ value: [p.x, p.y], rotulo: p.rotulo, detalhe: p.detalhe, symbolSize: c.compacto ? Math.max(6, (p.tamanho ?? 12) * 0.7) : (p.tamanho ?? 12) })),
+          data: g.pontos.map((p) => ({
+            name: p.nome,
+            value: [p.x, p.y],
+            rotulo: p.rotulo,
+            detalhe: p.detalhe,
+            symbolSize: p.destaque ? Math.max(18, tamanho(p) * 1.4) : tamanho(p),
+            ...(p.destaque
+              ? {
+                  itemStyle: { opacity: 1, borderColor: ACENTO, borderWidth: 3 },
+                  label: { show: true, position: "top" as const, color: c.tinta, fontSize: 12, fontWeight: 600, formatter: escapar(p.rotulo) },
+                  z: 10,
+                }
+              : haDestaque
+                ? { itemStyle: { opacity: 0.18 } }
+                : {}),
+          })),
           // Bolha com brilho: centro claro, borda na cor da série.
           itemStyle: {
             color: { type: "radial" as const, x: 0.4, y: 0.35, r: 0.8, colorStops: [{ offset: 0, color: clarear(cor, 0.35) }, { offset: 1, color: cor }] },
@@ -759,9 +783,19 @@ export function opcaoDispersao(
 export function opcaoMapa(
   c: Cores,
   ufs: { uf: string; valor: number }[],
-  bolhas: { nome: string; lon: number; lat: number; valor: number; tamanho: number; uf?: string }[],
+  bolhas: { nome: string; lon: number; lat: number; valor: number; tamanho: number; uf?: string; grupo?: string; destaque?: boolean }[],
   // Estados do filtro de território: os demais ficam apagados (cor e bolhas).
-  o: { formato: Formato; divergente?: boolean; rotulo: string; formatoBolha: Formato; destacar?: string[] },
+  // `grupos`: cor de cada grupo de bolha (fora deles, cinza); `foco`: centro
+  // e zoom, quando a busca encontrou municípios.
+  o: {
+    formato: Formato;
+    divergente?: boolean;
+    rotulo: string;
+    formatoBolha: Formato;
+    destacar?: string[];
+    grupos?: { nome: string; cor: string }[];
+    foco?: { lon: number; lat: number; zoom: number };
+  },
 ): EChartsOption {
   const apagado = (uf: string | undefined) => !!o.destacar?.length && !!uf && !o.destacar.includes(uf);
   // A escala de cor vale só para os estados do filtro: sem SP, as diferenças
@@ -772,9 +806,32 @@ export function opcaoMapa(
   const max = o.divergente ? absMax : Math.max(...valores);
   const maiorBolha = Math.max(1, ...bolhas.map((b) => b.tamanho));
   const bolhaMax = c.compacto ? 16 : 26;
+  const tamanhoBolha = (v: number[]) => 3 + bolhaMax * Math.sqrt(v[3] / maiorBolha);
+  const OUTROS = "Outros municípios";
+  const grupos = o.grupos ?? [];
+  const leg = grupos.length ? legenda(c, [...grupos, { nome: OUTROS }].map((g) => ({ nome: g.nome, icone: "ponto" as const }))) : undefined;
+  const dadoBolha = (b: (typeof bolhas)[number]) => ({
+    name: b.nome,
+    value: [b.lon, b.lat, b.valor, b.tamanho],
+    itemStyle: apagado(b.uf) ? { opacity: 0.06 } : undefined,
+  });
+  // Uma série por grupo (a legenda liga e desliga cada um) e, por cima de
+  // todas, a dos municípios que a busca encontrou.
+  const camadas = [...grupos.map((g) => ({ nome: g.nome, cor: g.cor })), { nome: OUTROS, cor: c.tinta }].map((g, i) => ({
+    type: "scatter" as const,
+    name: g.nome,
+    coordinateSystem: "geo" as const,
+    data: bolhas.filter((b) => !b.destaque && (i < grupos.length ? b.grupo === g.nome : !grupos.some((x) => x.nome === b.grupo))).map(dadoBolha),
+    symbolSize: tamanhoBolha,
+    itemStyle: { color: g.cor, opacity: g.nome === OUTROS ? 0.28 : 0.8, borderColor: c.superficie, borderWidth: 1 },
+    emphasis: { itemStyle: { opacity: 1 } },
+    z: 3,
+  }));
+  const destacadas = bolhas.filter((b) => b.destaque);
   const opcao: EChartsOption = {
     backgroundColor: "transparent",
     textStyle: { fontFamily: FONTE, color: c.tinta2 },
+    legend: leg,
     tooltip: {
       ...caixaTooltip(c),
       trigger: "item",
@@ -810,6 +867,7 @@ export function opcaoMapa(
       // o toque fica só para o tooltip.
       roam: !c.compacto,
       scaleLimit: { min: 1, max: 8 },
+      ...(o.foco ? { center: [o.foco.lon, o.foco.lat], zoom: o.foco.zoom } : {}),
       layoutCenter: ["50%", c.compacto ? "46%" : "48%"],
       layoutSize: c.compacto ? "100%" : "96%",
       itemStyle: { areaColor: c.neutro, borderColor: c.superficie, borderWidth: 1 },
@@ -825,14 +883,16 @@ export function opcaoMapa(
         // opacidade por item é ignorada numa série ligada ao `geo`.)
         data: ufs.map((u) => ({ name: u.uf, value: apagado(u.uf) ? ("-" as const) : u.valor })),
       },
+      ...camadas,
       {
         type: "scatter",
+        name: "_destaque",
         coordinateSystem: "geo",
-        data: bolhas.map((b) => ({ name: b.nome, value: [b.lon, b.lat, b.valor, b.tamanho], itemStyle: apagado(b.uf) ? { opacity: 0.06 } : undefined })),
-        symbolSize: (v: number[]) => 3 + bolhaMax * Math.sqrt(v[3] / maiorBolha),
-        itemStyle: { color: c.tinta, opacity: 0.32, borderColor: c.superficie, borderWidth: 1 },
-        emphasis: { itemStyle: { opacity: 0.8 } },
-        z: 3,
+        data: destacadas.map(dadoBolha),
+        symbolSize: (v: number[]) => Math.max(14, tamanhoBolha(v)),
+        itemStyle: { color: ACENTO, opacity: 1, borderColor: c.tinta, borderWidth: 1.5 },
+        label: { show: true, position: "right", color: c.tinta, fontSize: 12, fontWeight: 600, textBorderColor: c.superficie, textBorderWidth: 3, formatter: (p: { name: string }) => p.name },
+        z: 5,
       },
     ],
   };

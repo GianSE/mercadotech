@@ -43,7 +43,7 @@ function lerCores(modo: Modo, compacto: boolean): Cores {
     eixo: v("--eixo"),
     superficie: v("--superficie"),
     borda: v("--borda"),
-    series: [1, 2, 3, 4, 5, 6].map((i) => v(`--serie-${i}`)),
+    series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => v(`--serie-${i}`)),
     positivo: v("--positivo"),
     negativo: v("--negativo"),
     neutro: v("--neutro"),
