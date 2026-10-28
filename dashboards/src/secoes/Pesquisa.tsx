@@ -81,6 +81,20 @@ function arvoreCnae(linhas: Linha[]): NoHierarquia[] {
   return [...divisoes.entries()].sort().map(([d, filhos]) => ({ nome: DIVISOES_CNAE[d] ?? d, filhos }));
 }
 
+// As duas bases, em uma frase cada, para quem nunca ouviu falar delas.
+const FONTES = [
+  {
+    sigla: "RAIS",
+    apelido: "a fotografia do ano",
+    texto: "Relação Anual de Informações Sociais: uma vez por ano, toda empresa declara cada emprego formal, com ocupação, salário e perfil de quem estava empregado em 31 de dezembro.",
+  },
+  {
+    sigla: "CAGED",
+    apelido: "o filme do mês",
+    texto: "Cadastro Geral de Empregados e Desempregados: registra cada admissão e cada desligamento, mês a mês, e mostra o mercado em movimento.",
+  },
+];
+
 export default function Pesquisa() {
   const { cores: c } = useTema();
 
@@ -135,17 +149,50 @@ export default function Pesquisa() {
           Visão geral · RAIS + CAGED · 2007–2026
         </p>
         <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">Emprego formal em tecnologia no Brasil</h1>
-        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-tinta-2">Cinco perguntas sobre o mercado de TI, respondidas com os dados públicos do Ministério do Trabalho.</p>
+        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-tinta-2">
+          Este painel acompanha o mercado de trabalho de TI no Brasil desde 2007, com os dados públicos do Ministério do Trabalho. Duas bases contam essa história:
+        </p>
       </header>
+      <div className="mb-10 grid gap-3 sm:grid-cols-2">
+        {FONTES.map((fonte) => (
+          <div key={fonte.sigla} className="cartao p-4">
+            <p className="sobrelinha">{fonte.sigla} · {fonte.apelido}</p>
+            <p className="mt-2 text-[14px] leading-relaxed text-tinta-2">{fonte.texto}</p>
+            <p className="mt-2 text-[12px] text-tinta-3">{fonte.sigla === "RAIS" ? `Aqui: ${num(cob, "de") || 2007} a ${anoRais || "—"}` : `Aqui: de 2007 a ${cob?.ate_caged ?? "—"}`}</p>
+          </div>
+        ))}
+      </div>
 
+      <Bloco titulo="O que queremos saber">
+        <nav aria-label="Páginas" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {PAGINAS.map((q, i) => (
+            <a key={q.id} href={`#/${q.id}`} className="cartao group flex items-center gap-4 p-4 transition-colors hover:border-acento">
+              <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-serie-1/12 font-mono text-[14px] font-semibold text-serie-1">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="min-w-0 font-medium text-tinta">{q.p}</span>
+            </a>
+          ))}
+          <a href="#/analise" className="flex items-center gap-4 rounded-[var(--radius-cartao)] bg-acento p-4 text-sobre-acento">
+            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-black/10 font-mono text-[14px] font-semibold">→</span>
+            <span className="font-semibold">Análise e conclusões</span>
+          </a>
+        </nav>
+      </Bloco>
+
+      <Bloco titulo="Os dados em números">
       <Grade colunas={4}>
         <Kpi destaque ajuda="estoque" rotulo={`Empregos de TI em ${num(est, "ano") || "—"}`} valor={est ? fmtCompacto(num(est, "estoque")) : "—"} detalhe="vínculos formais ativos em 31/12" />
         <Kpi ajuda="silver" rotulo="Registros analisados" valor={registros ? fmtCompacto(registros) : "—"} detalhe="vínculos da RAIS e movimentações do CAGED" />
         <Kpi rotulo="Municípios" valor={lug ? fmtNum(num(lug, "municipios")) : "—"} detalhe={lug ? `com emprego de TI, nos ${fmtNum(num(lug, "estados"))} estados` : undefined} />
         <Kpi rotulo="Período" valor={cob ? `${num(cob, "de")}–${String(cob.ate_caged ?? "").slice(-4)}` : "—"} detalhe={cob ? `RAIS até ${anoRais} · CAGED até ${cob.ate_caged}` : undefined} />
       </Grade>
+      </Bloco>
 
-      <Bloco titulo="O que conta como emprego de TI">
+      <Bloco
+        titulo="O que conta como emprego de TI"
+        descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE)."
+      >
         <Grade>
           <CartaoGrafico
             titulo={ocupacoes ? `${ocupacoes} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
@@ -183,23 +230,6 @@ export default function Pesquisa() {
             }}
           />
         </Grade>
-      </Bloco>
-
-      <Bloco titulo="As cinco perguntas">
-        <nav aria-label="Páginas" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {PAGINAS.map((q, i) => (
-            <a key={q.id} href={`#/${q.id}`} className="cartao group flex items-center gap-4 p-4 transition-colors hover:border-acento">
-              <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-serie-1/12 font-mono text-[14px] font-semibold text-serie-1">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="min-w-0 font-medium text-tinta">{q.p}</span>
-            </a>
-          ))}
-          <a href="#/analise" className="flex items-center gap-4 rounded-[var(--radius-cartao)] bg-acento p-4 text-sobre-acento">
-            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-black/10 font-mono text-[14px] font-semibold">→</span>
-            <span className="font-semibold">Análise e conclusões</span>
-          </a>
-        </nav>
       </Bloco>
     </>
   );

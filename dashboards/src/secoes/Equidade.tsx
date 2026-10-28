@@ -19,19 +19,25 @@ const PLURAL: Record<string, string> = { Homem: "homens", Mulher: "mulheres", Br
 // multiplicando (1 − 5,6%) × (1 + 14,3%) ≈ 1 + 7,9%, por isso não somam
 // exatamente o hiato total.
 const emPct = (log: number) => (Math.exp(log) - 1) * 100;
+// Termo de uma conta: "+ 14,3%", "− 5,7%".
+const termo = (v: number) => `${v < 0 ? "−" : "+"} ${fmtDec(Math.abs(v), 1)}%`;
 const comSinal = (v: number, casas = 1) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${fmtDec(Math.abs(v), casas)}%`;
 
-// "Em 2025, homens ganham em média 7,8% mais que mulheres. Com o mesmo
-// perfil, a diferença seria de 14,3%; pelo perfil, mulheres deveriam ganhar
-// 5,6% mais."
+// Os três números com nome do que medem: "no salário" (o que se vê),
+// "entre pessoas iguais" (o que sobra com o mesmo perfil) e "efeito do
+// perfil" (o que vem de os grupos terem perfis diferentes).
+const NOMES = { total: "No salário", iguais: "Entre pessoas iguais", perfil: "Efeito do perfil" } as const;
+
+// "Em 2025, homens ganham 7,8% mais que mulheres. Entre pessoas iguais,
+// ganham 14,3% mais; mas o perfil, sozinho, faria mulheres ganharem 5,7% mais."
 function leitura(ano: number, a: string, b: string, total: number, perfil: number, pagamento: number) {
   const [pa, pb] = [PLURAL[a] ?? a, PLURAL[b] ?? b];
-  const quem = total >= 0 ? `${pa} ganham em média ${fmtDec(Math.abs(total), 1)}% mais que ${pb}` : `${pb} ganham em média ${fmtDec(Math.abs(total), 1)}% mais que ${pa}`;
-  const mesmo = `Com o mesmo perfil, ${pa} ganhariam ${fmtDec(Math.abs(pagamento), 1)}% ${pagamento >= 0 ? "mais" : "menos"}`;
+  const quem = total >= 0 ? `${pa} ganham ${fmtDec(Math.abs(total), 1)}% mais que ${pb}` : `${pb} ganham ${fmtDec(Math.abs(total), 1)}% mais que ${pa}`;
+  const iguais = `entre pessoas iguais (mesma escolaridade, área, idade, região e porte da empresa), ${pa} ganham ${fmtDec(Math.abs(pagamento), 1)}% ${pagamento >= 0 ? "mais" : "menos"}`;
   const pelo = perfil >= 0
-    ? `a diferença de perfil (escolaridade, área, região…) explica ${fmtDec(perfil, 1)}% a favor de ${pa}`
-    : `pelo perfil, ${pb} deveriam ganhar ${fmtDec(Math.abs(perfil), 1)}% mais`;
-  return `Em ${ano}, ${quem}. ${mesmo}; ${pelo}.`;
+    ? `e o perfil soma mais ${fmtDec(perfil, 1)}% a favor de ${pa}, que estão mais nas posições que pagam melhor`
+    : `mas o perfil, sozinho, faria ${pb} ganharem ${fmtDec(Math.abs(perfil), 1)}% mais`;
+  return `Em ${ano}, ${quem}. A diferença tem duas partes: ${iguais}, ${pelo}.`;
 }
 
 const perfilSql = (dim: string, p: Periodo, territorio: string) => `
@@ -81,9 +87,9 @@ export default function Equidade() {
             c,
             rotulos(h, "ano"),
             [
-              { nome: "Diferença total", dados: coluna(h, "hiato_pct"), rotuloFinal: true },
-              { nome: "Com o mesmo perfil", dados: h.map((l) => emPct(num(l, "nao_explicada"))), rotuloFinal: true },
-              { nome: "Pelo perfil", dados: h.map((l) => emPct(num(l, "explicada"))), rotuloFinal: true, tracejada: true },
+              { nome: NOMES.total, dados: coluna(h, "hiato_pct"), rotuloFinal: true },
+              { nome: NOMES.iguais, dados: h.map((l) => emPct(num(l, "nao_explicada"))), rotuloFinal: true },
+              { nome: NOMES.perfil, dados: h.map((l) => emPct(num(l, "explicada"))), rotuloFinal: true, tracejada: true },
             ],
             { formato: (v) => comSinal(v), formatoEixo: (v) => `${fmtDec(v, 0)}%`, zero: true },
           )
@@ -100,7 +106,7 @@ export default function Equidade() {
     if (!g || !r) return undefined;
     const [, rb] = String(r.comparacao).split(" vs ");
     const generoRetorno = num(g, "explicada") < 0;
-    return `Em ${num(g, "ano")}, pessoas brancas ganham ${fmtDec(num(r, "hiato_pct"), 0)}% mais que ${PLURAL[rb]}, sobretudo por estarem nas posições que pagam mais; homens ganham ${fmtDec(num(g, "hiato_pct"), 1)}% mais que mulheres${generoRetorno ? ", e com o mesmo perfil a diferença seria ainda maior" : ""}.`;
+    return `Em ${num(g, "ano")}, pessoas brancas ganham ${fmtDec(num(r, "hiato_pct"), 0)}% mais que ${PLURAL[rb]}, sobretudo por estarem nas posições que pagam mais; homens ganham ${fmtDec(num(g, "hiato_pct"), 1)}% mais que mulheres${generoRetorno ? ", e entre pessoas iguais a diferença seria ainda maior" : ""}.`;
   })();
   const total = num(hu, "hiato_pct");
   const perfil = emPct(num(hu, "explicada"));
@@ -149,7 +155,7 @@ export default function Equidade() {
       </Bloco>
 
       <Bloco
-        titulo="Hiato salarial: diferença de perfil ou de pagamento?"
+        titulo="Hiato salarial: o que vem do perfil e o que sobra entre iguais"
         descricao={hu ? leitura(num(hu, "ano"), grupoA, grupoB, total, perfil, pagamento) : undefined}
       >
         <div className="flex flex-wrap items-end gap-4">
@@ -160,21 +166,21 @@ export default function Equidade() {
             <Kpi
               destaque
               ajuda="hiato"
-              rotulo={`Diferença total em ${num(hu, "ano")}`}
+              rotulo={`${NOMES.total} · ${num(hu, "ano")}`}
               valor={comSinal(total)}
-              detalhe={`era ${comSinal(num(hp, "hiato_pct"))} em ${num(hp, "ano")}`}
+              detalhe={`o que ${PLURAL[grupoA]} ganham a mais, em média · era ${comSinal(num(hp, "hiato_pct"))} em ${num(hp, "ano")}`}
             />
             <Kpi
               ajuda="pagamento"
-              rotulo="Com o mesmo perfil"
+              rotulo={NOMES.iguais}
               valor={comSinal(pagamento)}
-              detalhe={`o que ${PLURAL[grupoA]} ganhariam a mais com perfil igual · era ${comSinal(emPct(num(hp, "nao_explicada")))} em ${num(hp, "ano")}`}
+              detalhe={`mesma escolaridade, área, idade, região e porte · era ${comSinal(emPct(num(hp, "nao_explicada")))} em ${num(hp, "ano")}`}
             />
             <Kpi
               ajuda="perfil"
-              rotulo="Pelo perfil"
+              rotulo={NOMES.perfil}
               valor={comSinal(perfil)}
-              detalhe={perfil < 0 ? `o perfil favorece ${PLURAL[grupoB]}` : `o perfil favorece ${PLURAL[grupoA]}`}
+              detalhe={perfil < 0 ? `negativo: o perfil, sozinho, favorece ${PLURAL[grupoB]}` : `o perfil de ${PLURAL[grupoA]} é o de posições que pagam mais`}
             />
           </Grade>
         )}
@@ -182,7 +188,7 @@ export default function Equidade() {
           titulo={`${grupoA} × ${grupoB}`}
           subtitulo={`Quanto ${PLURAL[grupoA]} ganham a mais, em % · decomposição de Oaxaca-Blinder, RAIS`}
           ajuda="pagamento"
-          rodape="A diferença total combina as duas outras: o efeito do perfil e o do pagamento se multiplicam, por isso a soma das linhas fica perto, mas não igual, ao total."
+          rodape={hu ? `As duas partes se combinam multiplicando, e não somando: (1 ${termo(pagamento)}) × (1 ${termo(perfil)}) ≈ 1 ${termo(total)}, em ${num(hu, "ano")}.` : undefined}
           nacional
           opcao={op.hiato}
           carregando={hiato.carregando}
@@ -193,9 +199,9 @@ export default function Equidade() {
               { chave: "ano", rotulo: "Ano" },
               { chave: "salario_a", rotulo: grupoA, formato: (v) => `${fmtDec(v, 2)} SM`, numero: true },
               { chave: "salario_b", rotulo: grupoB, formato: (v) => `${fmtDec(v, 2)} SM`, numero: true },
-              { chave: "hiato_pct", rotulo: "Hiato", formato: (v) => fmtPct(v, 1), numero: true },
-              { chave: "perfil_pct", rotulo: "Pelo perfil (%)", formato: (v) => comSinal(Number(v)), numero: true },
-              { chave: "pagamento_pct", rotulo: "Com o mesmo perfil (%)", formato: (v) => comSinal(Number(v)), numero: true },
+              { chave: "hiato_pct", rotulo: `${NOMES.total} (%)`, formato: (v) => fmtPct(v, 1), numero: true },
+              { chave: "perfil_pct", rotulo: `${NOMES.perfil} (%)`, formato: (v) => comSinal(Number(v)), numero: true },
+              { chave: "pagamento_pct", rotulo: `${NOMES.iguais} (%)`, formato: (v) => comSinal(Number(v)), numero: true },
             ],
             linhas: h.map((l) => ({ ...l, perfil_pct: emPct(num(l, "explicada")), pagamento_pct: emPct(num(l, "nao_explicada")) })),
           }}

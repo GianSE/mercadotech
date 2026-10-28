@@ -1,7 +1,7 @@
 // Recorte no endereço: #/onde?uf=PR&destacar=Cornélio%20Procópio. Copiar o
 // link da barra (ou pelo botão do cabeçalho) leva outra pessoa ao mesmo
 // recorte. A rota fica antes do "?"; os parâmetros, depois.
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export function partesHash(): { rota: string; params: URLSearchParams } {
   const [rota, consulta = ""] = window.location.hash.replace(/^#\/?/, "").split("?");
@@ -26,6 +26,19 @@ export function useParametro<T>(nome: string, padrao: T, ler: (s: string) => T |
     const bruto = partesHash().params.get(nome);
     return (bruto === null ? null : ler(bruto)) ?? padrao;
   });
+  // Um link colado com a página já aberta muda só o parâmetro, sem remontar a
+  // página: o valor acompanha o endereço. (A escrita usa replaceState, que
+  // não dispara este evento.)
+  useEffect(() => {
+    const aoMudar = () => {
+      const bruto = partesHash().params.get(nome);
+      const novo = (bruto === null ? null : ler(bruto)) ?? padrao;
+      setValor((atual) => (escrever(atual) === escrever(novo) ? atual : novo));
+    };
+    window.addEventListener("hashchange", aoMudar);
+    return () => window.removeEventListener("hashchange", aoMudar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nome]);
   // `ler`, `escrever` e `padrao` são fixos por página: só o nome entra na dependência.
   const definir = useCallback(
     (v: T) => {
