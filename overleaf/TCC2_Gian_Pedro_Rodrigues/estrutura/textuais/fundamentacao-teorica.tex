@@ -3,7 +3,7 @@
 \chapter{Fundamentação Teórica}
 \label{cap:referencial}
 
-Este capítulo reúne os fundamentos que sustentam o trabalho. Começa caracterizando o mercado de trabalho em TI no Brasil e as bases de dados oficiais que o registram; em seguida, apresenta os conceitos de engenharia de dados e a arquitetura adotada, as tecnologias de armazenamento e consulta e as ferramentas de visualização; por fim, descreve os modelos de séries temporais usados na previsão e encerra com uma discussão dos trabalhos relacionados.
+Este capítulo reúne os fundamentos que sustentam o trabalho. Começa caracterizando o mercado de trabalho em TI no Brasil, a literatura sobre desigualdade, terceirização e trabalho remoto que orienta a leitura dos resultados e as bases de dados oficiais que o registram; em seguida, apresenta os conceitos de engenharia de dados e a arquitetura adotada, as tecnologias de armazenamento e consulta e as ferramentas de visualização; por fim, descreve os modelos de séries temporais usados na previsão e encerra com uma discussão dos trabalhos relacionados.
 
 \section{O mercado de trabalho em TI no Brasil}
 
@@ -15,6 +15,21 @@ Uma pesquisa da Federação do Comércio de Bens, Serviços e Turismo do Estado 
 A pandemia de COVID-19 acelerou esse cenário. A partir de 2020, empresas de todos os portes adotaram em escala maior ferramentas de colaboração remota, \textit{cloud computing} e automação, o que ampliou a procura por profissionais de TI no momento em que o restante do mercado formal sofria forte contração \cite{CAGED2024}. Há também um efeito geográfico relevante. O emprego em TI segue concentrado no Sudeste, sobretudo em São Paulo, mas vem se espalhando pelo país desde 2020. Em 2024, a Região Norte registrou o maior crescimento percentual de contratações no setor TIC (7,4\%), movimento associado à difusão do trabalho remoto, que tornou estados fora do eixo Sul-Sudeste mais atrativos para a contratação de profissionais de TI \cite{Brasscom2024}.
 
 Estudar essas dinâmicas em profundidade exige fontes com cobertura nacional, série histórica longa e granularidade por ocupação. Entre as bases disponíveis no Brasil, RAIS e CAGED são as únicas que atendem a esses três requisitos ao mesmo tempo.
+
+\section{Desigualdade, terceirização e trabalho remoto}
+\label{sec:literatura-trabalho}
+
+Três temas da economia do trabalho orientam a leitura dos resultados deste trabalho: como se formam os hiatos salariais por sexo e por raça, o que acontece com o emprego e o salário quando uma função passa a ser contratada de fora, e o que o trabalho remoto muda na geografia do emprego.
+
+Sobre o hiato de gênero, a revisão de \citeonline{BlauKahn2017} mostra que, nos Estados Unidos, ele caiu de forma expressiva entre 1980 e 2010, em boa parte porque as mulheres alcançaram e ultrapassaram os homens em escolaridade e experiência. Com isso, as características tradicionais de capital humano passaram a explicar pouco do hiato que restou, e a parcela não explicada ganhou peso relativo. \citeonline{Goldin2014} localiza essa parcela dentro das ocupações: ela depende de como cada ocupação remunera jornadas longas e pouco flexíveis, e não da diferença de qualificação. No Brasil, \citeonline{Madalozzo2010} chega a conclusão semelhante: a segregação ocupacional explica só parte do hiato de gênero, e a maior parte da diferença ocorre entre pessoas da mesma ocupação. Esses trabalhos explicam por que um hiato pode crescer sem que nenhuma regra de remuneração mude: basta que a vantagem de características de um grupo encolha.
+
+Sobre raça, a desigualdade de rendimentos no Brasil é de outra magnitude. Em 2021, o rendimento médio de trabalhadores brancos superava em 75,7\% o de pretos e em 70,8\% o de pardos, e a diferença persistia entre pessoas com ensino superior completo \cite{IBGE2022Desigualdades}. Parte dela vem de onde cada grupo trabalha, e parte de quanto recebe na mesma posição, separação que a decomposição de Oaxaca-Blinder, apresentada adiante, permite medir.
+
+Sobre a terceirização, \citeonline{AbrahamTaylor1996} mostram que as empresas contratam serviços de fora por três motivos: reduzir custos salariais, ajustar a força de trabalho às oscilações de demanda e ter acesso a competências especializadas que não compensaria manter internamente. Os dois últimos descrevem bem os serviços de tecnologia. O efeito sobre quem passa a trabalhar para o fornecedor é documentado em ocupações de serviços: na Alemanha, trabalhadores de limpeza, segurança, alimentação e logística terceirizados passaram a ganhar de 10\% a 15\% menos que os não terceirizados em postos equivalentes \cite{GoldschmidtSchmieder2017}, e resultado na mesma direção foi encontrado para faxineiros e vigilantes nos Estados Unidos \cite{DubeKaplan2010}. Se o mesmo vale para ocupações qualificadas, como as de TI, é uma questão em aberto.
+
+Uma ressalva de método acompanha qualquer série de salários: a composição da força de trabalho muda com o ciclo. Na expansão, entram mais trabalhadores de salário mais baixo e com pouco tempo de casa; na recessão, são eles os primeiros a sair. Por isso médias e medianas agregadas podem ficar estáveis enquanto os salários de cada grupo se movem, ou o contrário \cite{Solon1994}. O mesmo vale para o tempo médio de emprego.
+
+Por fim, o trabalho remoto, que se expandiu com a pandemia, não voltou ao nível anterior: nos Estados Unidos, ele se estabilizou em uma fração dos dias trabalhados muitas vezes maior que antes de 2020, concentrada em ocupações de alta qualificação \cite{Barrero2023}. Para quem estuda o emprego por meio de registros administrativos, a consequência é direta: o lugar do empregador e o lugar onde a pessoa vive e trabalha deixam de coincidir.
 
 \section{Bases de dados governamentais: RAIS e CAGED}
 
@@ -231,7 +246,7 @@ No exemplo da \autoref{fig:parquet-vs-csv}, uma consulta como \texttt{SELECT Sal
 Essa organização traz três benefícios concretos para consultas analíticas:
 
 \begin{itemize}
-    \item \textbf{\textit{Column pruning}}: consultas que selecionam apenas algumas colunas (e.g., \texttt{SELECT uf, SUM(saldo)}) ignoram completamente os blocos de disco das colunas não solicitadas, reduzindo o I/O em proporção ao número de colunas não lidas;
+    \item \textbf{\textit{Column pruning}}: a leitura só das colunas pedidas, ilustrada acima;
 
     \item \textbf{\textit{Predicate pushdown}}: filtros numéricos ou de string são avaliados no nível do bloco de dados, usando estatísticas de mínimo e máximo armazenadas nos metadados do arquivo para descartar blocos inteiros sem leitura;
 
@@ -316,6 +331,11 @@ A qualidade das previsões é medida por duas métricas clássicas. O \textit{Me
 \end{equation}
 
 onde $y_i$ é o valor observado e $\hat{y}_i$ é o valor previsto pelo modelo para o período $i$.
+
+\subsection{\textit{Nowcasting}}
+\label{subsec:nowcasting}
+
+Nem toda pergunta sobre uma série é uma pergunta sobre o futuro. Estatísticas oficiais são publicadas com defasagem, e o valor do período corrente, ou mesmo do período já encerrado, costuma ser desconhecido quando a decisão precisa ser tomada. O \textit{nowcasting}, formalizado por \citeonline{Giannone2008} para o PIB, estima esse presente a partir de informações divulgadas antes e com mais frequência que a estatística de interesse. \citeonline{Banbura2013} o definem como a previsão do presente, do passado muito recente e do futuro muito próximo, e mostram que seu ganho vem justamente do fluxo de publicação: cada dado novo que sai antes da estatística oficial reduz a incerteza sobre ela. A RAIS e o CAGED têm exatamente essa relação: o estoque anual é publicado no ano seguinte, e o fluxo mensal, poucas semanas depois de cada mês.
 
 \section{Métodos de decomposição salarial, sobrevivência e agrupamento}
 
