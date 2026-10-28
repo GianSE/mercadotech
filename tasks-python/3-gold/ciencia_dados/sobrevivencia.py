@@ -69,6 +69,7 @@ MOTIVOS_CENSURA = ("30", "31", "34", "35", "36", "40", "60")
 def _sql(ano: int, amostra: int | None) -> str:
     censura = ", ".join(f"'{m}'" for m in MOTIVOS_CENSURA)
     limite = f"USING SAMPLE {amostra} ROWS" if amostra else ""
+    fonte = nuvem.fonte_silver_ti('rais_vinc', f'ano_particao={ano}/**/*.parquet')
     return f"""
         SELECT
             tempo_emprego AS duracao,
@@ -94,9 +95,10 @@ def _sql(ano: int, amostra: int | None) -> str:
             {esc.sql_area_ti('cbo_ocupacao_2002')} AS area,
             CASE WHEN {esc.sql_filtro_cnae('cnae_20_subclasse')}
                  THEN 'Empresa de TI' ELSE 'Fora do setor de TI' END AS setor
-        FROM read_parquet({nuvem.fonte_silver_ti('rais_vinc', f'ano_particao={ano}/**/*.parquet')})
+        FROM read_parquet({fonte})
         WHERE tempo_emprego IS NOT NULL AND tempo_emprego >= 0
           AND {esc.sql_filtro_cbo('cbo_ocupacao_2002')}
+          AND {esc.sql_sem_artefato_rais(fonte)}
         {limite}
     """
 

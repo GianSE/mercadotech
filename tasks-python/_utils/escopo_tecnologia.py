@@ -285,6 +285,49 @@ def sql_saida_cbo(col_cnae: str | None, col_cbo: str) -> str:
     return f"({codigo} IN ({excluidos}) AND {fora_do_setor})"
 
 
+# --- ARTEFATO DE DECLARAÇÃO NA RAIS ----------------------------------------
+# O Poder Executivo Estadual de Rondônia (natureza jurídica 1023, município
+# 110020, Porto Velho) declara o funcionalismo do estado inteiro sob UM código
+# CBO só, e o código alterna entre os anos:
+#
+#     2007-2010, 2018-2020, 2022   317110  Programador de Sistemas de Informação
+#     2011-2017                    721215  Operador de Máquinas-Ferramenta Convencionais
+#
+# São de 45 a 53 mil servidores todo ano, quase todos estatutários, com 140 a
+# 160 meses de casa e mediana de 3 SM. O número e o tempo de casa não mudam;
+# muda só o código. Nos anos do 317110, esse grupo é o MAIOR grupo de
+# "profissionais de TI" do país (maior que os desenvolvedores das LTDA de São
+# Paulo) e infla o recorte em até 7,3% (2007). Nos outros anos ele tem de 0 a
+# 135 vínculos, que são a TI real do governo do estado e ficam.
+#
+# Daí a regra por ano, e não por código: o grupo sai só no ano em que passa do
+# limiar. O limiar não precisa de ajuste fino: contando também os desligados,
+# o maior ano legítimo tem 195 registros e o menor ano do artefato, 44.185.
+ARTEFATO_RO = {"municipio": "110020", "natureza_juridica": "1023", "cbo": "317110"}
+LIMIAR_ARTEFATO = 1000
+
+
+def sql_grupo_artefato_ro(col_cbo: str = "cbo_ocupacao_2002") -> str:
+    """Predicado do grupo (município, natureza jurídica, CBO) do artefato."""
+    a = ARTEFATO_RO
+    return (f"(municipio = '{a['municipio']}' AND natureza_juridica = '{a['natureza_juridica']}' "
+            f"AND {sql_codigo_cbo(col_cbo)} = '{a['cbo']}')")
+
+
+def sql_sem_artefato_rais(fonte: str, col_cbo: str = "cbo_ocupacao_2002") -> str:
+    """
+    Predicado que tira o artefato de Rondônia de uma leitura do rais_vinc.
+
+    `fonte` é a mesma expressão do `read_parquet` principal (a série inteira
+    ou só um ano): os anos do artefato são medidos no próprio dado, então um
+    ano novo com o mesmo defeito sai sozinho, sem lista de anos para manter.
+    """
+    grupo = sql_grupo_artefato_ro(col_cbo)
+    return (f"NOT ({grupo} AND ano IN ("
+            f"SELECT ano FROM read_parquet({fonte}, union_by_name=true) "
+            f"WHERE {grupo} GROUP BY ano HAVING count(*) > {LIMIAR_ARTEFATO}))")
+
+
 def sql_classificacao(col_cnae: str = "subclasse",
                       col_cbo: str | None = "cbo2002ocupacao") -> str:
     """

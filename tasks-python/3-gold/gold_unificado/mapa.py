@@ -64,6 +64,9 @@ RAIS = f"""
     FROM read_parquet({nuvem.fonte_silver_ti("rais_vinc")},
                       hive_partitioning=true)
     WHERE municipio_descricao IS NOT NULL
+      -- Sem o funcionalismo de Rondônia declarado como programador
+      -- (ver escopo_tecnologia.ARTEFATO_RO).
+      AND {esc.sql_sem_artefato_rais(nuvem.fonte_silver_ti("rais_vinc"))}
 """
 
 # Teto de plausibilidade da remuneração — ver gold_rais.construir_gold: a fonte

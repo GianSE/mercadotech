@@ -63,9 +63,14 @@ COL_CBO = "cbo_ocupacao_2002"
 # Rotula cada vínculo nas duas lentes (setor por CNAE, ocupação por CBO). Igual
 # ao CAGED: rotular em vez de filtrar mantém o mercado geral como linha de base
 # na mesma tabela — sem baseline, "TI paga 2,3x mais" não diz nada.
+#
+# O funcionalismo do governo de Rondônia, declarado como programador em oito
+# anos da série, sai aqui (ver escopo_tecnologia.ARTEFATO_RO). A silver fica
+# como está: ela reproduz a fonte, e a recontagem contra o bronze depende disso.
 BASE_VINC = f"""
     SELECT *, {esc.sql_classificacao(COL_CNAE, COL_CBO)}
     FROM read_parquet({FONTE_VINC}, hive_partitioning=true)
+    WHERE {esc.sql_sem_artefato_rais(FONTE_VINC, COL_CBO)}
 """
 
 # O estabelecimento não tem ocupação — uma empresa não exerce CBO —, então só
@@ -318,6 +323,56 @@ def construir(con, nome: str) -> bool:
         return False
 
 
+def verificar_saltos(con, minimo: int = 5000, fator: int = 10) -> None:
+    """
+    Acusa ocupação de TI que aparece ou some num município de um ano para o
+    outro.
+
+    Foi assim que o funcionalismo de Rondônia apareceu: o CBO 317110 em Porto
+    Velho passando de 181 para 44 mil vínculos ativos de um ano para o outro,
+    com 158 meses de casa em média, ou seja, gente que já estava lá com outro
+    código. Nenhum mercado se move assim, e nada na fonte acusa erro.
+
+    A chave é (município, CBO), sem a natureza jurídica: com ela, empresa que
+    muda de LTDA para S.A. levando os empregados aparece como salto, e a
+    verificação acusava 27 casos dos quais só um era defeito. Lê a silver
+    (antes de qualquer exclusão) e não interrompe a construção: o que ela
+    lista precisa de leitura humana, e o artefato já conhecido sai marcado.
+    """
+    cbo = esc.sql_codigo_cbo(COL_CBO)
+    saltos = con.execute(f"""
+        WITH g AS (
+            SELECT ano, municipio, {cbo} AS cbo,
+                   count(*) FILTER (WHERE {ATIVO}) AS n,
+                   round(avg(tempo_emprego) FILTER (WHERE {ATIVO})) AS tempo
+            FROM read_parquet({FONTE_VINC}, union_by_name=true)
+            WHERE {esc.sql_filtro_cbo(COL_CBO)}
+            GROUP BY ALL
+        ),
+        pares AS (
+            SELECT coalesce(a.ano, b.ano + 1) AS ano,
+                   coalesce(a.municipio, b.municipio) AS municipio,
+                   coalesce(a.cbo, b.cbo) AS cbo,
+                   coalesce(b.n, 0) AS antes, coalesce(a.n, 0) AS depois, a.tempo
+            FROM g a FULL JOIN g b
+              ON b.ano = a.ano - 1 AND b.municipio = a.municipio AND b.cbo = a.cbo
+        )
+        SELECT * FROM pares
+        WHERE ano > (SELECT min(ano) FROM g) AND ano <= (SELECT max(ano) FROM g)
+          AND greatest(antes, depois) >= {minimo}
+          AND greatest(antes, depois) >= {fator} * least(antes, depois)
+        ORDER BY ano
+    """).fetchall()
+    a = esc.ARTEFATO_RO
+    print(f"\n🔎 ocupações de TI que mudam {fator}x num município de um ano para o outro "
+          f"(>= {minimo:,} vínculos): {len(saltos)}")
+    for ano, mun, cod, antes, depois, tempo in saltos:
+        conhecido = (mun, cod) == (a["municipio"], a["cbo"])
+        marca = "conhecido, excluído" if conhecido else "⚠️ NOVO: investigar"
+        casa = f", {tempo:.0f} meses de casa" if tempo is not None else ""
+        print(f"   {ano}  município {mun}  CBO {cod}: {antes:,} -> {depois:,}{casa}  ({marca})")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="Constrói a camada gold da RAIS.")
     p.add_argument("--tabela", nargs="+", choices=list(AGREGADOS), default=list(AGREGADOS))
@@ -334,6 +389,10 @@ def main() -> int:
 
     ok = sum(construir(con, nome) for nome in args.tabela)
     print(f"\n🏁 {ok}/{len(args.tabela)} agregado(s) construído(s).")
+    try:
+        verificar_saltos(con)
+    except Exception as e:
+        print(f"   ⚠️ verificação de saltos não rodou: {str(e)[:200]}")
     return 0 if ok == len(args.tabela) else 2
 
 

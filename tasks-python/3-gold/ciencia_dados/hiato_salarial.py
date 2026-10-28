@@ -77,6 +77,7 @@ NUMERICAS = ["tempo_emprego", "idade", "idade2", "horas"]
 
 
 def _sql(ano: int) -> str:
+    fonte = nuvem.fonte_silver_ti('rais_vinc', f'ano_particao={ano}/**/*.parquet')
     return f"""
         SELECT
             vl_remun_media_sm                 AS remuneracao_sm,
@@ -91,9 +92,10 @@ def _sql(ano: int) -> str:
             CASE WHEN {esc.sql_filtro_cnae('cnae_20_subclasse')}
                  THEN 'Empresa de TI' ELSE 'Fora do setor de TI' END AS setor,
             upper(split_part(municipio_descricao, '-', 1)) AS regiao
-        FROM read_parquet({nuvem.fonte_silver_ti('rais_vinc', f'ano_particao={ano}/**/*.parquet')})
+        FROM read_parquet({fonte})
         WHERE {ATIVO}
           AND {esc.sql_filtro_cbo('cbo_ocupacao_2002')}
+          AND {esc.sql_sem_artefato_rais(fonte)}
           AND vl_remun_media_sm > 0 AND vl_remun_media_sm <= {TETO_SM}
           AND tempo_emprego IS NOT NULL AND idade IS NOT NULL
           AND qtd_hora_contr > 0
