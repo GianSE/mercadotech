@@ -6,6 +6,7 @@ import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, f
 import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoMosaico, opcaoRosca } from "../lib/graficos";
 import { coluna, entre, intervalo, literal, medianaExata, medianaHist, num, rotulos } from "../lib/sql";
 import { useTema } from "../lib/tema";
+import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
 import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
@@ -85,10 +86,10 @@ const ufDoClique = ({ nome }: Clique) => (UFS.includes(nome) ? nome : nome.match
 export default function Onde() {
   const { cores: c } = useTema();
   const f = useFiltro();
-  const [periodo, setPeriodo] = useState<Periodo>([2020, 2026]);
+  const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2020, 2026], lerPeriodo, escreverPeriodo);
   const anoRais = Math.min(periodo[1], 2025);
   // A busca vale para o mapa e para a dispersão de municípios ao mesmo tempo.
-  const [busca, setBusca] = useState("");
+  const [busca, setBusca] = useParametro("destacar", "", texto, texto);
   const sugestoes = useConsulta(`
     SELECT DISTINCT g.nome || ' (' || g.uf || ')' AS rotulo
     FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
@@ -137,11 +138,22 @@ export default function Onde() {
     };
   }, [fluxo, estoque, quemContrata.linhas, c]);
 
+  // Resposta do topo: a parcela dos profissionais de TI fora das empresas de TI.
+  const resposta = (() => {
+    const v = (cat: string) => num(estoque.find((l) => l.categoria === cat), "estoque");
+    const [fora, dentro, outra] = [v(FORA), v(DENTRO), v("Outra ocupação em empresa de TI")];
+    if (!Number.isFinite(fora) || !Number.isFinite(dentro)) return undefined;
+    const onde = f.ativo ? ` em ${f.rotulo}` : "";
+    const extra = Number.isFinite(outra) ? `; dentro das empresas de TI, ${fmtDec((outra / (outra + dentro)) * 100, 0)}% dos vínculos são de outras ocupações` : "";
+    return `Em ${anoRais}, ${fmtDec((fora / (fora + dentro)) * 100, 0)}% dos profissionais de TI${onde} trabalhavam fora de empresas de TI, em bancos, comércio, indústria e governo${extra}.`;
+  })();
+
   return (
     <>
       <CabecalhoPergunta
         numero={2}
         pergunta="Onde está o trabalho de TI: em que empresas e em que lugares?"
+        resposta={resposta}
       />
       <LinhaFiltros
         resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}
@@ -164,6 +176,7 @@ export default function Onde() {
         <Grade>
           <CartaoGrafico
             titulo={`Admissões, pelas duas lentes · ${f.rotulo}`}
+            ajuda="lentes"
             subtitulo={`CAGED · ${periodo[0]}–${periodo[1]} · passe o mouse para o salário médio`}
             opcao={op.lentesFluxo}
             carregando={lentesFluxo.carregando}
@@ -181,6 +194,7 @@ export default function Onde() {
           />
           <CartaoGrafico
             titulo={`Vínculos ativos, pelas duas lentes · ${f.rotulo}`}
+            ajuda="lentes"
             subtitulo={`RAIS · estoque em 31/12/${anoRais}`}
             opcao={op.lentesEstoque}
             carregando={lentesEstoque.carregando}
@@ -588,6 +602,7 @@ function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) =>
       </div>
       <CartaoGrafico
         titulo={`Especialização × crescimento · ${nivel === "uf" ? "por estado" : f.rotulo}`}
+        ajuda={nivel === "uf" ? "porMil" : "trajetoria"}
         subtitulo={
           nivel === "uf"
             ? "Cada ponto é um estado, colorido pela região · tamanho = estoque · janela 2020–2025"
@@ -624,6 +639,7 @@ function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) =>
       />
       {nivel === "municipio" && <CartaoTabela
         titulo="Perfil de cada grupo"
+        ajuda="trajetoria"
         subtitulo={`Medianas dos municípios do grupo · ${f.rotulo}`}
         tabela={{
           colunas: [

@@ -59,18 +59,24 @@ export default function Futuro() {
     };
   }, [obs, p, pares.linhas, c]);
 
+  // Resposta do topo: o saldo previsto e o estoque estimado do ano corrente.
+  const resposta = p.length && pr
+    ? `O modelo prevê saldo de ${fmtSinal(acumulado)} vagas nos próximos ${p.length} meses (faixa de ${fmtCompacto(faixa[0])} a ${fmtCompacto(faixa[1])}), e o estoque de ${num(pr, "ano")} é estimado em ${fmtCompacto(num(pr, "estoque_estimado"))} vínculos (± ${fmtCompacto(num(pr, "margem"))}).`
+    : undefined;
+
   return (
     <>
       <CabecalhoPergunta
         numero={5}
         pergunta="Para onde o mercado vai?"
+        resposta={resposta}
       />
       <AvisoNacional>Os modelos foram ajustados sobre a série nacional: o filtro de território não se aplica a esta página.</AvisoNacional>
 
       <Bloco titulo="Saldo mensal: observado e projetado">
         <Grade>
-          <Kpi destaque rotulo={`Saldo previsto em ${p.length} meses`} valor={fmtSinal(acumulado)} detalhe={<>modelo <span className="font-mono">{modelo}</span></>} />
-          <Kpi rotulo="Faixa de 80% do acumulado" valor={`${fmtCompacto(faixa[0])} a ${fmtCompacto(faixa[1])}`} />
+          <Kpi destaque ajuda="sarima" rotulo={`Saldo previsto em ${p.length} meses`} valor={fmtSinal(acumulado)} detalhe={<>modelo <span className="font-mono">{modelo}</span></>} />
+          <Kpi ajuda="faixa80" rotulo="Faixa de 80% do acumulado" valor={`${fmtCompacto(faixa[0])} a ${fmtCompacto(faixa[1])}`} />
         </Grade>
         <CartaoGrafico
           titulo="Saldo mensal de empregos em tecnologia"
@@ -91,6 +97,7 @@ export default function Futuro() {
         />
         <CartaoTabela
           titulo="Por que este modelo, e não outro"
+          ajuda="mae"
           subtitulo="Validação em origem móvel: treina até um ponto, prevê 12 meses, avança, repete (5 dobras)"
           tabela={{
             colunas: [
@@ -107,6 +114,7 @@ export default function Futuro() {
       <Bloco titulo="Estimar a RAIS antes de ela sair">
         <CartaoGrafico
           titulo="Fluxo do CAGED × variação do estoque da RAIS"
+          ajuda="nowcast"
           subtitulo="Cada ponto é um ano · a linha tracejada é a identidade (1:1)"
           opcao={op.nowcast}
           carregando={pares.carregando}
@@ -147,7 +155,7 @@ export default function Futuro() {
             <Grade colunas={3}>
               <Kpi rotulo={`CAGED observado (${num(pr, "meses_observados")} meses)`} valor={fmtSinal(num(pr, "fluxo_observado"))} />
               <Kpi rotulo="CAGED previsto (resto do ano)" valor={fmtSinal(num(pr, "fluxo_previsto"))} />
-              <Kpi destaque rotulo={`Estoque estimado em ${num(pr, "ano")}`} valor={fmtCompacto(num(pr, "estoque_estimado"))} detalhe={`± ${fmtCompacto(num(pr, "margem"))}`} />
+              <Kpi destaque ajuda="nowcast" rotulo={`Estoque estimado em ${num(pr, "ano")}`} valor={fmtCompacto(num(pr, "estoque_estimado"))} detalhe={`± ${fmtCompacto(num(pr, "margem"))}`} />
             </Grade>
           </>
         )}

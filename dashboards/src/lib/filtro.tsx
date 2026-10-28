@@ -1,7 +1,8 @@
 // Filtro de território que vale para o site inteiro: escolher estados numa
 // página (ou clicar num estado do mapa) recorta todas as outras. Vazio = Brasil.
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { literal } from "./sql";
+import { gravarParametro, partesHash } from "./url";
 
 export const REGIOES = {
   Norte: ["AC", "AM", "AP", "PA", "RO", "RR", "TO"],
@@ -41,7 +42,26 @@ type Filtro = {
 const Contexto = createContext<Filtro | null>(null);
 
 export function ProvedorFiltro({ children }: { children: ReactNode }) {
-  const [ufs, setUfs] = useState<string[]>([]);
+  // O recorte começa pelo que vier no link (?uf=PR,SC) e volta para ele a
+  // cada mudança, para o endereço sempre reproduzir o que está na tela.
+  const [ufs, setUfs] = useState<string[]>(() => {
+    const lidas = (partesHash().params.get("uf") ?? "").split(",").filter((u) => UFS.includes(u));
+    return lidas.length === UFS.length ? [] : [...new Set(lidas)].sort();
+  });
+  const atuais = useRef(ufs);
+  atuais.current = ufs;
+  useEffect(() => {
+    gravarParametro("uf", ufs.length ? ufs.join(",") : null);
+  }, [ufs]);
+  // Os links entre páginas (#/onde) não carregam o recorte; ele continua
+  // valendo, então volta para o endereço da página nova.
+  useEffect(() => {
+    const aoMudar = () => {
+      if (atuais.current.length) gravarParametro("uf", atuais.current.join(","));
+    };
+    window.addEventListener("hashchange", aoMudar);
+    return () => window.removeEventListener("hashchange", aoMudar);
+  }, []);
 
   // Todas marcadas é o mesmo que nenhuma: guarda vazio, para "ativo" ser falso.
   const definir = useCallback((novas: string[]) => {

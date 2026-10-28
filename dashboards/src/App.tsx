@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import { obterManifesto } from "./lib/db";
 import { useFiltro } from "./lib/filtro";
 import { useTema } from "./lib/tema";
+import { partesHash } from "./lib/url";
 
 type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType };
 
@@ -18,7 +19,7 @@ const ROTAS: Rota[] = [
 ];
 
 function rotaAtual(): string {
-  const id = window.location.hash.replace(/^#\/?/, "");
+  const { rota: id } = partesHash();
   return ROTAS.some((r) => r.id === id) ? id : "pesquisa";
 }
 
@@ -58,6 +59,40 @@ function BotaoApresentar({ aoClicar }: { aoClicar: () => void }) {
       <svg viewBox="0 0 20 20" className="h-[18px] w-[18px] fill-current" aria-hidden>
         <path d="M2 4a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6v2h3v1.5H6V16h3v-2H3a1 1 0 0 1-1-1V4Zm6.5 2.2v5.6L13 9 8.5 6.2Z" />
       </svg>
+    </button>
+  );
+}
+
+// O endereço já guarda página e recorte; o botão só o copia, com confirmação.
+function BotaoLink() {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = () => {
+    navigator.clipboard
+      ?.writeText(window.location.href)
+      .then(() => {
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 1800);
+      })
+      .catch(() => {});
+  };
+  return (
+    <button
+      type="button"
+      onClick={copiar}
+      aria-label="Copiar link deste recorte"
+      title="Copiar link deste recorte (página, estados e filtros)"
+      className="relative grid h-10 w-10 flex-none place-items-center rounded-full text-sobre-marca/80 transition-colors hover:bg-white/10 hover:text-sobre-marca"
+    >
+      <svg viewBox="0 0 20 20" className="h-[18px] w-[18px] fill-current" aria-hidden>
+        {copiado ? (
+          <path d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0Z" />
+        ) : (
+          <path d="M8.6 11.4a1 1 0 0 1 0-1.4l2.8-2.8a1 1 0 1 1 1.4 1.4L10 11.4a1 1 0 0 1-1.4 0ZM6.4 9.2 5.2 10.4a2.5 2.5 0 0 0 3.5 3.5l1.2-1.2a1 1 0 1 1 1.4 1.4l-1.2 1.2a4.5 4.5 0 0 1-6.4-6.4L5 7.8a1 1 0 0 1 1.4 1.4Zm7.2 1.6a1 1 0 0 1 0-1.4l1.2-1.2a2.5 2.5 0 0 0-3.5-3.5L10.1 5.9a1 1 0 0 1-1.4-1.4l1.2-1.2a4.5 4.5 0 0 1 6.4 6.4L15 10.8a1 1 0 0 1-1.4 0Z" />
+        )}
+      </svg>
+      <span role="status" className={`pointer-events-none absolute right-0 top-11 whitespace-nowrap rounded-full bg-acento px-2.5 py-1 text-[12px] font-semibold text-sobre-acento shadow transition-opacity ${copiado ? "opacity-100" : "opacity-0"}`}>
+        Link copiado
+      </span>
     </button>
   );
 }
@@ -332,6 +367,7 @@ export default function App() {
             </label>
             <SeloTerritorio />
             <div className="flex flex-none lg:ml-0">
+              <BotaoLink />
               <BotaoApresentar aoClicar={entrar} />
               <BotaoTema />
             </div>

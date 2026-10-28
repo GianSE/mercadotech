@@ -1,15 +1,38 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CartaoGrafico } from "../componentes/Grafico";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { escapar, fmtDec, fmtNum, fmtPct, fmtReais } from "../lib/formato";
-import { opcaoBarrasAgrupadas, opcaoLinhas, opcaoRosca } from "../lib/graficos";
+import { opcaoLinhas, opcaoRosca } from "../lib/graficos";
 import { useFiltro } from "../lib/filtro";
 import { coluna, entre, intervalo, num, rotulos, TI } from "../lib/sql";
+import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
 const COMPARACOES = ["Homem vs Mulher", "Branca vs Preta", "Branca vs Parda"];
+// Como cada grupo aparece numa frase.
+const PLURAL: Record<string, string> = { Homem: "homens", Mulher: "mulheres", Branca: "pessoas brancas", Preta: "pessoas pretas", Parda: "pessoas pardas" };
+
+// A decomposição trabalha com o log do salário. exp(x) − 1 traduz cada parte
+// para "quanto a mais, em %": 0,134 vira +14,3%. As duas partes se combinam
+// multiplicando (1 − 5,6%) × (1 + 14,3%) ≈ 1 + 7,9%, por isso não somam
+// exatamente o hiato total.
+const emPct = (log: number) => (Math.exp(log) - 1) * 100;
+const comSinal = (v: number, casas = 1) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${fmtDec(Math.abs(v), casas)}%`;
+
+// "Em 2025, homens ganham em média 7,8% mais que mulheres. Com o mesmo
+// perfil, a diferença seria de 14,3%; pelo perfil, mulheres deveriam ganhar
+// 5,6% mais."
+function leitura(ano: number, a: string, b: string, total: number, perfil: number, pagamento: number) {
+  const [pa, pb] = [PLURAL[a] ?? a, PLURAL[b] ?? b];
+  const quem = total >= 0 ? `${pa} ganham em média ${fmtDec(Math.abs(total), 1)}% mais que ${pb}` : `${pb} ganham em média ${fmtDec(Math.abs(total), 1)}% mais que ${pa}`;
+  const mesmo = `Com o mesmo perfil, ${pa} ganhariam ${fmtDec(Math.abs(pagamento), 1)}% ${pagamento >= 0 ? "mais" : "menos"}`;
+  const pelo = perfil >= 0
+    ? `a diferença de perfil (escolaridade, área, região…) explica ${fmtDec(perfil, 1)}% a favor de ${pa}`
+    : `pelo perfil, ${pb} deveriam ganhar ${fmtDec(Math.abs(perfil), 1)}% mais`;
+  return `Em ${ano}, ${quem}. ${mesmo}; ${pelo}.`;
+}
 
 const perfilSql = (dim: string, p: Periodo, territorio: string) => `
   SELECT ${dim} AS categoria, sum(admissoes)::DOUBLE AS admissoes,
@@ -20,8 +43,8 @@ const perfilSql = (dim: string, p: Periodo, territorio: string) => `
 export default function Equidade() {
   const { cores: c } = useTema();
   const f = useFiltro();
-  const [periodo, setPeriodo] = useState<Periodo>([2007, 2026]);
-  const [comparacao, setComparacao] = useState(COMPARACOES[0]);
+  const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
+  const [comparacao, setComparacao] = useParametro("comparacao", COMPARACOES[0], (s) => (COMPARACOES.includes(s) ? s : null), texto);
 
   const sexo = useConsulta(perfilSql("sexo", periodo, f.sql()));
   const raca = useConsulta(perfilSql("raca_cor", periodo, f.sql()));
@@ -31,6 +54,10 @@ export default function Equidade() {
   const hiato = useConsulta(`
     SELECT ano, hiato_pct, hiato_log, explicada, nao_explicada, explicada_share, salario_a, salario_b
     FROM hiato_serie WHERE comparacao = '${comparacao}' ORDER BY ano`);
+  // O último ano das três comparações, para a resposta do topo da página.
+  const ultimo = useConsulta(`
+    SELECT comparacao, hiato_pct, explicada, nao_explicada, ano FROM hiato_serie
+    WHERE ano = (SELECT max(ano) FROM hiato_serie)`);
 
   const s = sexo.linhas;
   const fem = feminina.linhas;
@@ -47,25 +74,44 @@ export default function Equidade() {
         ? opcaoRosca(c, raca.linhas.map((l) => ({ nome: String(l.categoria), valor: num(l, "admissoes") })), { centro: "admissões", extraTooltip: extra(raca.linhas) })
         : null,
       feminina: fem.length ? opcaoLinhas(c, rotulos(fem, "ano"), [{ nome: "Mulheres no estoque", dados: coluna(fem, "mulheres"), rotuloFinal: true }], { formato: (v) => fmtPct(v, 1), formatoEixo: (v) => fmtPct(v, 0) }) : null,
+      // Três linhas em %, e não barras empilhadas em log: a diferença total,
+      // a que sobra com o mesmo perfil e a que vem do perfil.
       hiato: h.length
-        ? opcaoBarrasAgrupadas(
+        ? opcaoLinhas(
             c,
             rotulos(h, "ano"),
             [
-              { nome: "Parte explicada", dados: coluna(h, "explicada") },
-              { nome: "Parte não explicada", dados: coluna(h, "nao_explicada") },
+              { nome: "Diferença total", dados: coluna(h, "hiato_pct"), rotuloFinal: true },
+              { nome: "Com o mesmo perfil", dados: h.map((l) => emPct(num(l, "nao_explicada"))), rotuloFinal: true },
+              { nome: "Pelo perfil", dados: h.map((l) => emPct(num(l, "explicada"))), rotuloFinal: true, tracejada: true },
             ],
-            { empilhar: true, formato: (v) => fmtDec(v, 3), linha: { nome: "Hiato total (log)", dados: coluna(h, "hiato_log") } },
+            { formato: (v) => comSinal(v), formatoEixo: (v) => `${fmtDec(v, 0)}%`, zero: true },
           )
         : null,
     };
   }, [s, raca.linhas, fem, h, c]);
+
+  // Resposta do topo: gênero e o maior hiato racial, no último ano.
+  const resposta = (() => {
+    const u = ultimo.linhas;
+    const g = u.find((l) => l.comparacao === "Homem vs Mulher");
+    const racas = u.filter((l) => l.comparacao !== "Homem vs Mulher").sort((x, y) => num(y, "hiato_pct") - num(x, "hiato_pct"));
+    const r = racas[0];
+    if (!g || !r) return undefined;
+    const [, rb] = String(r.comparacao).split(" vs ");
+    const generoRetorno = num(g, "explicada") < 0;
+    return `Em ${num(g, "ano")}, pessoas brancas ganham ${fmtDec(num(r, "hiato_pct"), 0)}% mais que ${PLURAL[rb]}, sobretudo por estarem nas posições que pagam mais; homens ganham ${fmtDec(num(g, "hiato_pct"), 1)}% mais que mulheres${generoRetorno ? ", e com o mesmo perfil a diferença seria ainda maior" : ""}.`;
+  })();
+  const total = num(hu, "hiato_pct");
+  const perfil = emPct(num(hu, "explicada"));
+  const pagamento = emPct(num(hu, "nao_explicada"));
 
   return (
     <>
       <CabecalhoPergunta
         numero={4}
         pergunta="Quem ganha menos, e por quê?"
+        resposta={resposta}
       />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2026] }, { rotulo: "Novo CAGED", periodo: [2020, 2026] }]} />
@@ -102,20 +148,41 @@ export default function Equidade() {
           />
       </Bloco>
 
-      <Bloco titulo="Hiato salarial: o que a composição explica e o que sobra">
+      <Bloco
+        titulo="Hiato salarial: diferença de perfil ou de pagamento?"
+        descricao={hu ? leitura(num(hu, "ano"), grupoA, grupoB, total, perfil, pagamento) : undefined}
+      >
         <div className="flex flex-wrap items-end gap-4">
           <Seletor rotulo="Comparação" valor={comparacao} opcoes={COMPARACOES.map((v) => ({ valor: v, rotulo: v }))} aoMudar={setComparacao} />
         </div>
         {hu && (
           <Grade colunas={3}>
-            <Kpi destaque rotulo={`Hiato em ${num(hu, "ano")}`} valor={`${fmtDec(num(hu, "hiato_pct"), 1)}%`} detalhe={`${fmtDec(num(hu, "hiato_pct") - num(hp, "hiato_pct"), 1)} p.p. desde ${num(hp, "ano")}`} />
-            <Kpi rotulo="Parte não explicada" valor={`${fmtDec(num(hu, "nao_explicada"), 3)} log`} detalhe={`era ${fmtDec(num(hp, "nao_explicada"), 3)} em ${num(hp, "ano")}`} />
-            <Kpi rotulo="Parte explicada" valor={`${fmtDec(num(hu, "explicada"), 3)} log`} />
+            <Kpi
+              destaque
+              ajuda="hiato"
+              rotulo={`Diferença total em ${num(hu, "ano")}`}
+              valor={comSinal(total)}
+              detalhe={`era ${comSinal(num(hp, "hiato_pct"))} em ${num(hp, "ano")}`}
+            />
+            <Kpi
+              ajuda="pagamento"
+              rotulo="Com o mesmo perfil"
+              valor={comSinal(pagamento)}
+              detalhe={`o que ${PLURAL[grupoA]} ganhariam a mais com perfil igual · era ${comSinal(emPct(num(hp, "nao_explicada")))} em ${num(hp, "ano")}`}
+            />
+            <Kpi
+              ajuda="perfil"
+              rotulo="Pelo perfil"
+              valor={comSinal(perfil)}
+              detalhe={perfil < 0 ? `o perfil favorece ${PLURAL[grupoB]}` : `o perfil favorece ${PLURAL[grupoA]}`}
+            />
           </Grade>
         )}
         <CartaoGrafico
           titulo={`${grupoA} × ${grupoB}`}
-          subtitulo="Barras empilhadas somam o hiato total (linha); unidades em log da remuneração"
+          subtitulo={`Quanto ${PLURAL[grupoA]} ganham a mais, em % · decomposição de Oaxaca-Blinder, RAIS`}
+          ajuda="pagamento"
+          rodape="A diferença total combina as duas outras: o efeito do perfil e o do pagamento se multiplicam, por isso a soma das linhas fica perto, mas não igual, ao total."
           nacional
           opcao={op.hiato}
           carregando={hiato.carregando}
@@ -127,10 +194,10 @@ export default function Equidade() {
               { chave: "salario_a", rotulo: grupoA, formato: (v) => `${fmtDec(v, 2)} SM`, numero: true },
               { chave: "salario_b", rotulo: grupoB, formato: (v) => `${fmtDec(v, 2)} SM`, numero: true },
               { chave: "hiato_pct", rotulo: "Hiato", formato: (v) => fmtPct(v, 1), numero: true },
-              { chave: "explicada", rotulo: "Explicada", formato: (v) => fmtDec(v, 4), numero: true },
-              { chave: "nao_explicada", rotulo: "Não explicada", formato: (v) => fmtDec(v, 4), numero: true },
+              { chave: "perfil_pct", rotulo: "Pelo perfil (%)", formato: (v) => comSinal(Number(v)), numero: true },
+              { chave: "pagamento_pct", rotulo: "Com o mesmo perfil (%)", formato: (v) => comSinal(Number(v)), numero: true },
             ],
-            linhas: h,
+            linhas: h.map((l) => ({ ...l, perfil_pct: emPct(num(l, "explicada")), pagamento_pct: emPct(num(l, "nao_explicada")) })),
           }}
         />
       </Bloco>

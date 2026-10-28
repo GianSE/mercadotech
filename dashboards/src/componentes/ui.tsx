@@ -1,10 +1,39 @@
 import { useState, type ReactNode } from "react";
 import { useFiltro } from "../lib/filtro";
+import { GLOSSARIO, type Termo } from "../lib/glossario";
 import { SeletorUF } from "./SeletorUF";
 
-// Só o rótulo e a pergunta: a resposta, com a leitura dos números, mora na
-// página Análise — as páginas de pergunta são painel, não texto.
-export function CabecalhoPergunta({ numero, pergunta }: { numero: number; pergunta: string }) {
+// O "?" ao lado de um termo técnico: a definição abre ao passar o mouse, ao
+// focar pelo teclado ou ao tocar (no celular não há hover).
+export function Ajuda({ termo }: { termo: Termo }) {
+  const [aberta, setAberta] = useState(false);
+  return (
+    <span className="group relative ml-1 inline-flex align-middle" onMouseLeave={() => setAberta(false)}>
+      <button
+        type="button"
+        onClick={() => setAberta((a) => !a)}
+        onBlur={() => setAberta(false)}
+        aria-label="O que é isto?"
+        aria-expanded={aberta}
+        className="grid h-4 w-4 place-items-center rounded-full border border-tinta-3/60 text-[10px] font-semibold leading-none text-tinta-3 transition-colors hover:border-serie-1 hover:text-serie-1"
+      >
+        ?
+      </button>
+      <span
+        role="tooltip"
+        className={`absolute left-1/2 top-6 z-30 w-64 -translate-x-1/2 rounded-xl border border-borda bg-superficie p-3 text-left text-[12px] font-normal normal-case leading-relaxed tracking-normal text-tinta-2 shadow-lg ${aberta ? "block" : "hidden group-hover:block group-focus-within:block"}`}
+      >
+        {GLOSSARIO[termo]}
+      </span>
+    </span>
+  );
+}
+
+// A pergunta e, abaixo, a resposta em uma frase, calculada dos dados (e do
+// recorte): a leitura detalhada continua na página Análise. No modo
+// apresentação o cabeçalho aparece em todos os slides, e a frase vira a
+// legenda de cada um.
+export function CabecalhoPergunta({ numero, pergunta, resposta }: { numero: number; pergunta: string; resposta?: ReactNode }) {
   return (
     // data-fixo: no modo apresentação, aparece em todos os slides da página.
     <header data-fixo className="mb-6">
@@ -13,6 +42,12 @@ export function CabecalhoPergunta({ numero, pergunta }: { numero: number; pergun
         Pergunta {String(numero).padStart(2, "0")} / 05
       </p>
       <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">{pergunta}</h1>
+      {resposta && (
+        <p className="mt-3 max-w-4xl rounded-xl bg-superficie-2/70 px-4 py-3 text-[15px] font-medium leading-relaxed text-tinta shadow-[inset_3px_0_0_var(--acento)]">
+          <span className="sobrelinha mr-2">Em uma frase</span>
+          {resposta}
+        </p>
+      )}
     </header>
   );
 }
@@ -47,11 +82,15 @@ export function Grade({ children, colunas = 2 }: { children: ReactNode; colunas?
 
 
 
-export function Kpi({ rotulo, valor, detalhe, destaque }: { rotulo: string; valor: ReactNode; detalhe?: ReactNode; destaque?: boolean }) {
+export function Kpi({ rotulo, valor, detalhe, destaque, ajuda }: { rotulo: string; valor: ReactNode; detalhe?: ReactNode; destaque?: boolean; ajuda?: Termo }) {
   return (
-    <div className={`cartao relative overflow-hidden p-4 ${destaque ? "shadow-[inset_3px_0_0_var(--acento)]" : ""}`}>
-      <span aria-hidden className="faixa-azul absolute inset-x-0 top-0 h-[3px] opacity-70" />
-      <p className="text-[13px] leading-snug text-tinta-3">{rotulo}</p>
+    // Sem overflow-hidden: a caixa do "?" precisa poder sair do cartão.
+    <div className={`cartao relative p-4 ${destaque ? "shadow-[inset_3px_0_0_var(--acento)]" : ""}`}>
+      <span aria-hidden className="faixa-azul absolute inset-x-3 top-0 h-[3px] rounded-full opacity-70" />
+      <p className="text-[13px] leading-snug text-tinta-3">
+        {rotulo}
+        {ajuda && <Ajuda termo={ajuda} />}
+      </p>
       <p className="mt-1.5 bg-gradient-to-r from-tinta to-serie-1 bg-clip-text text-[1.6rem] font-semibold tracking-tight break-words text-transparent sm:text-2xl">{valor}</p>
       {detalhe && <p className="mt-1 text-[12px] text-tinta-3">{detalhe}</p>}
     </div>

@@ -6,6 +6,7 @@ import { fmtDec, fmtNum, fmtPct, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoLinhas } from "../lib/graficos";
 import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
+import { escreverPeriodo, lerPeriodo, useParametro } from "../lib/url";
 import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2025);
@@ -17,7 +18,7 @@ type Recorte = keyof typeof RECORTES;
 export default function Qualidade() {
   const { cores: c } = useTema();
   const f = useFiltro();
-  const [periodo, setPeriodo] = useState<Periodo>([2007, 2025]);
+  const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2025], lerPeriodo, escreverPeriodo);
   const [recorte, setRecorte] = useState<Recorte>("setor");
   const ano = periodo[1];
 
@@ -66,11 +67,24 @@ export default function Qualidade() {
     [a, areas.linhas, giro, riscoOrdenado, todos, c],
   );
 
+  // Resposta do topo: a mediana nas pontas do período e a faixa de maior risco.
+  const resposta = (() => {
+    const com = a.filter((l) => l.mediana !== null);
+    if (com.length < 2) return undefined;
+    const [p0, p1] = [com[0], com[com.length - 1]];
+    const v = (num(p1, "mediana") / num(p0, "mediana") - 1) * 100;
+    const pico = riscoOrdenado.length ? riscoOrdenado.reduce((m, l) => (num(l, "risco") > num(m, "risco") ? l : m)) : null;
+    const onde = f.ativo ? ` em ${f.rotulo}` : "";
+    const movimento = Math.abs(v) < 5 ? "ficou praticamente estável" : v > 0 ? `subiu ${fmtDec(v, 0)}%` : `caiu ${fmtDec(-v, 0)}%`;
+    return `A remuneração mediana de TI${onde} ${movimento} em salários mínimos entre ${num(p0, "ano")} e ${num(p1, "ano")} (de ${fmtDec(num(p0, "mediana"), 2)} para ${fmtDec(num(p1, "mediana"), 2)})${pico ? `; o risco de perder o emprego é maior com ${ROTULO_FAIXA[String(pico.tempo_de_casa)]} de casa` : ""}.`;
+  })();
+
   return (
     <>
       <CabecalhoPergunta
         numero={3}
         pergunta="O emprego de TI melhorou em qualidade?"
+        resposta={resposta}
       />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2025] }, { rotulo: "Últimos 10 anos", periodo: [2016, 2025] }]} />
@@ -79,6 +93,7 @@ export default function Qualidade() {
       <Bloco titulo="Remuneração em salários mínimos">
         <CartaoGrafico
           titulo={`Mediana e média da remuneração · ${f.rotulo}`}
+          ajuda="mediana"
           subtitulo={`RAIS · salários mínimos${f.ativo ? " · mediana por faixas de 0,1 SM" : ""}`}
           opcao={op.remuneracao}
           carregando={anual.carregando}
@@ -100,6 +115,7 @@ export default function Qualidade() {
       <Bloco titulo={`Quanto dura um emprego de tecnologia`}>
         <CartaoGrafico
           titulo={`Giro do mercado · ${f.rotulo}`}
+          ajuda="giro"
           subtitulo="RAIS · vínculos encerrados no ano em proporção ao estoque"
           opcao={op.giro}
           carregando={anual.carregando}
@@ -117,6 +133,7 @@ export default function Qualidade() {
         <Grade>
           <CartaoGrafico
             titulo="Risco anual de desligamento"
+            ajuda="risco"
             subtitulo={`RAIS ${anoSobrevivencia || ""} · por tempo de casa`}
             nacional
             opcao={op.risco}
@@ -126,6 +143,7 @@ export default function Qualidade() {
           />
           <CartaoGrafico
             titulo="Sobrevivência acumulada do vínculo"
+            ajuda="sobrevivencia"
             subtitulo={`RAIS ${anoSobrevivencia || ""} · % que continua no emprego ao fim de cada faixa`}
             nacional
             opcao={op.sobrevivencia}

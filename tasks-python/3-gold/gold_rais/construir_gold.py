@@ -67,9 +67,30 @@ COL_CBO = "cbo_ocupacao_2002"
 # O funcionalismo do governo de Rondônia, declarado como programador em oito
 # anos da série, sai aqui (ver escopo_tecnologia.ARTEFATO_RO). A silver fica
 # como está: ela reproduz a fonte, e a recontagem contra o bronze depende disso.
+#
+# O dicionário da RAIS parou no tempo para alguns códigos criados depois
+# dele: as subclasses CNAE 6201-5/01 (desenvolvimento de programas sob
+# encomenda, a maior atividade do recorte desde 2018) e 6201-5/02 (web
+# design), e os CBO 2124-25 (arquiteto de soluções) e 2124-30 (analista de
+# testes). O dicionário do CAGED, do mesmo Ministério, tem os nomes: entra
+# como reserva, só onde a RAIS não traduziu. O 2115-20 continua sem nome em
+# nenhum dos dois, e é assim que deve aparecer.
+DIC_CAGED = nuvem.fonte_leitura(nuvem.REPO_BRONZE_CAGED, "dicionarios.parquet")
+
+
+def _reserva(coluna: str) -> str:
+    return (f"(SELECT codigo, any_value(descricao) AS descricao FROM read_parquet('{DIC_CAGED}') "
+            f"WHERE tabela = 'caged_mov' AND coluna = '{coluna}' GROUP BY 1)")
+
+
 BASE_VINC = f"""
-    SELECT *, {esc.sql_classificacao(COL_CNAE, COL_CBO)}
-    FROM read_parquet({FONTE_VINC}, hive_partitioning=true)
+    SELECT v.* REPLACE (
+               coalesce(v.cbo_ocupacao_2002_descricao, dic_cbo.descricao) AS cbo_ocupacao_2002_descricao,
+               coalesce(v.cnae_20_subclasse_descricao, dic_cnae.descricao) AS cnae_20_subclasse_descricao),
+           {esc.sql_classificacao(COL_CNAE, COL_CBO)}
+    FROM read_parquet({FONTE_VINC}, hive_partitioning=true) v
+    LEFT JOIN {_reserva('cbo2002ocupacao')} dic_cbo ON dic_cbo.codigo = {esc.sql_codigo_cbo('v.' + COL_CBO)}
+    LEFT JOIN {_reserva('subclasse')} dic_cnae ON dic_cnae.codigo = v.{COL_CNAE}
     WHERE {esc.sql_sem_artefato_rais(FONTE_VINC, COL_CBO)}
 """
 

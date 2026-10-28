@@ -1,0 +1,47 @@
+// Recorte no endereço: #/onde?uf=PR&destacar=Cornélio%20Procópio. Copiar o
+// link da barra (ou pelo botão do cabeçalho) leva outra pessoa ao mesmo
+// recorte. A rota fica antes do "?"; os parâmetros, depois.
+import { useCallback, useState } from "react";
+
+export function partesHash(): { rota: string; params: URLSearchParams } {
+  const [rota, consulta = ""] = window.location.hash.replace(/^#\/?/, "").split("?");
+  return { rota, params: new URLSearchParams(consulta) };
+}
+
+// replaceState não dispara hashchange nem cria entrada no histórico: mudar
+// um filtro não vira um "voltar" a mais no navegador.
+export function gravarParametro(nome: string, valor: string | null) {
+  const { rota, params } = partesHash();
+  if (valor === null || valor === "") params.delete(nome);
+  else params.set(nome, valor);
+  const consulta = params.toString();
+  const novo = `#/${rota}${consulta ? `?${consulta}` : ""}`;
+  if (novo !== window.location.hash) history.replaceState(null, "", novo);
+}
+
+// Estado de página que mora no endereço. Ao entrar na página, lê o
+// parâmetro; ao mudar, grava. O padrão não aparece no link.
+export function useParametro<T>(nome: string, padrao: T, ler: (s: string) => T | null, escrever: (v: T) => string) {
+  const [valor, setValor] = useState<T>(() => {
+    const bruto = partesHash().params.get(nome);
+    return (bruto === null ? null : ler(bruto)) ?? padrao;
+  });
+  // `ler`, `escrever` e `padrao` são fixos por página: só o nome entra na dependência.
+  const definir = useCallback(
+    (v: T) => {
+      setValor(v);
+      const texto = escrever(v);
+      gravarParametro(nome, texto === escrever(padrao) ? null : texto);
+    },
+    [nome],
+  );
+  return [valor, definir] as const;
+}
+
+// Período "2007-2026" no link.
+export const lerPeriodo = (s: string): [number, number] | null => {
+  const m = s.match(/^(\d{4})-(\d{4})$/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+};
+export const escreverPeriodo = (p: readonly [number, number]) => `${p[0]}-${p[1]}`;
+export const texto = (s: string) => s;
