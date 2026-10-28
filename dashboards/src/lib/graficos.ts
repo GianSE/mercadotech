@@ -241,8 +241,12 @@ export function opcaoLinhas(
   // Rótulo final no celular em formato compacto: "1,4 mi", não "1.361.231".
   const fmtRotulo = c.compacto ? (o.formatoEixo ?? fmtCompacto) : fmt;
   const unica = series.length === 1;
+  const fundo = base(c, !!leg, comRotulo ? (c.compacto ? 48 : 88) : c.compacto ? 8 : 20);
+  // Mais de quatro séries: a legenda pode quebrar em duas linhas (no celular
+  // ela rola, numa linha só), e a segunda cobriria o topo do eixo.
+  if (leg && series.length > 4 && !c.compacto) fundo.grid = { ...(fundo.grid as object), top: 60 };
   return {
-    ...base(c, !!leg, comRotulo ? (c.compacto ? 48 : 88) : c.compacto ? 8 : 20),
+    ...fundo,
     legend: leg,
     tooltip: tooltipEixo(c, fmt, { extra: o.extraTooltip }),
     xAxis: eixoCategoria(c, x, { boundaryGap: false }),

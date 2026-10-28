@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { useFiltro } from "../lib/filtro";
-import { fmtDec, fmtNum, fmtPct, fmtSM } from "../lib/formato";
+import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtReais, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoLinhas, opcaoRazaoChances } from "../lib/graficos";
 import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
@@ -15,6 +15,9 @@ const FAIXAS = ["0-6m", "6-12m", "1-2a", "2-3a", "3-5a", "5-10a", "10-20a"];
 const ROTULO_FAIXA: Record<string, string> = { "0-6m": "0–6 meses", "6-12m": "6–12 meses", "1-2a": "1–2 anos", "2-3a": "2–3 anos", "3-5a": "3–5 anos", "5-10a": "5–10 anos", "10-20a": "10–20 anos" };
 const RECORTES = { setor: "Dentro e fora do setor de TI", sexo: "Por sexo", area: "Por área de atuação", porte: "Por porte do estabelecimento" } as const;
 type Recorte = keyof typeof RECORTES;
+// A remuneração pode ser lida em salários mínimos (compara anos entre si) ou
+// em reais da época (o valor que estava no contracheque, sem correção).
+type Unidade = "sm" | "reais";
 
 // ------------------------------------------------- modelo multivariado
 // A Gold grava as variáveis como saem do get_dummies ("porte_ZERO",
@@ -65,6 +68,7 @@ export default function Qualidade() {
   const f = useFiltro();
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2025], lerPeriodo, escreverPeriodo);
   const [recorte, setRecorte] = useState<Recorte>("setor");
+  const [unidade, setUnidade] = useState<Unidade>("sm");
   const ano = periodo[1];
 
   // A média pode vir dos grupos (média de médias pesada pelo tamanho é a
@@ -82,12 +86,46 @@ export default function Qualidade() {
           WHERE area_ti IS NOT NULL AND ano = ${ano} GROUP BY 1) a
     JOIN (${medianaExata("area", `ano = ${ano}`)}) m ON m.grupo = a.area
     ORDER BY 2 DESC`);
+  // A mediana de cada área, ano a ano (exata, da Gold): uma linha por área.
+  const areasSerie = useConsulta(`
+    SELECT ano, grupo AS area, mediana_sm AS mediana FROM rais_mediana
+    WHERE recorte = 'area' AND ${entre(periodo)} ORDER BY ano`);
+  // O salário mínimo de cada ano sai do próprio dado: a RAIS traz a
+  // remuneração em reais e em salários mínimos, e a razão entre as duas é o
+  // mínimo vigente (R$ 1.518 em 2025), sem tabela digitada à mão.
+  const salarioMinimo = useConsulta(`
+    SELECT ano, sum(remuneracao_nominal * estoque_3112) / nullif(sum(remuneracao_sm * estoque_3112), 0) AS sm
+    FROM rais_estoque_anual WHERE remuneracao_sm > 0 GROUP BY 1`);
   const risco = useConsulta(`SELECT tempo_de_casa, "risco_%" AS risco, vinculos::DOUBLE AS vinculos, ano FROM sobrevivencia_risco`);
   const tabua = useConsulta(`SELECT * EXCLUDE (ano) FROM sobrevivencia_tabua`);
   const multi = useConsulta(`SELECT * FROM sobrevivencia_multivariado`);
   const modelo = useMemo(() => itensModelo(multi.linhas), [multi.linhas]);
 
-  const a = anual.linhas;
+  const smDoAno = useMemo(() => new Map(salarioMinimo.linhas.map((l) => [num(l, "ano"), num(l, "sm")])), [salarioMinimo.linhas]);
+  const emReais = unidade === "reais";
+  // Converte um valor em SM para a unidade escolhida, no ano dele.
+  const conv = (ano: number, v: unknown) => (v === null || v === undefined ? null : emReais ? Number(v) * (smDoAno.get(ano) ?? NaN) : Number(v));
+  const fmtValor = emReais ? fmtReais : fmtSM;
+  const a = useMemo(
+    () => anual.linhas.map((l): Linha => ({ ...l, mediana: conv(num(l, "ano"), l.mediana), media: conv(num(l, "ano"), l.media) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [anual.linhas, smDoAno, emReais],
+  );
+  // Cor fixa por área (ordem alfabética), igual em qualquer período ou unidade.
+  const serieAreas = useMemo(() => {
+    const linhas = areasSerie.linhas;
+    const anos = [...new Set(linhas.map((l) => num(l, "ano")))].sort((x, y) => x - y);
+    const nomes = [...new Set(linhas.map((l) => String(l.area)))].sort();
+    const valor = new Map(linhas.map((l) => [`${l.area}|${num(l, "ano")}`, l.mediana]));
+    const tabela = anos.map((ano) => Object.fromEntries([["ano", ano], ...nomes.map((n) => [n, conv(ano, valor.get(`${n}|${ano}`))])]));
+    return { anos, nomes, tabela };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areasSerie.linhas, smDoAno, emReais]);
+  const linhasAreas = useMemo(
+    () => areas.linhas.map((l): Linha => ({ ...l, mediana: conv(ano, l.mediana) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [areas.linhas, smDoAno, emReais, ano],
+  );
   const anoSobrevivencia = num(risco.linhas[0], "ano");
   const riscoOrdenado = FAIXAS.map((fx) => risco.linhas.find((l) => l.tempo_de_casa === fx)).filter((l) => l !== undefined);
   const todos = tabua.linhas.find((l) => l.recorte === "todos");
@@ -99,9 +137,17 @@ export default function Qualidade() {
         ? opcaoLinhas(c, rotulos(a, "ano"), [
             { nome: "Mediana", dados: coluna(a, "mediana"), rotuloFinal: true },
             { nome: "Média", dados: coluna(a, "media"), rotuloFinal: true },
-          ], { formato: fmtSM, formatoEixo: (v) => fmtDec(v, 0), zero: true })
+          ], { formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 0), zero: true })
         : null,
-      areas: areas.linhas.length ? opcaoBarras(c, rotulos(areas.linhas, "area"), coluna(areas.linhas, "mediana"), { horizontal: true, nome: "Mediana", formato: fmtSM, formatoEixo: (v) => fmtDec(v, 1), larguraRotulo: 210, forma: "pirulito" }) : null,
+      areas: linhasAreas.length ? opcaoBarras(c, rotulos(linhasAreas, "area"), coluna(linhasAreas, "mediana"), { horizontal: true, nome: "Mediana", formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 1), larguraRotulo: 210, forma: "pirulito" }) : null,
+      areasSerie: serieAreas.anos.length
+        ? opcaoLinhas(
+            c,
+            serieAreas.anos.map(String),
+            serieAreas.nomes.map((n, i) => ({ nome: n, dados: serieAreas.tabela.map((l) => l[n] as number | null), cor: c.series[i], rotuloFinal: true })),
+            { formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 0), zero: true },
+          )
+        : null,
       giro: giro.length
         ? opcaoLinhas(c, giro.map((l) => String(l.ano)), [{ nome: "Desligados no ano / estoque", dados: giro.map((l) => l.giro), rotuloFinal: true }], { formato: (v) => fmtPct(v, 1), formatoEixo: (v) => fmtPct(v, 0) })
         : null,
@@ -111,12 +157,12 @@ export default function Qualidade() {
         : null,
       modelo: modelo.itens.length ? opcaoRazaoChances(c, modelo.itens) : null,
     }),
-    [a, areas.linhas, giro, riscoOrdenado, todos, modelo, c],
+    [a, linhasAreas, serieAreas, fmtValor, emReais, giro, riscoOrdenado, todos, modelo, c],
   );
 
   // Resposta do topo: a mediana nas pontas do período e a faixa de maior risco.
   const resposta = (() => {
-    const com = a.filter((l) => l.mediana !== null);
+    const com = anual.linhas.filter((l) => l.mediana !== null);
     if (com.length < 2) return undefined;
     const [p0, p1] = [com[0], com[com.length - 1]];
     const v = (num(p1, "mediana") / num(p0, "mediana") - 1) * 100;
@@ -137,26 +183,55 @@ export default function Qualidade() {
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2025] }, { rotulo: "Últimos 10 anos", periodo: [2016, 2025] }]} />
       </LinhaFiltros>
 
-      <Bloco titulo="Remuneração em salários mínimos">
+      <Bloco titulo="Remuneração">
+        <div className="flex flex-wrap items-end gap-4">
+          <Seletor<Unidade>
+            rotulo="Mostrar em"
+            valor={unidade}
+            opcoes={[
+              { valor: "sm", rotulo: "Salários mínimos" },
+              { valor: "reais", rotulo: "Reais (valor da época)" },
+            ]}
+            aoMudar={setUnidade}
+          />
+        </div>
         <CartaoGrafico
           titulo={`Mediana e média da remuneração · ${f.rotulo}`}
           ajuda="mediana"
-          subtitulo={`RAIS · salários mínimos${f.ativo ? " · mediana por faixas de 0,1 SM" : ""}`}
+          subtitulo={emReais
+            ? "RAIS · remuneração bruta em reais de cada ano, sem correção pela inflação"
+            : `RAIS · salários mínimos${f.ativo ? " · mediana por faixas de 0,1 SM" : ""}`}
           opcao={op.remuneracao}
           carregando={anual.carregando}
           erro={anual.erro}
           altura={320}
-          tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mediana", rotulo: "Mediana", formato: fmtSM, numero: true }, { chave: "media", rotulo: "Média", formato: fmtSM, numero: true }], linhas: a }}
+          rodape={emReais ? "Em reais, a linha sobe também por causa da inflação; para comparar anos entre si, a medida certa é o salário mínimo." : undefined}
+          tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mediana", rotulo: "Mediana", formato: fmtValor, numero: true }, { chave: "media", rotulo: "Média", formato: fmtValor, numero: true }], linhas: a }}
         />
+        <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <CartaoGrafico
           titulo="Por área de atuação"
-          subtitulo={`RAIS · mediana em salários mínimos, ${ano}`}
+          subtitulo={emReais ? `RAIS · mediana bruta em reais, ${ano}` : `RAIS · mediana em salários mínimos, ${ano}`}
           nacional
           opcao={op.areas}
           carregando={areas.carregando}
           altura={300}
-          tabela={{ colunas: [{ chave: "area", rotulo: "Área" }, { chave: "mediana", rotulo: "Mediana", formato: fmtSM, numero: true }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: areas.linhas }}
+          tabela={{ colunas: [{ chave: "area", rotulo: "Área" }, { chave: "mediana", rotulo: "Mediana", formato: fmtValor, numero: true }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: linhasAreas }}
         />
+        <CartaoGrafico
+          titulo="Por área de atuação, ao longo do tempo"
+          subtitulo={emReais ? "RAIS · mediana bruta em reais de cada ano, sem correção pela inflação" : "RAIS · mediana em salários mínimos"}
+          nacional
+          opcao={op.areasSerie}
+          carregando={areasSerie.carregando}
+          erro={areasSerie.erro}
+          altura={360}
+          tabela={{
+            colunas: [{ chave: "ano", rotulo: "Ano" }, ...serieAreas.nomes.map((n) => ({ chave: n, rotulo: n, formato: fmtValor, numero: true }))],
+            linhas: serieAreas.tabela,
+          }}
+        />
+        </div>
       </Bloco>
 
       <Bloco titulo={`Quanto dura um emprego de tecnologia`}>
