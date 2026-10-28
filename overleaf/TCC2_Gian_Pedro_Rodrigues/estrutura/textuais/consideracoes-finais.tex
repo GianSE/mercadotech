@@ -3,40 +3,79 @@
 \chapter{Considerações Finais}
 \label{cap:consideracoes}
 
-Este trabalho se propôs a responder se é possível construir uma plataforma analítica reprodutível sobre os microdados da RAIS e do CAGED, com baixo custo operacional, e o que esses dados dizem sobre o mercado formal de tecnologia no Brasil. As duas faces da pergunta foram respondidas, e a resposta à segunda depende da primeira: foi a construção cuidadosa da camada de dados que permitiu enxergar coisas que agregados publicados não mostram.
+Este trabalho partiu de uma pergunta com duas faces: se é possível construir uma plataforma analítica reprodutível sobre os microdados da RAIS e do CAGED, com baixo custo operacional, e o que esses dados respondem sobre o mercado formal de tecnologia no Brasil. Este capítulo responde às duas, confere os objetivos definidos na introdução e registra o que o trabalho não alcança.
 
-Os objetivos específicos da \autoref{sec:objetivos} foram atendidos. O \textit{pipeline} Medalhão processa a RAIS de 2007 a 2025 e o CAGED de 2007 a 2026 (\autoref{sec:arquitetura}) e roda em nuvem, encadeado por dependência e incremental por ano (\autoref{subsec:orquestracao-pipeline}). O recorte foi definido pela união de CNAE e CBO, com as duas lentes preservadas e documentadas (\autoref{sec:recorte} e \autoref{apend:cbos}); os códigos foram traduzidos pelos dicionários oficiais, com procedência e auditoria (\autoref{subsec:dicionarios} e \autoref{sec:auditoria}). O \textit{dashboard} consulta o Parquet no navegador (\autoref{sec:apresentacao}). O SARIMA foi escolhido por validação de origem móvel contra o \textit{baseline}, e o \textit{nowcast}, validado retendo cada ano de 2014 a 2025 (\autoref{sec:resultado-q5}). A qualidade do emprego e a desigualdade salarial foram analisadas (\autoref{sec:resultado-q3} e \autoref{sec:resultado-q4}), e as camadas foram publicadas como dados abertos (\autoref{quadro:repositorios}). O Prophet, previsto na proposta, foi avaliado ao lado do SARIMA; a projeção até 2030 foi substituída por um horizonte de 18 meses, pelos motivos registrados na \autoref{sec:revisoes}.
+\section{Resposta à pergunta de pesquisa}
+
+A face de engenharia tem resposta afirmativa. A plataforma trata 661~GB de microdados em texto, guardados em 56~GB de Parquet, sem servidor próprio nem custo de infraestrutura, e se atualiza sozinha toda semana. A recontagem do recorte a partir do dado bruto deu diferença zero em 35,9 milhões de registros, e os totais ficaram a cerca de 1\% dos de um painel público do Ministério. A resposta à segunda face dependeu dessa base: foi a auditoria sistemática que encontrou os defeitos que, sem ela, teriam virado conclusão, como o funcionalismo de Rondônia declarado como programador, que sozinho invertia a tendência do hiato de gênero.
+
+A face de análise se organizou em torno de uma pergunta substantiva: o crescimento do emprego formal em tecnologia veio acompanhado de melhores salários e de mais equidade? A resposta é que não veio acompanhado de melhores salários relativos, e que trouxe mais equidade em um eixo e menos no outro.
+
+O emprego de TI cresceu 162\% entre 2007 e 2025, 5,5\% ao ano, mas em ondas: perdeu vínculos na recessão de 2015--2016, concentrou 38\% de todo o ganho em 2021 e 2022 e desacelerou depois, para 3,7\% ao ano. A maior parte dos profissionais de TI está fora das empresas de TI, mas o crescimento se concentrou nelas: a parcela de fora caiu de 71\% para 58\%. A remuneração mediana do recorte acompanhou o salário mínimo, sem se afastar dele, e a dos profissionais de TI caiu cerca de um quinto em salários mínimos. Na equidade, os eixos se separam. O hiato racial caiu de 64\% para 38\% entre brancos e pardos, porque pessoas negras passaram a chegar mais às posições que pagam melhor. O hiato de gênero, que não existia até 2015, surgiu e chegou a 7,8\% em 2025, inteiramente na parcela que as características observáveis não explicam, enquanto a participação feminina no setor caiu de 32,5\% para 30,6\%.
+
+Sobre o futuro, o trabalho conclui que estimar o presente rende mais do que prever adiante. A previsão do saldo mensal é útil por cerca de um ano, e o intervalo cruza o zero depois disso; já o \textit{nowcast} do estoque corrente errou em média 1,1\% em doze anos retidos. Para 2026, ele projeta 1,37 milhão de vínculos, alta de 0,7\%, o que confirma a desaceleração.
+
+\section{Cumprimento dos objetivos}
+
+O \autoref{quadro:objetivos} confronta cada objetivo específico da \autoref{sec:objetivos} com o que foi entregue. Todos foram atendidos, um deles além do previsto, e as duas mudanças em relação à proposta do TCC~1 (o Prophet avaliado ao lado do SARIMA, em vez de no lugar dele, e o horizonte de 18 meses no lugar da projeção até 2030) estão justificadas na \autoref{sec:revisoes}.
+
+\begin{quadro}[htbp]
+    \centering
+    \caption{Objetivos específicos e o que foi entregue}
+    \label{quadro:objetivos}
+    \footnotesize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{%
+        >{\raggedright\arraybackslash\hsize=1.05\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.25\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.70\hsize}X}
+        \toprule
+        \rowcolor{black!8}
+        \textbf{Objetivo} & \textbf{Resultado} & \textbf{Onde} \\
+        \midrule
+        \textit{Pipeline} nas camadas Bronze, Silver e Gold & RAIS de 2007 a 2025 e CAGED de 2007 a 2026, em 960 arquivos recontados com diferença zero & \autoref{sec:arquitetura}, \autoref{sec:reprodutibilidade} \\
+        Execução automatizada em nuvem & Nove etapas encadeadas por dependência em um orquestrador, que reprocessam só os anos com dado novo & \autoref{subsec:orquestracao-pipeline} \\
+        Recorte de tecnologia pela união de CNAE e CBO & As duas lentes preservadas em cada registro, o que sustenta o achado sobre onde está o trabalho de TI & \autoref{sec:recorte}, \autoref{sec:resultado-q2} \\
+        Tradução pelos dicionários oficiais, com auditoria & Código original ao lado da descrição; um código em uso sem dicionário documentado & \autoref{subsec:dicionarios}, \autoref{sec:auditoria} \\
+        \textit{Dashboard} com consulta no navegador & Site estático com DuckDB-Wasm, organizado pelas cinco perguntas & \autoref{sec:apresentacao} \\
+        SARIMA com validação de origem móvel & 33\% de ganho sobre o \textit{baseline}, contra 10,5\% do melhor Prophet & \autoref{sec:resultado-q5} \\
+        \textit{Nowcast} validado retendo um ano & Superado: doze anos retidos, com erro médio de 1,1\% & \autoref{sec:resultado-q5} \\
+        Qualidade do emprego e decomposição salarial & Remuneração, permanência e tábua de vida; Oaxaca-Blinder ano a ano por sexo e por raça/cor & \autoref{sec:resultado-q3}, \autoref{sec:resultado-q4} \\
+        Dados abertos & Todas as camadas e agregados publicados em repositórios públicos & \autoref{quadro:repositorios} \\
+        \bottomrule
+    \end{tabularx}
+    \\[4pt]
+    Fonte: Autoria própria.
+\end{quadro}
 
 \section{Contribuições}
 
-A contribuição técnica é um \textit{pipeline} completo, do servidor público ao \textit{dashboard}, que trata 661~GB de microdados heterogêneos (56,4~GB depois de convertidos para Parquet) sem servidor próprio nem custo de infraestrutura, é executado automaticamente toda semana e entrega consulta interativa sobre a série inteira. Três decisões sustentam esse resultado: o formato colunar particionado, que permite descartar dados sem lê-los e reduziu 661~GB de texto a 56~GB; o motor analítico \textit{in-process}, que dispensa servidor e importação prévia; e a execução em nuvem, com o repositório público de dados como o próprio \textit{data lake} e etapas encadeadas por dependência real, que reprocessam só os anos com dado novo.
+A contribuição técnica é um \textit{pipeline} completo, do servidor público ao \textit{dashboard}, sustentado por três decisões: o formato colunar particionado, que permite descartar dados sem lê-los; o motor analítico \textit{in-process}, que dispensa servidor e importação prévia; e a execução em nuvem, com o repositório público de dados como o próprio \textit{data lake}.
 
-A contribuição metodológica está na forma de delimitar o setor. Em lugar de escolher entre definir tecnologia pela atividade da empresa ou pela ocupação do trabalhador, o trabalho preserva as duas lentes como rótulos independentes em cada registro. Essa escolha é o que torna possível o achado central: a maior parte dos profissionais de TI está fora das empresas de TI, e existe um contingente expressivo de pessoas em empresas de TI exercendo outras ocupações, com remuneração muito inferior. Nenhum recorte de lente única enxerga os dois grupos.
+A contribuição metodológica está na forma de delimitar o setor. Em lugar de escolher entre definir tecnologia pela atividade da empresa ou pela ocupação do trabalhador, o trabalho preserva as duas lentes em cada registro. É o que permite ver, ao mesmo tempo, que a maioria dos profissionais de TI trabalha fora das empresas de TI e que o crescimento se concentrou dentro delas. Nenhum recorte de lente única enxerga as duas coisas.
 
-O método também pesou no resultado. O CRISP-DM foi percorrido como ciclo, e os retornos do \autoref{quadro:crispdm-retornos} produziram o recorte revisto, a correção da ingestão de 2022, a mediana exata, a validação contra o painel do MTE e o \textit{nowcast} no lugar da projeção até 2030. Um processo linear teria entregue esses números errados com aparência de certos.
-
-A contribuição analítica são as respostas às cinco perguntas, sintetizadas no \autoref{quadro:sintese}. Duas merecem destaque pelo que contrariam. A primeira é que crescer não melhorou a remuneração relativa: o emprego mais que dobrou e a mediana em salários mínimos subiu só 5\% em dezoito anos. A segunda é a distinção estrutural entre os eixos de desigualdade: o hiato de gênero é inteiramente de retorno, com parcela explicada negativa, enquanto o racial é majoritariamente de acesso. Essa distinção implica instrumentos de política diferentes.
-
-Há ainda uma contribuição sobre a qualidade da fonte, que não estava prevista. A auditoria encontrou defeitos concretos nos dados publicados pelo MTE e um erro de método próprio, relatados na \autoref{sec:achados-qualidade}. Nenhum deles produz mensagem de erro, e todos produzem resposta errada, o que os torna especialmente úteis de documentar.
+A contribuição sobre a qualidade da fonte não estava prevista. A auditoria encontrou defeitos concretos nos dados publicados pelo MTE (\autoref{sec:achados-qualidade}), e nenhum deles produz mensagem de erro: todos produzem resposta errada. O mais grave, o funcionalismo de Rondônia declarado como programador em oito anos da série, alterava a taxa de crescimento, os saltos da série, a tendência do hiato de gênero e o erro do \textit{nowcast}. Os testes que detectam esses defeitos ficaram no repositório e servem a qualquer pesquisa sobre as mesmas bases. O CRISP-DM, percorrido como ciclo, foi o que transformou cada um desses achados em correção (\autoref{quadro:crispdm-retornos}); um processo linear teria entregue os números errados com aparência de certos.
 
 \section{Limitações}
 
-As limitações de fonte, declaradas na \autoref{sec:limitacoes-metodo}, continuam valendo: a RAIS e o CAGED cobrem só o mercado formal, a localização é a do estabelecimento declarante, e a CBO se atualiza devagar, e o próprio trabalho encontrou código em uso que nenhum dicionário oficial documenta.
+As limitações de fonte, declaradas na \autoref{sec:limitacoes-metodo}, delimitam o alcance das conclusões. A RAIS e o CAGED cobrem só o emprego formal: ficam fora os profissionais contratados como pessoa jurídica, comuns no setor, e os brasileiros que trabalham para empresas estrangeiras, parcela que cresceu com o trabalho remoto. O mercado de tecnologia em que brasileiros atuam é, portanto, maior que o medido aqui, e as conclusões valem para a parte dele que tem carteira assinada ou vínculo estatutário no país. A localização, por sua vez, é a do estabelecimento empregador, e não a de onde a pessoa vive: com o trabalho remoto, quem mora em Londrina e trabalha para uma empresa de São Paulo é contado em São Paulo, de modo que a concentração paulista mede onde estão os empregadores. A CBO se atualiza devagar, e o próprio trabalho encontrou código em uso que nenhum dicionário oficial documenta.
 
-Três limitações de método também precisam ficar registradas. A primeira é que a parcela não explicada da decomposição salarial não mede discriminação: ela é um limite superior para o que a discriminação poderia explicar. A segunda é que a tábua de vida de período descreve o risco vigente em um ano, e não a trajetória de uma coorte, e a leitura de permanência precisa dessa ressalva. A terceira é que o \textit{nowcast} erra mais nos anos de mudança brusca do estoque, como 2018 e 2022, que um estimador apoiado no fluxo do CAGED não antecipa.
+Três limitações de método também precisam ficar registradas. A parcela não explicada da decomposição salarial não mede discriminação: ela é um limite superior para o que a discriminação poderia explicar. A tábua de vida de período descreve o risco vigente em um ano, e não a trajetória de uma coorte. E o \textit{nowcast} erra mais nos anos de mudança brusca do estoque, como 2022, que nenhum estimador apoiado no fluxo do CAGED antecipa.
 
-As verificações de qualidade também têm limites. A validação contra o painel do MTE (\autoref{sec:validacao-mte}) cobre só a lente de ocupação, e a RAIS apenas de 2023 a 2025; nela, o trabalho conta sistematicamente cerca de 1\% a mais que o painel, diferença de critério cuja origem a documentação pública não permite identificar. A correção da ingestão parcial de 2022, por fim, foi refeita na camada publicada, e a recontagem a partir do dado bruto confirma que, nesse ano como nos demais, a camada reproduz a fonte (\autoref{tab:reprodutibilidade-rais}). A correção local que a precedeu, hoje desativada, tinha 1.157 registros a mais; a diferença, de 0,08\% no estoque daquele ano, não altera nenhuma conclusão.
+A validação externa também tem limites. O confronto com o painel do MTE (\autoref{sec:validacao-mte}) cobre só a lente de ocupação, e a RAIS apenas de 2023 a 2025; nele, o trabalho conta sistematicamente cerca de 1\% a mais que o painel, diferença de critério cuja origem a documentação pública não permite identificar.
 
 \section{Trabalhos futuros}
 
-Quatro extensões decorrem diretamente do que foi construído.
+Cinco extensões decorrem diretamente do que foi construído.
 
-A primeira é medir retenção por gênero cruzando as duas bases: o CAGED informa quem entra, a RAIS informa quem permanece. A comparação entre a composição das admissões e a do estoque permitiria distinguir um problema de entrada de um problema de permanência, pergunta que nenhuma das duas bases responde isolada.
+A primeira é medir o mercado de tecnologia além do emprego formal. Cruzar o recorte com os dados públicos de empresas do Cadastro Nacional da Pessoa Jurídica, que identificam microempreendedores e pequenas empresas por atividade, estimaria a parcela contratada como pessoa jurídica. Medir quem trabalha para o exterior exige ir além das bases brasileiras, em uma análise quase global do mercado de tecnologia, que compare o Brasil com outros países e incorpore fontes sobre trabalho remoto internacional.
 
-A segunda é a decomposição regional do crescimento, no estilo \textit{shift-share}, separando quanto do crescimento de cada estado se explica pela composição setorial e quanto por dinamismo próprio. O dado já está na camada; falta o método.
+A segunda é explicar o hiato de gênero que surgiu a partir de 2016. O CAGED informa quem entra e a RAIS, quem permanece: comparar a composição das admissões com a do estoque distinguiria um problema de entrada de um problema de permanência, e a decomposição por área e por escolaridade mostraria qual vantagem das mulheres encolheu.
 
-A terceira é de engenharia: documentar a linhagem do \textit{pipeline} de forma navegável. A migração resolveu metade do problema: o grafo de dependências entre as etapas é exibido pela plataforma de integração contínua a cada execução, e a procedência já existe no dado, linha a linha. Falta a mesma visão entre as tabelas dentro da Gold. Ferramentas de transformação declarativa geram esse grafo automaticamente, e a camada Gold (composta de agregados em SQL) é a parte do projeto que se beneficiaria dessa adoção, sem necessidade de reescrever a ingestão ou a camada tratada.
+A terceira é testar a hipótese da terceirização. A concentração dos profissionais de TI nas empresas de TI é coerente com ela, mas a RAIS não liga o profissional ao cliente. As tabelas de recursos e usos das contas nacionais do IBGE, que registram quanto cada setor compra de serviços de tecnologia, permitiriam verificar se a compra cresceu onde o emprego próprio de TI diminuiu.
 
-A quarta é estender a validação externa à lente de setor. O painel do MTE não traz a atividade econômica, mas o Cadastro Central de Empresas do IBGE publica o pessoal assalariado por divisão da CNAE e permitiria esse confronto, com a ressalva de que as duas bases contam unidades diferentes, e de que o cadastro do IBGE é construído em parte a partir da própria RAIS.
+A quarta é comparar o ciclo do setor com o do emprego formal como um todo, e decompor o crescimento regional no estilo \textit{shift-share}, separando quanto do crescimento de cada estado vem da composição setorial e quanto de dinamismo próprio. O dado já está na camada; falta o método.
+
+A quinta é estender a validação externa à lente de setor. O Cadastro Central de Empresas do IBGE publica o pessoal assalariado por divisão da CNAE e permitiria esse confronto, com a ressalva de que as duas bases contam unidades diferentes e de que o cadastro do IBGE é construído em parte a partir da própria RAIS.
 
 Por fim, a plataforma foi construída para ser reaproveitada. Nada no desenho (ingestão sem transformação, tradução por dicionários oficiais com procedência, recorte declarado e auditado, execução automatizada e dados tratados públicos) é específico do mercado de tecnologia: aplicá-lo a outro recorte ocupacional, como saúde ou educação, é questão de trocar a definição do recorte, que já foi publicada como tabela de referência junto dos demais conjuntos de dados.

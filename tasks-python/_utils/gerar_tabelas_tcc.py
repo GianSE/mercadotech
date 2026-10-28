@@ -150,6 +150,30 @@ tabela("tab-linhas-camada.tex",
        "Registros no recorte de tecnologia, por tabela da camada tratada",
        "tab:linhas-camada", "lr", ["Tabela", "Registros"], linhas)
 
+# ------------------------------------------------- artefato de Rondônia
+# O funcionalismo estadual declarado como programador: medido na Silver, que
+# ainda o contém, contra o estoque publicado na Gold, que já não o contém
+# (ver escopo_tecnologia.ARTEFATO_RO).
+from _utils import escopo_tecnologia as esc  # noqa: E402
+FV = nuvem.fonte_silver_ti("rais_vinc")
+grupo = esc.sql_grupo_artefato_ro()
+linhas = [[ano(r[0]), num(r[1]), num(r[2]), pct(100 * r[1] / (r[1] + r[2]))] for r in con.execute(f"""
+    SELECT a.ano, a.n, e.estoque
+    FROM (SELECT ano, count(*) FILTER (WHERE vinculo_ativo_3112 = '1') AS n
+          FROM read_parquet({FV}, union_by_name=true) WHERE {grupo}
+          GROUP BY ano HAVING count(*) > {esc.LIMIAR_ARTEFATO}) a
+    JOIN (SELECT ano, sum(estoque_3112) AS estoque
+          FROM read_parquet('{G}/rais_estoque_anual.parquet') GROUP BY 1) e USING (ano)
+    ORDER BY 1
+""").fetchall()]
+tabela("tab-artefato-ro.tex",
+       "Servidores do governo de Rondônia declarados como programador de sistemas",
+       "tab:artefato-ro", "lrrr",
+       ["Ano", "Vínculos ativos do grupo", "Estoque de TI sem o grupo", "Peso do grupo"], linhas,
+       nota="Grupo: Poder Executivo Estadual, Porto Velho, CBO 317110. Peso: parcela do estoque "
+            "de TI que o grupo representaria se não fosse excluído. ",
+       fonte="Autoria própria, a partir da camada Silver e da camada Gold.")
+
 # ------------------------------------------------- estoque e qualidade
 # A mediana vem de rais_mediana (exata, sobre os vínculos). A média ponderada
 # das medianas dos grupos não é a mediana do conjunto — ver construir_gold.
@@ -226,6 +250,25 @@ figura("fig-estoque-serie.tex",
     \\end{{minipage}}""",
        nota="Valores anuais na \\autoref{tab:estoque-serie}, no \\autoref{apend:series}. ")
 
+# ------------------------------------------------- fases do crescimento
+# A taxa média do período inteiro esconde ciclos opostos. As fronteiras são
+# os anos em que o ritmo muda de sinal ou de patamar na série (recessão de
+# 2015-2016, retomada, aceleração de 2021-2022) e o nome de cada fase é a
+# leitura do texto, não um cálculo.
+est = {int(r[0]): r[1] for r in serie}
+FASES = [(2007, 2014, "Expansão"), (2014, 2017, "Recessão"), (2017, 2020, "Retomada"),
+         (2020, 2022, "Aceleração pós-pandemia"), (2022, int(p1[0]), "Desaceleração")]
+taxa = lambda a, b: ((est[b] / est[a]) ** (1 / (b - a)) - 1) * 100
+total = est[int(p1[0])] - est[int(p0[0])]
+linhas = [[f"{a}--{b}", nomef, pct(taxa(a, b)), num(est[b] - est[a]), pct(100 * (est[b] - est[a]) / total, 0)]
+          for a, b, nomef in FASES]
+linhas.append([f"\\textbf{{{ano(p0[0])}--{ano(p1[0])}}}", "\\textbf{Período inteiro}",
+               f"\\textbf{{{pct(taxa(int(p0[0]), int(p1[0])))}}}", f"\\textbf{{{num(total)}}}", "\\textbf{100\\%}"])
+tabela("tab-fases.tex", "Ritmo do crescimento do estoque de TI, por fase",
+       "tab:fases", "llrrr",
+       ["Período", "Fase", "Ritmo anual", "Vínculos ganhos", "Parcela do crescimento"], linhas,
+       nota="Ritmo anual: taxa composta de crescimento do estoque em 31/12. ")
+
 # ------------------------------------------------- as duas lentes
 ANO = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/rais_estoque_anual.parquet')").fetchone()[0]
 linhas = [[r[0], num(r[1]), num(r[2], 2), num(r[3])] for r in con.execute(f"""
@@ -247,6 +290,32 @@ tabela("tab-lentes.tex",
        f"As duas lentes do recorte de tecnologia em {ANO}",
        "tab:lentes", "lrrr",
        ["Lente", "Vínculos", "Remuneração mediana (SM)", "Tempo de emprego (meses)"], linhas)
+
+# A mesma divisão no tempo: a fotografia de um ano mostra a maioria fora das
+# empresas de TI, a série mostra para onde ela se move.
+ANOS_LENTE = (2007, 2014, 2020, ANO)
+linhas = [[ano(r[0]), num(r[1]), num(r[2]), num(r[3]), pct(r[4]), num(r[5], 2), num(r[6], 2)]
+          for r in con.execute(f"""
+    SELECT e.ano, e.dentro, e.fora, e.outra, 100.0 * e.fora / (e.fora + e.dentro),
+           md.mediana_sm, mf.mediana_sm
+    FROM (SELECT ano,
+                 sum(estoque_3112) FILTER (WHERE ocupacao_ti AND setor_ti)     AS dentro,
+                 sum(estoque_3112) FILTER (WHERE ocupacao_ti AND NOT setor_ti) AS fora,
+                 sum(estoque_3112) FILTER (WHERE setor_ti AND NOT ocupacao_ti) AS outra
+          FROM read_parquet('{G}/rais_setor_vs_ocupacao.parquet')
+          WHERE ano IN {ANOS_LENTE} GROUP BY 1) e
+    JOIN read_parquet('{G}/rais_mediana.parquet') md
+      ON md.ano = e.ano AND md.recorte = 'lente' AND md.grupo = 'dentro'
+    JOIN read_parquet('{G}/rais_mediana.parquet') mf
+      ON mf.ano = e.ano AND mf.recorte = 'lente' AND mf.grupo = 'fora'
+    ORDER BY 1
+""").fetchall()]
+tabela("tab-lentes-evolucao.tex", "Profissionais de TI dentro e fora das empresas de TI ao longo do tempo",
+       "tab:lentes-evolucao", "lrrrrrr",
+       ["Ano", "Dentro", "Fora", "Outra ocupação", "\\% fora", "Mediana dentro", "Mediana fora"], linhas,
+       nota="Dentro e fora: profissionais de TI em empresa de TI e fora dela. Outra ocupação: "
+            "quem trabalha em empresa de TI sem ocupação de TI. \\% fora: parcela dos profissionais "
+            "de TI que está fora das empresas de TI. Medianas em salários mínimos. ")
 
 # ------------------------------------------------- areas de TI
 linhas = [[r[0], num(r[1]), num(r[2], 2)] for r in con.execute(f"""
@@ -283,6 +352,30 @@ tabela("tab-hiato.tex", "Decomposição de Oaxaca-Blinder do hiato salarial",
        ["Ano", "Comparação", "Hiato bruto", "Parcela explicada (log)",
         "Parcela não explicada (log)"], linhas,
        nota="Parcelas em logaritmo da remuneração; referência de Neumark. ")
+
+# A trajetória do hiato bruto, ano a ano: a tabela acima mostra três pontos, e
+# o hiato de gênero muda de sinal entre eles.
+hiato = con.execute(f"SELECT ano, comparacao, hiato_pct FROM read_parquet('{G}/hiato_serie.parquet') ORDER BY ano").df()
+a0, a1 = int(hiato["ano"].min()), int(hiato["ano"].max())
+ESTILOS = {"Branca vs Parda": "very thick, black!85, mark=*, mark size=1.1pt",
+           "Branca vs Preta": "thick, black!55, dashed, mark=o, mark size=1.1pt",
+           "Homem vs Mulher": "thick, black!85, densely dotted, mark=square*, mark size=1.1pt"}
+linhas_hiato = "\n".join(
+    f"        \\addplot[{estilo}] coordinates {{{pontos((int(r.ano), round(r.hiato_pct, 1)) for r in hiato[hiato['comparacao'] == comp].itertuples())}}};\n"
+    f"        \\addlegendentry{{{comp}}}"
+    for comp, estilo in ESTILOS.items())
+figura("fig-hiato-serie.tex", f"Hiato salarial bruto por raça/cor e por sexo, {a0}--{a1}",
+       "fig:hiato-serie", f"""    \\begin{{tikzpicture}}
+    \\begin{{axis}}[{EIXO}, width=0.85\\textwidth, height=6.2cm, ylabel={{Hiato bruto (\\%)}},
+            xmin={a0}, xmax={a1}, xtick distance=2,
+            x tick label style={{/pgf/number format/1000 sep={{}}}},
+            legend style={{font=\\footnotesize, at={{(0.03,0.40)}}, anchor=west, draw=none, fill=white}}]
+        \\addplot[black!40, thin, forget plot] coordinates {{({a0},0) ({a1},0)}};
+{linhas_hiato}
+    \\end{{axis}}
+    \\end{{tikzpicture}}""",
+       nota="Diferença percentual da remuneração média do primeiro grupo sobre a do segundo; "
+            "negativo: o segundo grupo ganha mais. ")
 
 # ------------------------------------------------- previsao
 # "Prophet(tendência 0.01)" -> vírgula decimal no texto.
