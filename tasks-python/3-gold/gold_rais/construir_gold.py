@@ -280,10 +280,11 @@ AGREGADOS = {
         SELECT ano,
                CASE WHEN grouping(lente) = 0 THEN 'lente'
                     WHEN grouping(area_ti) = 0 THEN 'area'
+                    WHEN grouping(escolaridade) = 0 THEN 'escolaridade'
                     WHEN grouping(uf) = 0 THEN 'uf'
                     WHEN grouping(sp) = 0 THEN 'sp'
                     ELSE 'total' END                       AS recorte,
-               coalesce(lente, area_ti, uf, sp, 'TI')      AS grupo,
+               coalesce(lente, area_ti, escolaridade, uf, sp, 'TI') AS grupo,
                round(median(remun), 2)                     AS mediana_sm,
                count(remun)                                AS vinculos
         FROM (
@@ -291,15 +292,17 @@ AGREGADOS = {
                    CASE WHEN ocupacao_ti AND setor_ti THEN 'dentro'
                         WHEN ocupacao_ti THEN 'fora' ELSE 'outra' END AS lente,
                    CASE WHEN ocupacao_ti THEN {esc.sql_area_ti(COL_CBO)} END AS area_ti,
+                   {sql_canonico("escolaridade", "escolaridade_apos_2005_descricao")} AS escolaridade,
                    CASE WHEN municipio_descricao IS NOT NULL THEN {UF} END AS uf,
                    CASE WHEN municipio_descricao IS NULL THEN NULL
                         WHEN {UF} = 'SP' THEN 'SP' ELSE 'Brasil sem SP' END AS sp,
                    {_remuneracao('vl_remun_media_sm')}        AS remun
             FROM ({BASE_VINC})
         )
-        GROUP BY GROUPING SETS ((ano), (ano, lente), (ano, area_ti), (ano, uf), (ano, sp))
+        GROUP BY GROUPING SETS ((ano), (ano, lente), (ano, area_ti), (ano, escolaridade), (ano, uf), (ano, sp))
         -- Grupo nulo (sem área, sem UF) não é recorte: sai.
         HAVING NOT ((grouping(area_ti) = 0 AND area_ti IS NULL)
+                 OR (grouping(escolaridade) = 0 AND (escolaridade IS NULL OR escolaridade = 'Não informado'))
                  OR (grouping(uf) = 0 AND uf IS NULL)
                  OR (grouping(sp) = 0 AND sp IS NULL))
         ORDER BY 1, 2, 3

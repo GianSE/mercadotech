@@ -245,6 +245,7 @@ export function opcaoLinhas(
   // Mais de quatro séries: a legenda pode quebrar em duas linhas (no celular
   // ela rola, numa linha só), e a segunda cobriria o topo do eixo.
   if (leg && series.length > 4 && !c.compacto) fundo.grid = { ...(fundo.grid as object), top: 60 };
+  const deslocamento = afastarRotulos(series, o.zero);
   return {
     ...fundo,
     legend: leg,
@@ -268,12 +269,33 @@ export function opcaoLinhas(
         // Área: o azul se dissolve na superfície em direção ao eixo.
         areaStyle: s.area ? { color: gradiente(comAlfa(cor, 0.34), comAlfa(cor, 0), "baixo") } : undefined,
         endLabel: s.rotuloFinal
-          ? { show: true, color: c.tinta, fontWeight: 600, fontSize: c.compacto ? 10 : 11, formatter: (p: unknown) => fmtRotulo(valorDe(p as Ponto)) }
+          ? { show: true, color: c.tinta, fontWeight: 600, fontSize: c.compacto ? 10 : 11, offset: [0, deslocamento[i] ?? 0], formatter: (p: unknown) => fmtRotulo(valorDe(p as Ponto)) }
           : undefined,
         emphasis: { disabled: true },
       };
     }),
   };
+}
+
+// Rótulos no fim de linhas que terminam perto um do outro se sobrepõem. A
+// altura do gráfico não é conhecida aqui; com uma área útil típica de 260 px,
+// cada rótulo que ficaria a menos de 13 px do vizinho de baixo sobe o que
+// falta. Devolve o deslocamento vertical (negativo = para cima) por série.
+function afastarRotulos(series: SerieLinha[], zero?: boolean): number[] {
+  const ultimo = (d: (number | null)[]) => [...d].reverse().find((v) => v !== null && Number.isFinite(v)) ?? null;
+  const todos = series.flatMap((s) => s.dados).filter((v): v is number => v !== null && Number.isFinite(v));
+  if (!todos.length) return [];
+  const [min, max] = [zero ? Math.min(0, ...todos) : Math.min(...todos), Math.max(...todos)];
+  const pxPorUnidade = 260 / ((max - min) || 1);
+  const pontos = series
+    .map((s, i) => ({ i, v: s.rotuloFinal ? ultimo(s.dados) : null }))
+    .filter((p): p is { i: number; v: number } => p.v !== null)
+    .map((p) => ({ i: p.i, y: (p.v - min) * pxPorUnidade, pos: (p.v - min) * pxPorUnidade }))
+    .sort((a, b) => a.y - b.y);
+  for (let k = 1; k < pontos.length; k++) pontos[k].pos = Math.max(pontos[k].pos, pontos[k - 1].pos + 13);
+  const saida: number[] = [];
+  for (const p of pontos) saida[p.i] = -(p.pos - p.y);
+  return saida;
 }
 
 // ----------------------------------------------------------------- barras

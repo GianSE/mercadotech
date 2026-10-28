@@ -18,6 +18,11 @@ type Recorte = keyof typeof RECORTES;
 // A remuneração pode ser lida em salários mínimos (compara anos entre si) ou
 // em reais da época (o valor que estava no contracheque, sem correção).
 type Unidade = "sm" | "reais";
+// Escolaridade em ordem de nível, não de valor. No gráfico ao longo do tempo
+// entram só os quatro níveis que somam quase todos os vínculos de TI; os
+// demais têm poucos milhares e a linha oscila mais que o dado.
+const ESCOLARIDADES = ["Analfabeto", "Fundamental incompleto", "Fundamental completo", "Médio incompleto", "Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação"];
+const ESCOLARIDADES_SERIE = ["Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação"];
 
 // ------------------------------------------------- modelo multivariado
 // A Gold grava as variáveis como saem do get_dummies ("porte_ZERO",
@@ -90,6 +95,19 @@ export default function Qualidade() {
   const areasSerie = useConsulta(`
     SELECT ano, grupo AS area, mediana_sm AS mediana FROM rais_mediana
     WHERE recorte = 'area' AND ${entre(periodo)} ORDER BY ano`);
+  // Por escolaridade: a mediana exata, quando a Gold já tem o recorte; numa
+  // Gold anterior, a média ponderada da tabela de perfil (média se agrega
+  // sem erro, mediana não) — e o título diz qual das duas está na tela.
+  const escMediana = useConsulta(`
+    SELECT ano, grupo AS escolaridade, mediana_sm AS valor FROM rais_mediana
+    WHERE recorte = 'escolaridade' AND ${entre(periodo)} ORDER BY ano`);
+  const semMedianaEsc = !escMediana.carregando && !escMediana.linhas.length;
+  const escMedia = useConsulta(semMedianaEsc ? `
+    SELECT ano, escolaridade, ${ponderada("remuneracao_sm")} AS valor FROM rais_estoque_perfil
+    WHERE ${TI} AND escolaridade IS NOT NULL AND escolaridade <> 'Não informado' AND ${entre(periodo)}
+    GROUP BY 1, 2 ORDER BY 1` : null);
+  const escolaridade = semMedianaEsc ? escMedia : escMediana;
+  const medidaEsc = semMedianaEsc ? "Média" : "Mediana";
   // O salário mínimo de cada ano sai do próprio dado: a RAIS traz a
   // remuneração em reais e em salários mínimos, e a razão entre as duas é o
   // mínimo vigente (R$ 1.518 em 2025), sem tabela digitada à mão.
@@ -121,6 +139,15 @@ export default function Qualidade() {
     return { anos, nomes, tabela };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areasSerie.linhas, smDoAno, emReais]);
+  const esc = useMemo(() => {
+    const linhas = escolaridade.linhas;
+    const valor = new Map(linhas.map((l) => [`${l.escolaridade}|${num(l, "ano")}`, l.valor]));
+    const anos = [...new Set(linhas.map((l) => num(l, "ano")))].sort((x, y) => x - y);
+    const noAno = ESCOLARIDADES.filter((e) => valor.has(`${e}|${ano}`)).map((e) => ({ escolaridade: e, valor: conv(ano, valor.get(`${e}|${ano}`)) }));
+    const tabela = anos.map((a) => Object.fromEntries([["ano", a], ...ESCOLARIDADES_SERIE.map((e) => [e, conv(a, valor.get(`${e}|${a}`))])]));
+    return { anos, noAno, tabela };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escolaridade.linhas, smDoAno, emReais, ano]);
   const linhasAreas = useMemo(
     () => areas.linhas.map((l): Linha => ({ ...l, mediana: conv(ano, l.mediana) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,6 +175,17 @@ export default function Qualidade() {
             { formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 0), zero: true },
           )
         : null,
+      escAno: esc.noAno.length
+        ? opcaoBarras(c, esc.noAno.map((l) => l.escolaridade), esc.noAno.map((l) => l.valor), { horizontal: true, nome: medidaEsc, formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 1), larguraRotulo: 170, forma: "pirulito" })
+        : null,
+      escSerie: esc.anos.length
+        ? opcaoLinhas(
+            c,
+            esc.anos.map(String),
+            ESCOLARIDADES_SERIE.map((e, i) => ({ nome: e, dados: esc.tabela.map((l) => l[e] as number | null), cor: c.series[i], rotuloFinal: true })),
+            { formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 0), zero: true },
+          )
+        : null,
       giro: giro.length
         ? opcaoLinhas(c, giro.map((l) => String(l.ano)), [{ nome: "Desligados no ano / estoque", dados: giro.map((l) => l.giro), rotuloFinal: true }], { formato: (v) => fmtPct(v, 1), formatoEixo: (v) => fmtPct(v, 0) })
         : null,
@@ -157,7 +195,7 @@ export default function Qualidade() {
         : null,
       modelo: modelo.itens.length ? opcaoRazaoChances(c, modelo.itens) : null,
     }),
-    [a, linhasAreas, serieAreas, fmtValor, emReais, giro, riscoOrdenado, todos, modelo, c],
+    [a, linhasAreas, serieAreas, esc, medidaEsc, fmtValor, emReais, giro, riscoOrdenado, todos, modelo, c],
   );
 
   // Resposta do topo: a mediana nas pontas do período e a faixa de maior risco.
@@ -231,6 +269,31 @@ export default function Qualidade() {
             linhas: serieAreas.tabela,
           }}
         />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+          <CartaoGrafico
+            titulo="Por escolaridade"
+            subtitulo={`RAIS · ${medidaEsc.toLowerCase()} ${emReais ? "bruta em reais" : "em salários mínimos"}, ${ano}`}
+            nacional
+            opcao={op.escAno}
+            carregando={escolaridade.carregando}
+            erro={escolaridade.erro}
+            altura={340}
+            tabela={{ colunas: [{ chave: "escolaridade", rotulo: "Escolaridade" }, { chave: "valor", rotulo: medidaEsc, formato: fmtValor, numero: true }], linhas: esc.noAno }}
+          />
+          <CartaoGrafico
+            titulo="Por escolaridade, ao longo do tempo"
+            subtitulo={`RAIS · ${medidaEsc.toLowerCase()} ${emReais ? "bruta em reais de cada ano, sem correção pela inflação" : "em salários mínimos"} · os quatro níveis com mais vínculos`}
+            nacional
+            opcao={op.escSerie}
+            carregando={escolaridade.carregando}
+            erro={escolaridade.erro}
+            altura={360}
+            tabela={{
+              colunas: [{ chave: "ano", rotulo: "Ano" }, ...ESCOLARIDADES_SERIE.map((e) => ({ chave: e, rotulo: e, formato: fmtValor, numero: true }))],
+              linhas: esc.tabela,
+            }}
+          />
         </div>
       </Bloco>
 
