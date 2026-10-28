@@ -292,7 +292,13 @@ AGREGADOS = {
                    CASE WHEN ocupacao_ti AND setor_ti THEN 'dentro'
                         WHEN ocupacao_ti THEN 'fora' ELSE 'outra' END AS lente,
                    CASE WHEN ocupacao_ti THEN {esc.sql_area_ti(COL_CBO)} END AS area_ti,
-                   {sql_canonico("escolaridade", "escolaridade_apos_2005_descricao")} AS escolaridade,
+                   -- A RAIS separa mestrado e doutorado; o rótulo canônico os
+                   -- junta em "Pós-graduação" porque o Novo CAGED não separa.
+                   -- Aqui o dado é só da RAIS: os dois níveis ficam. (MBA e
+                   -- especialização não existem na RAIS: entram como superior.)
+                   CASE upper(trim(escolaridade_apos_2005_descricao))
+                        WHEN 'MESTRADO' THEN 'Mestrado' WHEN 'DOUTORADO' THEN 'Doutorado'
+                        ELSE {sql_canonico("escolaridade", "escolaridade_apos_2005_descricao")} END AS escolaridade,
                    CASE WHEN municipio_descricao IS NOT NULL THEN {UF} END AS uf,
                    CASE WHEN municipio_descricao IS NULL THEN NULL
                         WHEN {UF} = 'SP' THEN 'SP' ELSE 'Brasil sem SP' END AS sp,

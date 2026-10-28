@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
+import { CartaoGrafico } from "../componentes/Grafico";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { useFiltro } from "../lib/filtro";
 import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtReais, fmtSM } from "../lib/formato";
@@ -13,16 +13,19 @@ import { useConsulta } from "../lib/useConsulta";
 const ANOS = intervalo(2007, 2025);
 const FAIXAS = ["0-6m", "6-12m", "1-2a", "2-3a", "3-5a", "5-10a", "10-20a"];
 const ROTULO_FAIXA: Record<string, string> = { "0-6m": "0–6 meses", "6-12m": "6–12 meses", "1-2a": "1–2 anos", "2-3a": "2–3 anos", "3-5a": "3–5 anos", "5-10a": "5–10 anos", "10-20a": "10–20 anos" };
-const RECORTES = { setor: "Dentro e fora do setor de TI", sexo: "Por sexo", area: "Por área de atuação", porte: "Por porte do estabelecimento" } as const;
-type Recorte = keyof typeof RECORTES;
 // A remuneração pode ser lida em salários mínimos (compara anos entre si) ou
 // em reais da época (o valor que estava no contracheque, sem correção).
 type Unidade = "sm" | "reais";
 // Escolaridade em ordem de nível, não de valor. No gráfico ao longo do tempo
 // entram só os quatro níveis que somam quase todos os vínculos de TI; os
 // demais têm poucos milhares e a linha oscila mais que o dado.
-const ESCOLARIDADES = ["Analfabeto", "Fundamental incompleto", "Fundamental completo", "Médio incompleto", "Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação"];
-const ESCOLARIDADES_SERIE = ["Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação"];
+// Mestrado e doutorado vêm separados da mediana da Gold; a média da tabela de
+// perfil (reserva) só tem "Pós-graduação", que junta os dois. MBA e
+// especialização não existem na RAIS: entram como superior completo.
+const ESCOLARIDADES = ["Analfabeto", "Fundamental incompleto", "Fundamental completo", "Médio incompleto", "Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação", "Mestrado", "Doutorado"];
+const ESCOLARIDADES_SERIE = ["Médio completo", "Superior incompleto", "Superior completo", "Pós-graduação", "Mestrado", "Doutorado"];
+// Cor fixa por nível; "Pós-graduação" e "Mestrado" nunca aparecem juntos.
+const COR_ESCOLARIDADE: Record<string, number> = { "Médio completo": 0, "Superior incompleto": 1, "Superior completo": 2, "Pós-graduação": 3, Mestrado: 3, Doutorado: 4 };
 
 // ------------------------------------------------- modelo multivariado
 // A Gold grava as variáveis como saem do get_dummies ("porte_ZERO",
@@ -72,7 +75,6 @@ export default function Qualidade() {
   const { cores: c } = useTema();
   const f = useFiltro();
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2025], lerPeriodo, escreverPeriodo);
-  const [recorte, setRecorte] = useState<Recorte>("setor");
   const [unidade, setUnidade] = useState<Unidade>("sm");
   const ano = periodo[1];
 
@@ -144,8 +146,10 @@ export default function Qualidade() {
     const valor = new Map(linhas.map((l) => [`${l.escolaridade}|${num(l, "ano")}`, l.valor]));
     const anos = [...new Set(linhas.map((l) => num(l, "ano")))].sort((x, y) => x - y);
     const noAno = ESCOLARIDADES.filter((e) => valor.has(`${e}|${ano}`)).map((e) => ({ escolaridade: e, valor: conv(ano, valor.get(`${e}|${ano}`)) }));
-    const tabela = anos.map((a) => Object.fromEntries([["ano", a], ...ESCOLARIDADES_SERIE.map((e) => [e, conv(a, valor.get(`${e}|${a}`))])]));
-    return { anos, noAno, tabela };
+    const presentes = new Set(linhas.map((l) => String(l.escolaridade)));
+    const serie = ESCOLARIDADES_SERIE.filter((e) => presentes.has(e));
+    const tabela = anos.map((a) => Object.fromEntries([["ano", a], ...serie.map((e) => [e, conv(a, valor.get(`${e}|${a}`))])]));
+    return { anos, noAno, serie, tabela };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escolaridade.linhas, smDoAno, emReais, ano]);
   const linhasAreas = useMemo(
@@ -182,7 +186,7 @@ export default function Qualidade() {
         ? opcaoLinhas(
             c,
             esc.anos.map(String),
-            ESCOLARIDADES_SERIE.map((e, i) => ({ nome: e, dados: esc.tabela.map((l) => l[e] as number | null), cor: c.series[i], rotuloFinal: true })),
+            esc.serie.map((e) => ({ nome: e, dados: esc.tabela.map((l) => l[e] as number | null), cor: c.series[COR_ESCOLARIDADE[e] ?? 5], rotuloFinal: true })),
             { formato: fmtValor, formatoEixo: emReais ? fmtCompacto : (v) => fmtDec(v, 0), zero: true },
           )
         : null,
@@ -283,14 +287,14 @@ export default function Qualidade() {
           />
           <CartaoGrafico
             titulo="Por escolaridade, ao longo do tempo"
-            subtitulo={`RAIS · ${medidaEsc.toLowerCase()} ${emReais ? "bruta em reais de cada ano, sem correção pela inflação" : "em salários mínimos"} · os quatro níveis com mais vínculos`}
+            subtitulo={`RAIS · ${medidaEsc.toLowerCase()} ${emReais ? "bruta em reais de cada ano, sem correção pela inflação" : "em salários mínimos"} · do ensino médio para cima`}
             nacional
             opcao={op.escSerie}
             carregando={escolaridade.carregando}
             erro={escolaridade.erro}
             altura={360}
             tabela={{
-              colunas: [{ chave: "ano", rotulo: "Ano" }, ...ESCOLARIDADES_SERIE.map((e) => ({ chave: e, rotulo: e, formato: fmtValor, numero: true }))],
+              colunas: [{ chave: "ano", rotulo: "Ano" }, ...esc.serie.map((e) => ({ chave: e, rotulo: e, formato: fmtValor, numero: true }))],
               linhas: esc.tabela,
             }}
           />
@@ -335,24 +339,6 @@ export default function Qualidade() {
             carregando={tabua.carregando}
             altura={300}
             tabela={todos ? { colunas: [{ chave: "faixa", rotulo: "Tempo de casa" }, { chave: "valor", rotulo: "Ainda no emprego", formato: (v) => fmtPct(v, 1), numero: true }], linhas: FAIXAS.map((fx) => ({ faixa: ROTULO_FAIXA[fx], valor: num(todos, fx) })) } : undefined}
-          />
-        </Grade>
-        <Grade>
-          <CartaoTabela
-            titulo="Sobrevivência por grupo"
-            subtitulo="Tábua de vida de período, por recorte"
-            nacional
-            acao={<Seletor rotulo="Recorte" valor={recorte} opcoes={(Object.keys(RECORTES) as Recorte[]).map((k) => ({ valor: k, rotulo: RECORTES[k] }))} aoMudar={setRecorte} />}
-            tabela={{
-              colunas: [
-                { chave: "grupo", rotulo: "Grupo" },
-                { chave: "n", rotulo: "Vínculos", formato: fmtNum, numero: true },
-                { chave: "1-2a", rotulo: "Após 2 anos", formato: (v) => fmtPct(v, 0), numero: true },
-                { chave: "5-10a", rotulo: "Após 10 anos", formato: (v) => fmtPct(v, 0), numero: true },
-                { chave: "mediana_em", rotulo: "Mediana em" },
-              ],
-              linhas: tabua.linhas.filter((l) => l.recorte === recorte),
-            }}
           />
         </Grade>
         <CartaoGrafico
