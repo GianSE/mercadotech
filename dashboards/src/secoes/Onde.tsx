@@ -247,6 +247,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   const [ano, setAno] = useState(2025);
   const [metrica, setMetrica] = useState<Metrica>("estoque");
   const [minimo, setMinimo] = useState(50);
+  const [nivelRanking, setNivelRanking] = useState<Nivel>("uf");
   const [mapaPronto, setMapaPronto] = useState(false);
 
   useEffect(() => {
@@ -264,6 +265,14 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
     FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
     LEFT JOIN municipios_cluster k ON k.cod_municipio = m.cod_municipio
     WHERE m.ano = ${ano} AND (m.estoque >= ${minimo}${criterio ? ` OR ${criterio.sql("g.nome", "g.uf")}` : ""})`);
+
+  // Ranking por município: os 30 maiores do recorte de território, no mesmo
+  // formato "Nome (UF)" das bolhas do mapa, para o clique funcionar igual.
+  const rankMuni = useConsulta(nivelRanking === "municipio" ? `
+    SELECT g.nome || ' (' || m.uf || ')' AS nome, m.uf, m.estoque::DOUBLE AS estoque
+    FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
+    WHERE m.ano = ${ano} AND m.estoque > 0 AND ${f.sql("m.uf")}
+    ORDER BY m.estoque DESC LIMIT ${TOP_MUNICIPIOS}` : null);
 
   const m = METRICAS[metrica];
   const linhasUf = uf.linhas;
@@ -317,10 +326,21 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   }, [mapaPronto, linhasUf, bolhas, encontrados, metrica, m, f.ufs, c]);
 
   const opRanking = useMemo(() => {
+    if (nivelRanking === "municipio") {
+      const d = rankMuni.linhas;
+      if (!d.length) return null;
+      // Com uma busca ativa, o que não casa fica esmaecido.
+      const esmaecer = criterio
+        ? d.map((l, i) => (criterio.casa(String(l.nome).replace(/ \([A-Z]{2}\)$/, ""), String(l.uf)) ? -1 : i)).filter((i) => i >= 0)
+        : [];
+      return opcaoBarras(c, rotulos(d, "nome"), coluna(d, "estoque"), { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: 170, esmaecer });
+    }
     if (!ranking.length) return null;
     const esmaecer = f.ativo ? ranking.map((l, i) => (f.ufs.includes(String(l.uf)) ? -1 : i)).filter((i) => i >= 0) : [];
     return opcaoBarras(c, rotulos(ranking, "uf"), coluna(ranking, "estoque"), { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: 40, esmaecer });
-  }, [ranking, f.ativo, f.ufs, c]);
+    // `busca` no lugar de `criterio`: o critério é refeito a cada render.
+  }, [nivelRanking, rankMuni.linhas, busca, ranking, f.ativo, f.ufs, c]);
+  const porMunicipio = nivelRanking === "municipio";
 
   // Estado: liga e desliga no filtro. Município: destaca-o nos dois gráficos
   // e recorta a página pelo estado dele.
@@ -338,6 +358,15 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
         <Seletor rotulo="Ano" valor={ano} opcoes={intervalo(2007, 2026).map((a) => ({ valor: a, rotulo: String(a) }))} aoMudar={setAno} />
         <Seletor rotulo="Colorir por" valor={metrica} opcoes={(Object.keys(METRICAS) as Metrica[]).map((k) => ({ valor: k, rotulo: METRICAS[k].rotulo }))} aoMudar={setMetrica} />
         <Seletor rotulo="Município a partir de" valor={minimo} opcoes={[10, 50, 200, 1000, 5000].map((v) => ({ valor: v, rotulo: `${fmtNum(v)} vínculos` }))} aoMudar={setMinimo} />
+        <Seletor<Nivel>
+          rotulo="Ranking por"
+          valor={nivelRanking}
+          opcoes={[
+            { valor: "uf", rotulo: "Estados" },
+            { valor: "municipio", rotulo: f.ativo ? `Municípios · ${f.rotulo}` : "Municípios" },
+          ]}
+          aoMudar={setNivelRanking}
+        />
         <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={criterio ? encontrados.length : undefined} />
       </div>
       <Grade colunas={3}>
@@ -371,13 +400,19 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
           }}
         />
         <CartaoGrafico
-          titulo="Estados por estoque"
-          subtitulo={`RAIS · vínculos ativos, ${ano}`}
-          dicaClique="Clique numa barra para filtrar"
+          titulo={porMunicipio ? `Municípios por estoque · ${f.rotulo}` : "Estados por estoque"}
+          subtitulo={porMunicipio ? `RAIS · vínculos ativos, ${ano} · os ${TOP_MUNICIPIOS} maiores` : `RAIS · vínculos ativos, ${ano}`}
+          dicaClique={porMunicipio ? "Clique num município para destacá-lo e filtrar pelo estado dele" : "Clique numa barra para filtrar"}
           aoClicar={clicar}
           opcao={totalPais ? opRanking : null}
-          altura={Math.max(520, ranking.length * 19)}
-          tabela={{ colunas: [{ chave: "uf", rotulo: "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: ranking }}
+          carregando={porMunicipio ? rankMuni.carregando : uf.carregando}
+          erro={porMunicipio ? rankMuni.erro : undefined}
+          altura={Math.max(520, (porMunicipio ? rankMuni.linhas.length : ranking.length) * 19)}
+          tabela={
+            porMunicipio
+              ? { colunas: [{ chave: "nome", rotulo: "Município" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: rankMuni.linhas }
+              : { colunas: [{ chave: "uf", rotulo: "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: ranking }
+          }
         />
       </div>
     </Bloco>
@@ -487,6 +522,7 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
 }
 
 type Nivel = "municipio" | "uf";
+const TOP_MUNICIPIOS = 30;
 
 function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {
   const { cores: c } = useTema();

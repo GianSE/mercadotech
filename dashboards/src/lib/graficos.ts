@@ -858,8 +858,11 @@ export function opcaoMapa(
   // entre os demais aparecem em vez de ficarem achatadas pelo maior.
   const valores = ufs.filter((u) => !apagado(u.uf)).map((u) => u.valor).filter(Number.isFinite);
   const absMax = Math.max(1, ...valores.map(Math.abs));
-  const min = o.divergente ? -absMax : Math.min(...valores);
   const max = o.divergente ? absMax : Math.max(...valores);
+  // Um estado só no filtro: mínimo igual ao máximo deixa a escala sem
+  // largura, e o ECharts pinta o país inteiro com a cor da ponta. A escala
+  // passa a partir do zero.
+  const min = o.divergente ? -absMax : valores.length > 1 && Math.min(...valores) < max ? Math.min(...valores) : Math.min(0, max);
   const maiorBolha = Math.max(1, ...bolhas.map((b) => b.tamanho));
   const bolhaMax = c.compacto ? 16 : 26;
   const tamanhoBolha = (v: number[]) => 3 + bolhaMax * Math.sqrt(v[3] / maiorBolha);
