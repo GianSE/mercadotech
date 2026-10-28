@@ -41,23 +41,30 @@ type Filtro = {
 
 const Contexto = createContext<Filtro | null>(null);
 
+function lerUfs(texto: string): string[] {
+  const lidas = texto.split(",").filter((u) => UFS.includes(u));
+  return lidas.length === UFS.length ? [] : [...new Set(lidas)].sort();
+}
+
 export function ProvedorFiltro({ children }: { children: ReactNode }) {
   // O recorte começa pelo que vier no link (?uf=PR,SC) e volta para ele a
   // cada mudança, para o endereço sempre reproduzir o que está na tela.
-  const [ufs, setUfs] = useState<string[]>(() => {
-    const lidas = (partesHash().params.get("uf") ?? "").split(",").filter((u) => UFS.includes(u));
-    return lidas.length === UFS.length ? [] : [...new Set(lidas)].sort();
-  });
+  const [ufs, setUfs] = useState<string[]>(() => lerUfs(partesHash().params.get("uf") ?? ""));
   const atuais = useRef(ufs);
   atuais.current = ufs;
   useEffect(() => {
     gravarParametro("uf", ufs.length ? ufs.join(",") : null);
   }, [ufs]);
   // Os links entre páginas (#/onde) não carregam o recorte; ele continua
-  // valendo, então volta para o endereço da página nova.
+  // valendo, então volta para o endereço da página nova. Um link que traz o
+  // seu próprio ?uf= (colado com o painel aberto) troca o recorte.
   useEffect(() => {
     const aoMudar = () => {
-      if (atuais.current.length) gravarParametro("uf", atuais.current.join(","));
+      const doLink = partesHash().params.get("uf");
+      if (doLink !== null) {
+        const lidas = lerUfs(doLink);
+        if (lidas.join(",") !== atuais.current.join(",")) setUfs(lidas);
+      } else if (atuais.current.length) gravarParametro("uf", atuais.current.join(","));
     };
     window.addEventListener("hashchange", aoMudar);
     return () => window.removeEventListener("hashchange", aoMudar);

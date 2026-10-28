@@ -25,6 +25,7 @@ comparar antes de sobrescrever as tabelas do texto, gere em outra pasta:
     python _utils/gerar_tabelas_tcc.py --destino /tmp/tabelas
 """
 import argparse
+import re
 import sys
 from pathlib import Path
 
@@ -480,7 +481,17 @@ tabela("tab-clusters.tex", "Perfis de município obtidos por $k$-médias",
         "Remuneração mediana (SM)"], linhas)
 
 # ------------------------------------------- apendice: codigos do recorte
-linhas = [[f"\\texttt{{{r[0]}}}", f"\\texttt{{{r[1]}}}", r[2][:52], r[3], num(r[4])]
+# Os nomes que a Gold toma do dicionário do CAGED vêm Com Cada Palavra Em
+# Maiúscula; aqui ficam no padrão da RAIS (o mesmo ajuste que a Gold passa a
+# fazer na reserva — repetido para a tabela não depender da rodada).
+_LIGACOES = re.compile(r" (De|Da|Do|Das|Dos|E|Em|Para|Com|Ou|No|Na|Nos|Nas|Sob)(?= )")
+
+
+def _como_rais(nome: str) -> str:
+    return _LIGACOES.sub(lambda m: " " + m.group(1).lower(), nome).replace("(Dpo)", "(DPO)")
+
+
+linhas = [[f"\\texttt{{{r[0]}}}", f"\\texttt{{{r[1]}}}", _como_rais(r[2])[:52], r[3], num(r[4])]
           for r in con.execute(f"""
     SELECT familia, cbo, ocupacao, area, estoque_3112
     FROM read_parquet('{G}/rais_recorte_cbo.parquet')

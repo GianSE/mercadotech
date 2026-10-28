@@ -78,8 +78,21 @@ COL_CBO = "cbo_ocupacao_2002"
 DIC_CAGED = nuvem.fonte_leitura(nuvem.REPO_BRONZE_CAGED, "dicionarios.parquet")
 
 
+# O dicionário do CAGED escreve Cada Palavra Com Maiúscula ("Analista De
+# Testes De Tecnologia Da Informação"); a RAIS, não. Na reserva, as palavras
+# de ligação voltam a minúsculas e a sigla volta a maiúsculas, para os nomes
+# emprestados não destoarem dos outros na mesma lista.
+LIGACOES = ("De", "Da", "Do", "Das", "Dos", "E", "Em", "Para", "Com", "Ou", "No", "Na", "Nos", "Nas", "Sob")
+
+
+def _como_rais(expr: str) -> str:
+    for palavra in LIGACOES:
+        expr = f"replace({expr}, ' {palavra} ', ' {palavra.lower()} ')"
+    return f"replace({expr}, '(Dpo)', '(DPO)')"
+
+
 def _reserva(coluna: str) -> str:
-    return (f"(SELECT codigo, any_value(descricao) AS descricao FROM read_parquet('{DIC_CAGED}') "
+    return (f"(SELECT codigo, {_como_rais('any_value(descricao)')} AS descricao FROM read_parquet('{DIC_CAGED}') "
             f"WHERE tabela = 'caged_mov' AND coluna = '{coluna}' GROUP BY 1)")
 
 

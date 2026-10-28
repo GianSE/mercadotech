@@ -415,7 +415,7 @@ O método adotado foi a tábua de vida de período, descrita na \autoref{subsec:
 
 A escolha do método decorre de um erro corrigido durante o trabalho: o estimador de Kaplan-Meier \cite{Kaplan1958}, aplicado ao corte transversal, produziu permanência mediana de 48 anos (\autoref{sec:achados-qualidade}).
 
-Complementarmente, um modelo de risco em tempo discreto (regressão logística do desligamento no ano sobre faixa de tempo de casa, sexo, escolaridade, área de TI, porte e região) estima o efeito de cada característica mantendo as demais constantes.
+Complementarmente, um modelo de risco em tempo discreto (regressão logística do desligamento no ano sobre faixa de tempo de casa, sexo, escolaridade, área de TI, porte do estabelecimento, idade e logaritmo da remuneração em salários mínimos) estima o efeito de cada característica mantendo as demais constantes. O modelo é ajustado sobre uma amostra aleatória de 150 mil vínculos de 2024, e cada categoria é comparada a uma referência fixada pelo perfil mais comum do recorte: homem, superior completo, área de desenvolvimento, estabelecimento com mil ou mais empregados e até seis meses de casa. A referência explícita evita o padrão das bibliotecas, que descartam a primeira categoria em ordem alfabética e, na escolaridade, tomariam como base um grupo minúsculo (fundamental I completo), contra o qual nenhum nível sairia significativo.
 
 \subsection{Decomposição do hiato salarial}
 \label{subsec:metodo-oaxaca}
