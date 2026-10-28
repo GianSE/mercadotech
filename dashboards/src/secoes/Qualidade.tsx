@@ -3,10 +3,11 @@ import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { useFiltro } from "../lib/filtro";
 import { fmtDec, fmtNum, fmtPct, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoLinhas } from "../lib/graficos";
+import { opcaoBarras, opcaoLinhas, opcaoRazaoChances } from "../lib/graficos";
 import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { escreverPeriodo, lerPeriodo, useParametro } from "../lib/url";
+import type { Linha } from "../lib/db";
 import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2025);
@@ -14,6 +15,50 @@ const FAIXAS = ["0-6m", "6-12m", "1-2a", "2-3a", "3-5a", "5-10a", "10-20a"];
 const ROTULO_FAIXA: Record<string, string> = { "0-6m": "0–6 meses", "6-12m": "6–12 meses", "1-2a": "1–2 anos", "2-3a": "2–3 anos", "3-5a": "3–5 anos", "5-10a": "5–10 anos", "10-20a": "10–20 anos" };
 const RECORTES = { setor: "Dentro e fora do setor de TI", sexo: "Por sexo", area: "Por área de atuação", porte: "Por porte do estabelecimento" } as const;
 type Recorte = keyof typeof RECORTES;
+
+// ------------------------------------------------- modelo multivariado
+// A Gold grava as variáveis como saem do get_dummies ("porte_ZERO",
+// "escolaridade_SUP. COMP"); aqui viram frases. Cada categoria é lida contra
+// a referência do seu grupo — numa Gold anterior à coluna "referencia", as
+// referências eram as primeiras em ordem alfabética.
+const GRUPOS_MODELO: Record<string, string> = { sexo: "Sexo", escolaridade: "Escolaridade", area: "Área", porte: "Porte da empresa", tempo_de_casa: "Tempo de casa", idade: "Idade", log_remun: "Salário" };
+const REFERENCIAS_ANTIGAS: Record<string, string> = { sexo: "Homem", escolaridade: "5.A CO FUND", area: "Desenvolvimento", porte: "1000 OU MAIS", tempo_de_casa: "0-6m" };
+const NOMES_CATEGORIA: Record<string, Record<string, string>> = {
+  escolaridade: {
+    ANALFABETO: "analfabeto", "ATE 5.A INC": "fundamental I incompleto", "5.A CO FUND": "fundamental I completo", "6. A 9. FUND": "fundamental II incompleto",
+    "FUND COMPL": "fundamental completo", "MEDIO INCOMP": "médio incompleto", "MEDIO COMPL": "médio completo", "SUP. INCOMP": "superior incompleto",
+    "SUP. COMP": "superior completo", MESTRADO: "mestrado", DOUTORADO: "doutorado",
+  },
+  porte: {
+    ZERO: "sem empregados em 31/12", "ATE 4": "até 4 empregados", "DE 5 A 9": "5 a 9", "DE 10 A 19": "10 a 19", "DE 20 A 49": "20 a 49", "DE 50 A 99": "50 a 99",
+    "DE 100 A 249": "100 a 249", "DE 250 A 499": "250 a 499", "DE 500 A 999": "500 a 999", "1000 OU MAIS": "1.000 ou mais",
+  },
+  tempo_de_casa: { ...Object.fromEntries(Object.entries({ "0-6m": "0–6 meses", "6-12m": "6–12 meses", "1-2a": "1–2 anos", "2-3a": "2–3 anos", "3-5a": "3–5 anos", "5-10a": "5–10 anos", "10-20a": "10–20 anos" })), "20a+": "20 anos ou mais" },
+};
+const ORDEM_CATEGORIA: Record<string, string[]> = Object.fromEntries(Object.entries(NOMES_CATEGORIA).map(([g, m]) => [g, Object.keys(m)]));
+const nomeCategoria = (grupo: string, cat: string) => NOMES_CATEGORIA[grupo]?.[cat] ?? (cat === "sem informação" ? "sem informação" : cat);
+
+type ItemModelo = { grupo: string; rotulo: string; valor: number; p: number; ordem: number };
+function itensModelo(linhas: Linha[]): { itens: ItemModelo[]; referencias: string } {
+  const refs: Record<string, string> = { ...REFERENCIAS_ANTIGAS };
+  const itens = linhas.map((l) => {
+    const variavel = String(l.variavel);
+    const grupo = typeof l.grupo === "string" && l.grupo ? l.grupo : Object.keys(GRUPOS_MODELO).find((g) => variavel === g || variavel.startsWith(g + "_")) ?? variavel;
+    const cat = typeof l.categoria === "string" ? l.categoria : variavel.slice(grupo.length + 1);
+    if (typeof l.referencia === "string" && l.referencia) refs[grupo] = l.referencia;
+    const [or, p] = [num(l, "razao_de_chances"), num(l, "p")];
+    // As contínuas viram um passo que se entende: dez anos a mais de idade e
+    // o salário dobrado (o coeficiente do log vezes ln 2).
+    if (grupo === "idade") return { grupo, rotulo: "Idade · 10 anos a mais", valor: or ** 10, p, ordem: 0 };
+    if (grupo === "log_remun") return { grupo, rotulo: "Salário · o dobro", valor: or ** Math.LN2, p, ordem: 0 };
+    const ordem = ORDEM_CATEGORIA[grupo]?.indexOf(cat) ?? -1;
+    return { grupo, rotulo: `${GRUPOS_MODELO[grupo] ?? grupo} · ${nomeCategoria(grupo, cat)}`, valor: or, p, ordem: ordem < 0 ? 99 : ordem };
+  });
+  const ordemGrupo = Object.keys(GRUPOS_MODELO);
+  itens.sort((a, b) => ordemGrupo.indexOf(a.grupo) - ordemGrupo.indexOf(b.grupo) || a.ordem - b.ordem || b.valor - a.valor);
+  const referencias = Object.entries(refs).map(([g, r]) => `${(GRUPOS_MODELO[g] ?? g).toLowerCase()}: ${nomeCategoria(g, r)}`).join(" · ");
+  return { itens, referencias };
+}
 
 export default function Qualidade() {
   const { cores: c } = useTema();
@@ -39,7 +84,8 @@ export default function Qualidade() {
     ORDER BY 2 DESC`);
   const risco = useConsulta(`SELECT tempo_de_casa, "risco_%" AS risco, vinculos::DOUBLE AS vinculos, ano FROM sobrevivencia_risco`);
   const tabua = useConsulta(`SELECT * EXCLUDE (ano) FROM sobrevivencia_tabua`);
-  const multi = useConsulta(`SELECT variavel, razao_de_chances, p FROM sobrevivencia_multivariado ORDER BY razao_de_chances DESC`);
+  const multi = useConsulta(`SELECT * FROM sobrevivencia_multivariado`);
+  const modelo = useMemo(() => itensModelo(multi.linhas), [multi.linhas]);
 
   const a = anual.linhas;
   const anoSobrevivencia = num(risco.linhas[0], "ano");
@@ -63,8 +109,9 @@ export default function Qualidade() {
       sobrevivencia: todos
         ? opcaoLinhas(c, FAIXAS.map((fx) => ROTULO_FAIXA[fx]), [{ nome: "Ainda no emprego", dados: FAIXAS.map((fx) => num(todos, fx)), rotuloFinal: true }], { formato: (v) => fmtPct(v, 1), formatoEixo: (v) => fmtPct(v, 0), zero: true })
         : null,
+      modelo: modelo.itens.length ? opcaoRazaoChances(c, modelo.itens) : null,
     }),
-    [a, areas.linhas, giro, riscoOrdenado, todos, c],
+    [a, areas.linhas, giro, riscoOrdenado, todos, modelo, c],
   );
 
   // Resposta do topo: a mediana nas pontas do período e a faixa de maior risco.
@@ -169,20 +216,25 @@ export default function Qualidade() {
               linhas: tabua.linhas.filter((l) => l.recorte === recorte),
             }}
           />
-          <CartaoTabela
-            titulo="O que muda o risco, controlando pelo resto"
-            subtitulo="Modelo de risco em tempo discreto · razão de chances acima de 1 = mais risco de desligamento"
-            nacional
-            tabela={{
-              colunas: [
-                { chave: "variavel", rotulo: "Característica" },
-                { chave: "razao_de_chances", rotulo: "Razão de chances", formato: (v) => fmtDec(v, 2), numero: true },
-                { chave: "p", rotulo: "p-valor", formato: (v) => (Number(v) < 0.001 ? "< 0,001" : fmtDec(v, 3)), numero: true },
-              ],
-              linhas: multi.linhas,
-            }}
-          />
         </Grade>
+        <CartaoGrafico
+          titulo="O que muda o risco de desligamento, comparando pessoas parecidas no resto"
+          subtitulo={`Modelo de risco em tempo discreto, RAIS ${anoSobrevivencia || ""} · cada ponto compara uma característica com a referência do grupo, com as demais iguais`}
+          nacional
+          ajuda="razao_chances"
+          opcao={op.modelo}
+          carregando={multi.carregando}
+          erro={multi.erro}
+          rodape={`À direita da linha tracejada, mais chance de sair do emprego no ano; à esquerda, menos. ×1,50 = 50% mais chance. Pontos vazados não diferem da referência com segurança (p ≥ 0,05). Referências — ${modelo.referencias}.`}
+          tabela={{
+            colunas: [
+              { chave: "rotulo", rotulo: "Característica" },
+              { chave: "valor", rotulo: "Razão de chances", formato: (v) => `×${fmtDec(v, 2)}`, numero: true },
+              { chave: "p", rotulo: "p-valor", formato: (v) => (Number(v) < 0.001 ? "< 0,001" : fmtDec(v, 3)), numero: true },
+            ],
+            linhas: modelo.itens,
+          }}
+        />
       </Bloco>
     </>
   );

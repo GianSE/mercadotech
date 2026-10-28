@@ -969,3 +969,113 @@ export function opcaoPrevisao(
     ],
   };
 }
+
+// ------------------------------------------------------- hierarquia (rosca)
+// Rosca em anéis: o centro é o nível mais alto e cada anel abre o de baixo.
+// Clicar num pedaço o leva para o centro e mostra só os filhos dele (clicar
+// no centro volta). Cada ramo do primeiro nível tem uma cor; os filhos ficam
+// em tons mais claros da mesma cor, para a hierarquia ler pela cor também.
+export type NoHierarquia = { nome: string; valor?: number; filhos?: NoHierarquia[] };
+
+export function opcaoHierarquia(c: Cores, raiz: NoHierarquia[], o: { formato: Formato; unidade: string }): EChartsOption {
+  const soma = (n: NoHierarquia): number => n.valor ?? (n.filhos ?? []).reduce((s, f) => s + soma(f), 0);
+  const total = raiz.reduce((s, n) => s + soma(n), 0) || 1;
+  const converter = (n: NoHierarquia, cor: string, nivel: number): Record<string, unknown> => ({
+    name: n.nome,
+    value: n.filhos?.length ? undefined : n.valor,
+    itemStyle: { color: cor },
+    children: n.filhos?.map((f, i) => converter(f, clarear(cor, Math.min(0.6, 0.18 * nivel + 0.08 * (i % 3))), nivel + 1)),
+  });
+  const rotulo = { color: c.tinta, textBorderColor: c.superficie, textBorderWidth: 2, fontSize: c.compacto ? 9 : 11 };
+  const opcao: EChartsOption = {
+    backgroundColor: "transparent",
+    textStyle: { fontFamily: FONTE, color: c.tinta2 },
+    tooltip: {
+      ...caixaTooltip(c),
+      trigger: "item",
+      formatter: (p: unknown) => {
+        const ponto = p as { name: string; value: number; color: unknown; treePathInfo?: { name: string }[] };
+        const caminho = (ponto.treePathInfo ?? []).map((t) => t.name).filter(Boolean);
+        return (
+          (caminho.length > 1 ? `<div style="font-size:11px;opacity:.7">${escapar(caminho.slice(0, -1).join(" › "))}</div>` : "") +
+          `<div style="font-weight:600">${escapar(ponto.name)}</div>` +
+          linhaTooltip(ponto.color, o.formato(ponto.value), `${o.unidade} · ${fmtDec((ponto.value / total) * 100, 1)}% do total`)
+        );
+      },
+    },
+    series: [
+      {
+        type: "sunburst",
+        data: raiz.map((n, i) => converter(n, c.series[i], 1)),
+        radius: ["12%", "96%"],
+        sort: undefined,
+        nodeClick: "rootToNode",
+        emphasis: { focus: "ancestor" },
+        itemStyle: { borderColor: c.superficie, borderWidth: 2 },
+        label: { ...rotulo, minAngle: 9, overflow: "truncate" },
+        levels: [
+          {},
+          { r0: "12%", r: "38%", label: { ...rotulo, rotate: 0, width: 90, overflow: "break" } },
+          { r0: "38%", r: "66%", label: { ...rotulo, rotate: "radial", width: 80 } },
+          { r0: "66%", r: "96%", label: { ...rotulo, rotate: "radial", width: 90, fontSize: c.compacto ? 8 : 10 } },
+        ],
+      },
+    ],
+  };
+  return comAltura(opcao, c.compacto ? 360 : undefined);
+}
+
+// ------------------------------------------------- razão de chances (pontos)
+// Um ponto por característica, na escala log (dobro e metade ficam à mesma
+// distância do 1), com um traço partindo do 1, que é "o mesmo risco da
+// referência". Vermelho: mais risco; verde: menos; cinza e vazado: sem
+// diferença estatística (p ≥ 0,05) — a cor nunca é a única pista, o texto
+// do valor e a posição dizem o mesmo.
+export function opcaoRazaoChances(c: Cores, itens: { rotulo: string; valor: number; p: number }[]): EChartsOption {
+  const sig = (i: (typeof itens)[number]) => i.p < 0.05;
+  const cor = (i: (typeof itens)[number]) => (!sig(i) ? c.tinta3 : i.valor > 1 ? c.negativo : c.positivo);
+  const fmt = (v: number) => `×${fmtDec(v, 2)}`;
+  const valores = itens.map((i) => i.valor);
+  const [min, max] = [Math.min(0.5, ...valores) * 0.85, Math.max(2, ...valores) * 1.15];
+  const opcao: EChartsOption = {
+    ...base(c, false, c.compacto ? 30 : 50),
+    grid: { left: c.compacto ? 0 : 8, right: c.compacto ? 30 : 56, top: 8, bottom: 26, containLabel: true },
+    tooltip: {
+      ...caixaTooltip(c),
+      trigger: "item",
+      formatter: (p: unknown) => {
+        const i = itens[(p as Ponto).dataIndex];
+        if (!i) return "";
+        const leitura = !sig(i) ? "sem diferença estatística da referência" : i.valor > 1 ? `${fmtDec((i.valor - 1) * 100, 0)}% mais chance de desligamento` : `${fmtDec((1 - i.valor) * 100, 0)}% menos chance de desligamento`;
+        return `<div style="font-weight:600">${escapar(i.rotulo)}</div>` + linhaTooltip(cor(i), fmt(i.valor), leitura) + `<div style="opacity:.6;margin-top:3px">p = ${i.p < 0.001 ? "< 0,001" : fmtDec(i.p, 3)}</div>`;
+      },
+    },
+    yAxis: eixoCategoria(c, itens.map((i) => i.rotulo), { inverse: true, axisLine: { show: false }, axisLabel: { color: c.tinta2, fontSize: c.compacto ? 10 : 11, width: c.compacto ? 150 : 260, overflow: "truncate" } }),
+    xAxis: eixoValor(c, (v) => fmtDec(v, v < 1 ? 2 : 1), { type: "log", logBase: 2, min, max, name: "Chance de desligamento contra a referência (×)", nameLocation: "middle", nameGap: 24, nameTextStyle: { color: c.tinta3, fontSize: 11 } }),
+    series: [
+      {
+        type: "scatter",
+        data: itens.map((i) => ({
+          value: [i.valor, i.rotulo],
+          symbolSize: 11,
+          itemStyle: sig(i) ? { color: cor(i), borderColor: c.superficie, borderWidth: 1.5 } : { color: c.superficie, borderColor: c.tinta3, borderWidth: 1.5 },
+        })),
+        label: { show: true, position: "right", distance: 6, color: c.tinta2, fontSize: 10, formatter: (p: unknown) => fmt(itens[(p as Ponto).dataIndex]?.valor ?? NaN) },
+        markLine: {
+          silent: true,
+          symbol: "none",
+          animation: false,
+          data: [
+            { xAxis: 1, lineStyle: { color: c.tinta3, type: "dashed" as const, width: 1 }, label: { show: true, formatter: "mesmo risco", color: c.tinta3, fontSize: 10, position: "end" as const } },
+            ...itens.map((i) => [
+              { coord: [1, i.rotulo] },
+              { coord: [i.valor, i.rotulo], lineStyle: { color: cor(i), width: 2, type: "solid" as const, opacity: sig(i) ? 0.55 : 0.3 }, label: { show: false } },
+            ]),
+          ] as never,
+        },
+        z: 3,
+      },
+    ],
+  };
+  return comAltura(opcao, 70 + itens.length * 24);
+}

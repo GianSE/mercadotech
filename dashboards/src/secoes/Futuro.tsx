@@ -1,12 +1,31 @@
 import { useMemo } from "react";
-import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
+import { CartaoGrafico } from "../componentes/Grafico";
 import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi } from "../componentes/ui";
-import { fmtCompacto, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
-import { opcaoDispersao, opcaoPrevisao } from "../lib/graficos";
+import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
+import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoPrevisao } from "../lib/graficos";
 import { num } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
+
+// Nomes que se leem sem o TCC ao lado. A ordem é a das cores: o estimador
+// escolhido fica com a primeira.
+const ESTIMADORES: Record<string, string> = {
+  "razão mediana": "Razão histórica (escolhido)",
+  "regressão OLS": "Regressão linear",
+  "identidade (delta = fluxo)": "Soma direta do CAGED",
+  "ingênuo (sem mudança)": "Repetir o ano anterior",
+};
+const ORDEM_ESTIMADORES = Object.keys(ESTIMADORES);
+const nomeEstimador = (e: unknown) => ESTIMADORES[String(e)] ?? String(e);
+const comSinal = (casas: number) => (v: number) => `${v > 0 ? "+" : ""}${fmtDec(v, casas)}%`;
+
+function nomeModelo(m: string, escolhido: string): string {
+  if (m === "naive sazonal") return "Regra ingênua (mesmo mês do ano anterior)";
+  const prophet = m.match(/^Prophet\(tend\S* ([\d.]+)\)$/);
+  const nome = prophet ? `Prophet, tendência ${prophet[1].replace(".", ",")}` : m.replace(/, /g, ",");
+  return m === escolhido ? `${nome} · escolhido` : nome;
+}
 
 export default function Futuro() {
   const { cores: c } = useTema();
@@ -16,6 +35,7 @@ export default function Futuro() {
   const placar = useConsulta(`SELECT modelo, mae, rmse, "ganho_vs_naive_%" AS ganho FROM previsao_placar ORDER BY mae`);
   const pares = useConsulta("SELECT ano, fluxo, delta FROM nowcast_pares ORDER BY ano");
   const retro = useConsulta("SELECT estimador, anos, erro_medio, erro_pct FROM nowcast_retrospectiva ORDER BY abs(erro_pct)");
+  const retroAnos = useConsulta("SELECT ano, estimador, previsto, real, erro_pct FROM nowcast_retrospectiva_anos ORDER BY ano");
   const retido = useConsulta("SELECT estimador, previsto, real, erro, erro_pct, ano_teste FROM nowcast_ano_retido ORDER BY abs(erro_pct)");
   const proj = useConsulta("SELECT * FROM nowcast_projecao");
 
@@ -35,7 +55,66 @@ export default function Futuro() {
 
 
   const op = useMemo(() => {
-    if (!obs.length || !p.length) return { previsao: null, nowcast: null };
+    // Placar: quanto cada modelo erra a menos que a regra ingênua (o zero).
+    const pl = placar.linhas;
+    const placarOp = pl.length
+      ? opcaoBarras(c, pl.map((l) => nomeModelo(String(l.modelo), modelo)), pl.map((l) => num(l, "ganho")), {
+          horizontal: true,
+          divergente: true,
+          nome: "Erra a menos que a regra ingênua",
+          formato: comSinal(1),
+          formatoEixo: (v) => `${fmtDec(v, 0)}%`,
+          larguraRotulo: 260,
+          rotulos: true,
+          extraTooltip: (i) => `erro médio de ${fmtNum(num(pl[i], "mae"))} vagas por mês nos testes`,
+        })
+      : null;
+    // Retrospectiva: o erro de cada estimador, ano a ano, e a média.
+    const ra = retroAnos.linhas;
+    const anosRetro = [...new Set(ra.map((l) => num(l, "ano")))].sort((x, y) => x - y);
+    const estimadores = ORDEM_ESTIMADORES.filter((e) => ra.some((l) => l.estimador === e));
+    const retroOp = anosRetro.length
+      ? opcaoLinhas(
+          c,
+          anosRetro.map(String),
+          estimadores.map((e, i) => ({
+            nome: nomeEstimador(e),
+            cor: c.series[i],
+            rotuloFinal: true,
+            dados: anosRetro.map((ano) => {
+              const l = ra.find((x) => x.estimador === e && num(x, "ano") === ano);
+              return l ? num(l, "erro_pct") : null;
+            }),
+          })),
+          { formato: comSinal(1), formatoEixo: (v) => `${fmtDec(v, 0)}%` },
+        )
+      : null;
+    const rl = retro.linhas;
+    const mediaOp = rl.length
+      ? opcaoBarras(c, rl.map((l) => nomeEstimador(l.estimador)), rl.map((l) => Math.abs(num(l, "erro_pct"))), {
+          horizontal: true,
+          nome: "Erro médio",
+          formato: (v) => fmtPct(v, 1),
+          formatoEixo: (v) => fmtPct(v, 0),
+          larguraRotulo: 200,
+          rotulos: true,
+          extraTooltip: (i) => `em média ${fmtNum(num(rl[i], "erro_medio"))} vínculos de diferença`,
+        })
+      : null;
+    const rt = retido.linhas;
+    const retidoOp = rt.length
+      ? opcaoBarras(c, rt.map((l) => nomeEstimador(l.estimador)), rt.map((l) => Math.abs(num(l, "erro_pct"))), {
+          horizontal: true,
+          nome: "Erro",
+          formato: (v) => fmtPct(v, 2),
+          formatoEixo: (v) => `${fmtDec(v, 0)}%`,
+          larguraRotulo: 200,
+          rotulos: true,
+          extraTooltip: (i) => `previu ${fmtNum(num(rt[i], "previsto"))} (${num(rt[i], "erro_pct") < 0 ? "abaixo" : "acima"} do real, ${fmtNum(num(rt[i], "real"))})`,
+        })
+      : null;
+    const extras = { placar: placarOp, retro: retroOp, media: mediaOp, retido: retidoOp };
+    if (!obs.length || !p.length) return { previsao: null, nowcast: null, ...extras };
     // Eixo único: os meses observados seguidos dos projetados; cada série
     // só tem valor no seu trecho, e a previsão começa no último observado
     // para a linha não ficar solta.
@@ -56,8 +135,10 @@ export default function Futuro() {
             { formatoX: fmtCompacto, formatoY: fmtCompacto, nomeX: "Saldo acumulado do CAGED no ano", nomeY: "Variação do estoque da RAIS", identidade: lim, rotularPontos: true },
           )
         : null,
+      ...extras,
     };
-  }, [obs, p, pares.linhas, c]);
+  }, [obs, p, pares.linhas, placar.linhas, retro.linhas, retroAnos.linhas, retido.linhas, modelo, c]);
+  const realRetido = num(retido.linhas[0], "real");
 
   // Resposta do topo: o saldo previsto e o estoque estimado do ano corrente.
   const resposta = p.length && pr
@@ -95,16 +176,20 @@ export default function Futuro() {
             linhas: p,
           }}
         />
-        <CartaoTabela
+        <CartaoGrafico
           titulo="Por que este modelo, e não outro"
-          ajuda="mae"
-          subtitulo="Validação em origem móvel: treina até um ponto, prevê 12 meses, avança, repete (5 dobras)"
+          ajuda="backtest"
+          subtitulo="Quanto cada modelo erra a menos que a regra mais simples possível: repetir o saldo do mesmo mês do ano anterior"
+          opcao={op.placar}
+          carregando={placar.carregando}
+          erro={placar.erro}
+          rodape="Teste com o passado em 5 rodadas: o modelo treina até um mês, prevê os 12 seguintes e é comparado ao que aconteceu; depois avança e repete. Barra à direita = erra menos que a regra ingênua; à esquerda = erra mais, e então não vale a pena usá-lo. Passe o mouse para ver o erro médio em vagas por mês."
           tabela={{
             colunas: [
               { chave: "modelo", rotulo: "Modelo" },
-              { chave: "mae", rotulo: "MAE", formato: fmtNum, numero: true },
-              { chave: "rmse", rotulo: "RMSE", formato: fmtNum, numero: true },
-              { chave: "ganho", rotulo: "Ganho sobre a regra ingênua", formato: (v) => fmtPct(v, 1), numero: true },
+              { chave: "mae", rotulo: "Erro médio (vagas/mês)", formato: fmtNum, numero: true },
+              { chave: "rmse", rotulo: "Erro quadrático (RMSE)", formato: fmtNum, numero: true },
+              { chave: "ganho", rotulo: "Erra a menos que a regra ingênua", formato: (v) => fmtPct(v, 1), numero: true },
             ],
             linhas: placar.linhas,
           }}
@@ -121,29 +206,55 @@ export default function Futuro() {
           altura={400}
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "fluxo", rotulo: "Saldo CAGED", formato: fmtSinal, numero: true }, { chave: "delta", rotulo: "Variação RAIS", formato: fmtSinal, numero: true }], linhas: pares.linhas }}
         />
+        <CartaoGrafico
+          titulo="Quanto cada estimador teria errado, ano a ano"
+          ajuda="backtest"
+          subtitulo="Cada ano estimado só com os anos anteriores e comparado à RAIS que saiu depois · 0% = acerto exato"
+          opcao={op.retro}
+          carregando={retroAnos.carregando}
+          erro={retroAnos.erro}
+          altura={340}
+          rodape="Acima de zero, o estimador previu mais vínculos do que houve; abaixo, menos. Repetir o ano anterior erra muito sempre que o mercado cresce rápido (2021 e 2022); a razão histórica entre o saldo do CAGED e a variação da RAIS fica perto de zero quase todo ano."
+          tabela={{
+            colunas: [
+              { chave: "ano", rotulo: "Ano" },
+              { chave: "estimador", rotulo: "Estimador", formato: nomeEstimador },
+              { chave: "previsto", rotulo: "Previsto", formato: fmtNum, numero: true },
+              { chave: "real", rotulo: "Real (RAIS)", formato: fmtNum, numero: true },
+              { chave: "erro_pct", rotulo: "Erro", formato: (v) => fmtPct(v, 2), numero: true },
+            ],
+            linhas: retroAnos.linhas,
+          }}
+        />
         <Grade>
-          <CartaoTabela
-            titulo="Retrospectiva"
-            subtitulo="Cada ano estimado só com os anteriores"
+          <CartaoGrafico
+            titulo={`Erro médio nos ${num(retro.linhas[0], "anos") || "—"} anos testados`}
+            subtitulo="Média do erro, sem o sinal · menor é melhor"
+            opcao={op.media}
+            carregando={retro.carregando}
+            altura={220}
             tabela={{
               colunas: [
-                { chave: "estimador", rotulo: "Estimador" },
+                { chave: "estimador", rotulo: "Estimador", formato: nomeEstimador },
                 { chave: "anos", rotulo: "Anos", formato: fmtNum, numero: true },
-                { chave: "erro_medio", rotulo: "Erro médio", formato: fmtNum, numero: true },
-                { chave: "erro_pct", rotulo: "Erro %", formato: (v) => fmtPct(v, 2), numero: true },
+                { chave: "erro_medio", rotulo: "Erro médio (vínculos)", formato: fmtNum, numero: true },
+                { chave: "erro_pct", rotulo: "Erro médio", formato: (v) => fmtPct(v, 2), numero: true },
               ],
               linhas: retro.linhas,
             }}
           />
-          <CartaoTabela
-            titulo={`Ano retido: ${anoTeste || "—"}`}
-            subtitulo={`Estimadores ajustados só até ${anoTeste ? anoTeste - 1 : "—"}, comparados ao valor real`}
+          <CartaoGrafico
+            titulo={`Prova final: ${anoTeste || "—"}, o último ano publicado`}
+            subtitulo={`Ajustados só até ${anoTeste ? anoTeste - 1 : "—"} e comparados aos ${realRetido ? fmtNum(realRetido) : "—"} vínculos que a RAIS registrou · tamanho do erro, menor é melhor`}
+            opcao={op.retido}
+            carregando={retido.carregando}
+            altura={220}
             tabela={{
               colunas: [
-                { chave: "estimador", rotulo: "Estimador" },
+                { chave: "estimador", rotulo: "Estimador", formato: nomeEstimador },
                 { chave: "previsto", rotulo: "Previsto", formato: fmtNum, numero: true },
                 { chave: "real", rotulo: "Real", formato: fmtNum, numero: true },
-                { chave: "erro_pct", rotulo: "Erro %", formato: (v) => fmtPct(v, 2), numero: true },
+                { chave: "erro_pct", rotulo: "Erro", formato: (v) => fmtPct(v, 2), numero: true },
               ],
               linhas: retido.linhas,
             }}

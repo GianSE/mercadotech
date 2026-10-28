@@ -231,10 +231,12 @@ AGREGADOS = {
     # acontece FORA do setor de TI — e quanto ele paga em cada lado.
     "rais_setor_vs_ocupacao": f"""
         SELECT ano_particao AS ano, setor_ti, ocupacao_ti,
-               cnae_20_subclasse_descricao AS setor_empresa, {METRICAS}
+               cnae_20_subclasse_descricao AS setor_empresa,
+               -- O código, para o site montar a hierarquia da CNAE (divisão > subclasse).
+               any_value({COL_CNAE}) AS cnae, {METRICAS}
         FROM ({BASE_VINC})
         WHERE ocupacao_ti OR setor_ti
-        GROUP BY 1, 2, 3, 4 ORDER BY 1, 5 DESC
+        GROUP BY 1, 2, 3, 4 ORDER BY 1, 6 DESC
     """,
     # A documentação do recorte, calculada do dado: que códigos CBO de fato
     # aparecem no estoque e quantos vínculos cada um tem. Antes esta lista era

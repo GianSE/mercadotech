@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { CartaoGrafico, CartaoTabela } from "../componentes/Grafico";
+import { useEffect, useMemo, useState } from "react";
+import { CartaoGrafico } from "../componentes/Grafico";
 import { AvisoNacional, Bloco, Grade, Kpi } from "../componentes/ui";
 import { UFS } from "../lib/filtro";
 import { fmtCompacto, fmtDec, fmtNum } from "../lib/formato";
-import { opcaoBarras } from "../lib/graficos";
+import { opcaoBarras, opcaoHierarquia, type NoHierarquia } from "../lib/graficos";
+import { obterManifesto, type Linha } from "../lib/db";
 import { coluna, literal, num, rotulos, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
@@ -25,8 +26,94 @@ const ULTIMO_RAIS = "(SELECT max(ano) FROM rais_estoque_anual)";
 // Último ano completo do CAGED: o ano corrente só entra quando tiver dezembro.
 const ULTIMO_CAGED = "(SELECT year(max(mes)) - CASE WHEN month(max(mes)) < 12 THEN 1 ELSE 0 END FROM serie_mensal)";
 
+// A CBO é uma árvore: grande grupo (1 dígito), subgrupos (2 e 3), família
+// (4) e ocupação (6). O gráfico mostra três desses níveis; os nomes das
+// famílias são os da CBO 2002, encurtados.
+const GRANDES_GRUPOS: Record<string, string> = {
+  "1": "1 · Dirigentes e gerentes",
+  "2": "2 · Profissionais das ciências",
+  "3": "3 · Técnicos de nível médio",
+};
+const FAMILIAS_CBO: Record<string, string> = {
+  "1236": "Diretores de informática",
+  "1421": "Gerentes administrativos (DPO)",
+  "1425": "Gerentes de TI",
+  "2031": "Pesquisadores (computação)",
+  "2112": "Estatísticos",
+  "2122": "Engenheiros em computação",
+  "2123": "Administradores de TI",
+  "2124": "Analistas de TI",
+  "3132": "Técnicos em eletrônica",
+  "3133": "Técnicos em telecomunicações",
+  "3171": "Técnicos de desenvolvimento",
+  "3172": "Técnicos de operação",
+};
+const DIVISOES_CNAE: Record<string, string> = {
+  "62": "62 · Serviços de tecnologia da informação",
+  "63": "63 · Serviços de informação",
+};
+// Numa Gold sem a coluna do código, a divisão sai do nome da atividade.
+const divisaoPeloNome = (nome: string) => (/dados|portais|provedores de conte|servi\S*os de informa\S*o n/i.test(nome) ? "63" : "62");
+const fmtCnae = (c: string) => (c.length === 7 ? `${c.slice(0, 4)}-${c[4]}/${c.slice(5)}` : c);
+
+function arvoreCbo(linhas: Linha[]): NoHierarquia[] {
+  const grupos = new Map<string, Map<string, NoHierarquia[]>>();
+  for (const l of linhas) {
+    const cbo = String(l.cbo);
+    const familias = grupos.get(cbo[0]) ?? new Map<string, NoHierarquia[]>();
+    grupos.set(cbo[0], familias);
+    const lista = familias.get(cbo.slice(0, 4)) ?? [];
+    familias.set(cbo.slice(0, 4), lista);
+    lista.push({ nome: `${cbo.slice(0, 4)}-${cbo.slice(4)} ${String(l.ocupacao)}`, valor: num(l, "vinculos") });
+  }
+  return [...grupos.entries()].sort().map(([g, familias]) => ({
+    nome: GRANDES_GRUPOS[g] ?? g,
+    filhos: [...familias.entries()].sort().map(([f, ocupacoes]) => ({ nome: `${f} · ${FAMILIAS_CBO[f] ?? "família " + f}`, filhos: ocupacoes })),
+  }));
+}
+
+function arvoreCnae(linhas: Linha[]): NoHierarquia[] {
+  const divisoes = new Map<string, NoHierarquia[]>();
+  for (const l of linhas) {
+    const nome = String(l.atividade);
+    const codigo = typeof l.cnae === "string" ? l.cnae : "";
+    const divisao = codigo ? codigo.slice(0, 2) : divisaoPeloNome(nome);
+    const lista = divisoes.get(divisao) ?? [];
+    divisoes.set(divisao, lista);
+    lista.push({ nome: codigo ? `${fmtCnae(codigo)} ${nome}` : nome, valor: num(l, "vinculos") });
+  }
+  return [...divisoes.entries()].sort().map(([d, filhos]) => ({ nome: DIVISOES_CNAE[d] ?? d, filhos }));
+}
+
+// Do bruto ao painel: o que cada camada guarda, para o funil da visão geral.
+function Funil({ passos }: { passos: { camada: string; valor: string; titulo: string; texto: string }[] }) {
+  return (
+    <ol className="grid gap-3 md:grid-cols-3">
+      {passos.map((p, i) => (
+        <li key={p.camada} className="cartao relative p-4">
+          <p className="sobrelinha">
+            {String(i + 1).padStart(2, "0")} · {p.camada}
+          </p>
+          <p className="mt-2 font-mono text-2xl font-semibold tracking-tight text-tinta">{p.valor}</p>
+          <p className="mt-1 font-medium text-tinta">{p.titulo}</p>
+          <p className="mt-1 text-[13px] leading-snug text-tinta-3">{p.texto}</p>
+          {i < passos.length - 1 && (
+            <span aria-hidden className="absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 place-items-center rounded-full border border-borda bg-superficie text-[12px] text-tinta-3 md:grid">
+              →
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export default function Pesquisa() {
   const { cores: c } = useTema();
+  const [nTabelas, setNTabelas] = useState<number | null>(null);
+  useEffect(() => {
+    obterManifesto().then((m) => setNTabelas(Object.keys(m.tabelas).length), () => {});
+  }, []);
 
   // O recorte em números, calculado do dado (a lista não é escrita à mão).
   const cbo = useConsulta(`
@@ -59,10 +146,18 @@ export default function Pesquisa() {
     GROUP BY 1 ORDER BY 2 DESC LIMIT 10`);
   const lista = useConsulta(`
     SELECT cbo, ocupacao, area, estoque_3112::DOUBLE AS vinculos FROM rais_recorte_cbo
-    WHERE ano = ${ULTIMO_RAIS} ORDER BY area, vinculos DESC`);
-  const atividades = useConsulta(`
-    SELECT coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') AS atividade, sum(estoque_3112)::DOUBLE AS vinculos
-    FROM rais_setor_vs_ocupacao WHERE setor_ti AND ano = ${ULTIMO_RAIS} GROUP BY 1 ORDER BY 2 DESC`);
+    WHERE ano = ${ULTIMO_RAIS} AND estoque_3112 > 0 ORDER BY cbo`);
+  // A coluna do código CNAE só existe nas Golds mais novas; sem ela, a
+  // divisão sai do nome da atividade.
+  const sqlAtividades = (comCodigo: boolean) => `
+    SELECT coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') AS atividade, ${comCodigo ? "any_value(cnae) AS cnae," : ""}
+           sum(estoque_3112)::DOUBLE AS vinculos
+    FROM rais_setor_vs_ocupacao WHERE setor_ti AND ano = ${ULTIMO_RAIS} AND estoque_3112 > 0 GROUP BY 1 ORDER BY 2 DESC`;
+  const atividadesCod = useConsulta(sqlAtividades(true));
+  const atividadesNome = useConsulta(atividadesCod.erro ? sqlAtividades(false) : null);
+  const atividades = atividadesCod.erro ? atividadesNome : atividadesCod;
+  // O tamanho da base: registros de cada camada, contados no rodapé dos Parquet.
+  const volume = useConsulta(`SELECT camada, base, tabela, registros::DOUBLE AS registros, bytes::DOUBLE AS bytes, ano_inicial, ano_final FROM plataforma_volume`);
 
   // Um número por pergunta, para o roteiro.
   const estoque = useConsulta(`SELECT ano, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_anual WHERE ${TI} GROUP BY 1 ORDER BY 1`);
@@ -90,8 +185,30 @@ export default function Pesquisa() {
     futuro: pr ? `${fmtCompacto(num(pr, "estoque_estimado"))} vínculos estimados para ${num(pr, "ano")}` : null,
   };
 
+  // Silver de TI: os registros brutos do recorte (o número que importa);
+  // Bronze: todo o emprego formal de onde eles foram tirados.
+  const vol = (() => {
+    const v = volume.linhas;
+    if (!v.length) return null;
+    const soma = (f: (l: Linha) => boolean, campo = "registros") => v.filter(f).reduce((s, l) => s + num(l, campo), 0);
+    const silver = (l: Linha) => String(l.camada).startsWith("Silver");
+    const bronze = (l: Linha) => String(l.camada) === "Bronze";
+    const fatos = (l: Linha) => l.tabela !== "rais_estab";
+    const r = {
+      raisVinc: soma((l) => silver(l) && l.tabela === "rais_vinc"),
+      raisEstab: soma((l) => silver(l) && l.tabela === "rais_estab"),
+      caged: soma((l) => silver(l) && l.base === "CAGED"),
+      bronze: soma((l) => bronze(l) && fatos(l)),
+      bronzeBytes: soma(bronze, "bytes"),
+      anoFinal: Math.max(...v.map((l) => num(l, "ano_final")).filter(Number.isFinite)),
+    };
+    return { ...r, ti: r.raisVinc + r.caged };
+  })();
+
   const op = useMemo(
     () => ({
+      cbo: lista.linhas.length ? opcaoHierarquia(c, arvoreCbo(lista.linhas), { formato: fmtNum, unidade: "vínculos" }) : null,
+      cnae: atividades.linhas.length ? opcaoHierarquia(c, arvoreCnae(atividades.linhas), { formato: fmtNum, unidade: "vínculos" }) : null,
       areas: areas.linhas.length
         ? opcaoBarras(c, rotulos(areas.linhas, "area"), coluna(areas.linhas, "estoque"), { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: 210 })
         : null,
@@ -99,7 +216,7 @@ export default function Pesquisa() {
         ? opcaoBarras(c, rotulos(contratam.linhas, "ocupacao"), coluna(contratam.linhas, "admissoes"), { horizontal: true, nome: "Admissões", formato: fmtNum, larguraRotulo: 230 })
         : null,
     }),
-    [areas.linhas, contratam.linhas, c],
+    [areas.linhas, contratam.linhas, lista.linhas, atividades.linhas, c],
   );
 
   const anoRais = num(k.cob, "ate_rais");
@@ -118,6 +235,46 @@ export default function Pesquisa() {
           Cinco perguntas sobre o mercado formal de TI, respondidas com os microdados públicos do Ministério do Trabalho: a RAIS, que fotografa os empregos ativos em 31 de dezembro de cada ano, e o CAGED, que registra cada admissão e cada desligamento, mês a mês.
         </p>
       </header>
+
+      <Bloco
+        titulo="O tamanho da base"
+        descricao="Cada número do painel sai de microdados: um registro por vínculo de emprego na RAIS e um por admissão ou desligamento no CAGED. Estes são os registros de TI lidos, um a um, de 2007 até hoje."
+      >
+        <Grade colunas={4}>
+          <Kpi
+            destaque
+            ajuda="silver"
+            rotulo="Registros de TI analisados"
+            valor={vol ? fmtCompacto(vol.ti) : "—"}
+            detalhe={vol ? `${fmtNum(vol.ti)} registros brutos, 2007–${vol.anoFinal}` : volume.carregando ? undefined : "medição disponível após a próxima Gold"}
+          />
+          <Kpi
+            rotulo="Vínculos na RAIS"
+            ajuda="estoque"
+            valor={vol ? fmtCompacto(vol.raisVinc) : "—"}
+            detalhe={vol ? `uma linha por pessoa e emprego, a cada ano · mais ${fmtCompacto(vol.raisEstab)} registros de estabelecimentos` : undefined}
+          />
+          <Kpi
+            rotulo="Movimentações no CAGED"
+            ajuda="saldo"
+            valor={vol ? fmtCompacto(vol.caged) : "—"}
+            detalhe={vol ? "admissões e desligamentos, mês a mês, com as declarações fora do prazo e os ajustes" : undefined}
+          />
+          <Kpi
+            rotulo="Selecionados entre"
+            valor={vol ? fmtCompacto(vol.bronze) : "—"}
+            detalhe={vol ? `registros de todo o emprego formal do país (${fmtDec((vol.ti / vol.bronze) * 100, 1)}% são de TI) · ${fmtDec(vol.bronzeBytes / 1e9, 0)} GB em Parquet` : undefined}
+          />
+        </Grade>
+        <h3 className="mt-2 text-[15px] font-semibold text-tinta">Como o recorte é feito</h3>
+        <Funil
+          passos={[
+            { camada: "Bronze", valor: vol ? fmtCompacto(vol.bronze) : "—", titulo: "Microdados completos", texto: "Todo o emprego formal do Brasil, como o Ministério do Trabalho publica: RAIS e CAGED, sem filtro." },
+            { camada: "Silver de TI", valor: vol ? fmtCompacto(vol.ti) : "—", titulo: "Filtro de TI", texto: "Fica o registro cuja ocupação (CBO) é de TI ou cuja empresa (CNAE) é de TI. Os códigos viram nomes pelo dicionário oficial." },
+            { camada: "Gold", valor: nTabelas ? `${nTabelas} tabelas` : "—", titulo: "O que este painel lê", texto: "Os registros somados por ano, mês, estado, município, ocupação e perfil, mais os modelos. Nada aqui é amostra." },
+          ]}
+        />
+      </Bloco>
 
       <Bloco titulo="O que conta como emprego de TI">
         <Grade colunas={4}>
@@ -168,9 +325,15 @@ export default function Pesquisa() {
           />
         </Grade>
         <Grade>
-          <CartaoTabela
-            titulo="As ocupações do recorte"
-            subtitulo={`Códigos CBO considerados de TI, com os vínculos ativos em ${anoRais || "—"}`}
+          <CartaoGrafico
+            titulo="As ocupações do recorte (CBO)"
+            subtitulo={`Clique num anel para abrir: grande grupo › família › ocupação · vínculos ativos em ${anoRais || "—"}`}
+            ajuda="lentes"
+            opcao={op.cbo}
+            carregando={lista.carregando}
+            erro={lista.erro}
+            altura={440}
+            rodape="A Classificação Brasileira de Ocupações numera cada ocupação com 6 dígitos: o 1º é o grande grupo, os 4 primeiros são a família. O recorte pega famílias inteiras de TI (como a 2124, analistas de TI) e algumas ocupações avulsas, como o técnico de manutenção de computadores e o encarregado de proteção de dados. Clique no centro para voltar."
             tabela={{
               colunas: [
                 { chave: "cbo", rotulo: "CBO" },
@@ -181,11 +344,18 @@ export default function Pesquisa() {
               linhas: lista.linhas,
             }}
           />
-          <CartaoTabela
-            titulo="As atividades do recorte"
-            subtitulo={`Atividades econômicas (CNAE) das empresas de TI, com os vínculos em ${anoRais || "—"}`}
+          <CartaoGrafico
+            titulo="As atividades do recorte (CNAE)"
+            subtitulo={`Clique num anel para abrir: divisão › atividade · todos os vínculos das empresas de TI em ${anoRais || "—"}`}
+            ajuda="lentes"
+            opcao={op.cnae}
+            carregando={atividades.carregando}
+            erro={atividades.erro}
+            altura={440}
+            rodape="A Classificação Nacional de Atividades Econômicas diz o que a empresa faz. Entram a divisão 62 inteira (software, consultoria e suporte em TI) e, da 63, só dados, hospedagem e portais: agências de notícias ficam de fora. Aqui conta todo mundo que trabalha nessas empresas, de programador a recepcionista."
             tabela={{
               colunas: [
+                ...(atividades.linhas.some((l) => l.cnae) ? [{ chave: "cnae", rotulo: "CNAE", formato: (v: unknown) => fmtCnae(String(v ?? "")) }] : []),
                 { chave: "atividade", rotulo: "Atividade da empresa" },
                 { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true },
               ],

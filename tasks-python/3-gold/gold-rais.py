@@ -25,12 +25,15 @@ log.ativar_horario()
 
 def main() -> int:
     from gold_rais import construir_gold as gr
-    from gold_unificado import publicar_gold
+    from gold_unificado import publicar_gold, volume
 
     codigo = gr.main()
     if codigo != 0:
         telegram.notificar("⚠️ *Gold RAIS*: concluído com falha, publicação pulada.")
         return codigo
+    # O tamanho da plataforma (para a visão geral do site) é medido aqui, a
+    # etapa que já lê a RAIS; nunca derruba a publicação.
+    volume.main()
 
     print("\n📤 Publicando no Hugging Face...")
     codigo_publicar = publicar_gold.main()

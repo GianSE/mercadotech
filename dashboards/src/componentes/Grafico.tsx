@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as echarts from "echarts/core";
-import { BarChart, LineChart, MapChart, PieChart, ScatterChart, TreemapChart } from "echarts/charts";
+import { BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart } from "echarts/charts";
 import {
   GeoComponent,
   GridComponent,
@@ -20,7 +20,7 @@ import { alturaSugerida } from "../lib/graficos";
 import { Ajuda } from "./ui";
 
 echarts.use([
-  BarChart, LineChart, MapChart, PieChart, ScatterChart, TreemapChart,
+  BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart,
   GeoComponent, GridComponent, LegendComponent, MarkLineComponent, TitleComponent, TooltipComponent, VisualMapComponent,
   CanvasRenderer,
 ]);

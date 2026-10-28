@@ -246,13 +246,28 @@ def risco_multivariado(df: pd.DataFrame) -> pd.DataFrame:
     t0 = d["tempo_inicio"].fillna(0).clip(lower=0)
     d["tempo_de_casa"] = pd.cut(t0, bins=[b[0] for b in FAIXAS] + [FAIXAS[-1][1]],
                                 labels=ROTULOS, right=False, include_lowest=True)
+    # Acima da última faixa (20 anos ou mais de casa) o corte dá vazio: no
+    # modelo, vira categoria própria em vez de se confundir com "sem dado".
+    d["tempo_de_casa"] = d["tempo_de_casa"].astype(object).where(t0 < FAIXAS[-1][1], "20a+")
     # log da remuneração: o efeito de mais um salário mínimo não é o mesmo
     # para quem ganha 2 e para quem ganha 20.
     d["log_remun"] = np.log(d["remuneracao_sm"])
 
-    desenho = pd.get_dummies(
-        d[["sexo", "escolaridade", "area", "porte", "tempo_de_casa"]].astype(str),
-        drop_first=True, dtype=float)
+    # Referência explícita de cada variável. O drop_first do pandas descarta a
+    # primeira categoria em ordem ALFABÉTICA, e na escolaridade ela era
+    # "5.A CO FUND" (5º ano completo): um grupo minúsculo, contra o qual nenhum
+    # nível de escolaridade sai significativo. A referência é o grupo típico
+    # de TI, para cada razão de chances ler "contra quem é mais comum".
+    referencias = {"sexo": "Homem", "escolaridade": "SUP. COMP", "area": "Desenvolvimento",
+                   "porte": "1000 OU MAIS", "tempo_de_casa": "0-6m"}
+    # O vazio vira categoria explícita: no pandas 3, converter para texto
+    # mantém o nulo, e categoria nula não pode ser ordenada nem referência.
+    categoricas = d[list(referencias)].astype(object).where(d[list(referencias)].notna(), "sem informação").astype(str)
+    for col, ref in referencias.items():
+        if ref in set(categoricas[col]):
+            ordem = [ref] + sorted(set(categoricas[col]) - {ref}, key=str)
+            categoricas[col] = pd.Categorical(categoricas[col], categories=ordem)
+    desenho = pd.get_dummies(categoricas, drop_first=True, dtype=float)
     desenho["idade"] = d["idade"].astype(float)
     desenho["log_remun"] = d["log_remun"].astype(float)
     desenho = sm.add_constant(desenho, has_constant="add")
@@ -265,6 +280,13 @@ def risco_multivariado(df: pd.DataFrame) -> pd.DataFrame:
         "p": modelo.pvalues,
     })
     saida = saida[saida["variavel"] != "const"]
+    # Grupo, categoria e referência em colunas próprias: quem lê não precisa
+    # desmontar "escolaridade_SUP. INCOMP" para saber contra o que compara.
+    partes = saida["variavel"].str.split("_", n=1, expand=True)
+    variaveis_dummy = saida["variavel"].str.startswith(tuple(f"{c}_" for c in referencias))
+    saida["grupo"] = np.where(variaveis_dummy, partes[0].where(~partes[0].isin(["tempo"]), "tempo_de_casa"), saida["variavel"])
+    saida["categoria"] = np.where(variaveis_dummy, saida.apply(lambda l: l["variavel"][len(l["grupo"]) + 1:], axis=1), None)
+    saida["referencia"] = saida["grupo"].map(referencias)
     return saida.reindex(
         (saida["razao_de_chances"] - 1).abs().sort_values(ascending=False).index
     ).reset_index(drop=True)

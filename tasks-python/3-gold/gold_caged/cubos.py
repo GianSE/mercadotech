@@ -48,6 +48,9 @@ UF_SIGLA = {
 CUBOS = {
     "caged_cubo": "ano, uf, setor, lente, area_ti, sexo, raca_cor, escolaridade, faixa_idade",
     "caged_ocupacao": "ano, ocupacao, lente",
+    # Mês a mês por UF: o fluxo mensal do site respeitando o filtro de estado
+    # (a serie_mensal dos modelos é só nacional).
+    "caged_mensal": "ano, mes, uf",
 }
 
 
@@ -73,6 +76,7 @@ def montar(con, origem: str, destino: Path) -> list[str]:
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE base_cubo AS SELECT
             ano::INTEGER AS ano,
+            mes::INTEGER AS mes,
             CASE upper(strip_accents(trim(uf))) {casos} ELSE NULL END AS uf,
             setor, ocupacao, area_ti, sexo, raca_cor, escolaridade,
             CASE WHEN {cnae} AND {cbo} THEN 'Profissional de TI em empresa de TI'

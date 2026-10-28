@@ -18,6 +18,9 @@ export const GLOSSARIO = {
   sarima: "Modelo de série temporal que aprende a tendência e o ciclo anual do saldo mensal. Foi escolhido por errar menos que as alternativas em testes com o passado.",
   faixa80: "Intervalo em que o valor real deve cair em 8 de cada 10 casos, segundo o modelo.",
   mae: "Erro absoluto médio: em média, quanto a previsão errou, em vagas, nos testes com o passado.",
+  razao_chances: "Razão de chances: quantas vezes a chance de sair do emprego no ano muda em relação ao grupo de referência, comparando pessoas iguais em todo o resto. ×1 = mesmo risco; ×2 = o dobro; ×0,5 = metade.",
+  backtest: "Teste com o passado: o modelo finge estar num ano já conhecido, faz a previsão só com o que sabia então e compara com o que de fato aconteceu.",
+  silver: "A camada do pipeline com os registros brutos já recortados para TI: cada vínculo da RAIS e cada movimentação do CAGED de uma ocupação ou empresa de tecnologia, antes de qualquer agregação.",
 } as const;
 
 export type Termo = keyof typeof GLOSSARIO;

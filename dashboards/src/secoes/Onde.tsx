@@ -86,7 +86,7 @@ const ufDoClique = ({ nome }: Clique) => (UFS.includes(nome) ? nome : nome.match
 export default function Onde() {
   const { cores: c } = useTema();
   const f = useFiltro();
-  const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2020, 2026], lerPeriodo, escreverPeriodo);
+  const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const anoRais = Math.min(periodo[1], 2025);
   // A busca vale para o mapa e para a dispersão de municípios ao mesmo tempo.
   const [busca, setBusca] = useParametro("destacar", "", texto, texto);
