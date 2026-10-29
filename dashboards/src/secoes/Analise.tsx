@@ -146,7 +146,7 @@ export default function Analise() {
       </header>
 
       <Bloco titulo="As cinco respostas">
-        <Resposta numero={1} id="crescimento" pergunta="Quanto o mercado cresceu, e em que ritmo?" resposta="Cresceu muito, com o salto concentrado em 2021–22 — e o ritmo agora desacelera.">
+        <Resposta numero={1} id="estoque" pergunta="Quanto o mercado cresceu, e em que ritmo?" resposta="Cresceu muito, com o salto concentrado em 2021–22 — e o ritmo agora desacelera.">
           {estoque.linhas.length > 1 && <TextoEstoque anual={estoque.linhas} />}
           {arco && <TextoSaldo a={arco} />}
           <p>

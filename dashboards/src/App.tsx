@@ -10,7 +10,9 @@ type Rota = { id: string; rotulo: string; curto: string; componente: ComponentTy
 
 const ROTAS: Rota[] = [
   { id: "pesquisa", rotulo: "Visão geral", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
-  { id: "crescimento", rotulo: "1 · Crescimento", curto: "1", componente: lazy(() => import("./secoes/Crescimento")) },
+  { id: "estoque", rotulo: "1a · Estoque", curto: "1a", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estoque")) },
+  { id: "fluxo", rotulo: "1b · Fluxo", curto: "1b", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Fluxo")) },
+  { id: "comparar-estados", rotulo: "1c · Estados", curto: "1c", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estados")) },
   { id: "setor", rotulo: "2a · Setor", curto: "2a", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Setor")) },
   { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Lugares")) },
   { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Salario")) },
@@ -94,6 +96,7 @@ function rotaAtual(): string {
   // /onde que marcava município ou mesorregião era do mapa (2b); o de
   // /equidade vai para o hiato, que é o que a pergunta 4 responde.
   const antigo: Record<string, string> = {
+    crescimento: "estoque",
     qualidade: "salario",
     onde: params.has("destacar") || params.has("meso") ? "mapa" : "setor",
     equidade: "hiato-salarial",

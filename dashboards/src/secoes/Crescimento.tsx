@@ -18,9 +18,15 @@ const SERIES_FLUXO: { chave: SerieFluxo; rotulo: string }[] = [
   { chave: "saldo", rotulo: "Saldo" },
 ];
 
-export default function Crescimento() {
+// A pergunta 1 (quanto o mercado cresceu?) em três páginas: 1a, o estoque
+// (RAIS); 1b, o fluxo de admissões e desligamentos (CAGED); 1c, os estados
+// lado a lado. Cada uma só consulta o que mostra.
+export type ParteCrescimento = "estoque" | "fluxo" | "estados";
+
+export default function Crescimento({ parte = "estoque" }: { parte?: ParteCrescimento }) {
   const { cores: c } = useTema();
   const f = useFiltro();
+  const noFluxo = parte === "fluxo";
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const [grao, setGrao] = useState<Grao>("ano");
   const [visiveis, setVisiveis] = useState<SerieFluxo[]>(["admissoes", "desligamentos", "saldo"]);
@@ -28,23 +34,23 @@ export default function Crescimento() {
   const alternarSerie = (s: SerieFluxo) =>
     setVisiveis((v) => (v.includes(s) ? (v.length > 1 ? v.filter((x) => x !== s) : v) : SERIES_FLUXO.map((x) => x.chave).filter((x) => x === s || v.includes(x))));
 
-  const referencia = useConsulta("SELECT strftime(max(mes), '%m/%Y') AS ultimo, year(max(mes)) AS ano FROM serie_mensal");
+  const referencia = useConsulta(!noFluxo ? null : "SELECT strftime(max(mes), '%m/%Y') AS ultimo, year(max(mes)) AS ano FROM serie_mensal");
   const ultimoMes = String(referencia.linhas[0]?.ultimo ?? "");
   const anoParcial = num(referencia.linhas[0], "ano");
 
-  const anual = useConsulta(`
+  const anual = useConsulta(!noFluxo ? null : `
     SELECT ano::VARCHAR AS periodo, ano, sum(saldo)::DOUBLE AS saldo, sum(admissoes)::DOUBLE AS admissoes, sum(desligamentos)::DOUBLE AS desligamentos
     FROM caged_cubo WHERE ${entre(periodo)} AND ${f.sql()} GROUP BY ano ORDER BY ano`);
   // Mês a mês: o cubo mensal por UF; numa Gold anterior a ele, a série
   // nacional dos modelos (e o cartão avisa que é o Brasil inteiro).
-  const mensal = useConsulta(grao === "mes" ? `
+  const mensal = useConsulta(noFluxo && grao === "mes" ? `
     SELECT strftime(make_date(ano, mes, 1), '%Y-%m') AS periodo, sum(saldo)::DOUBLE AS saldo,
            sum(admissoes)::DOUBLE AS admissoes, sum(desligamentos)::DOUBLE AS desligamentos
     FROM caged_mensal WHERE ${entre(periodo)} AND ${f.sql()} GROUP BY 1 ORDER BY 1` : null);
-  const mensalNacional = useConsulta(grao === "mes" && mensal.erro ? `
+  const mensalNacional = useConsulta(noFluxo && grao === "mes" && mensal.erro ? `
     SELECT strftime(mes, '%Y-%m') AS periodo, saldo::DOUBLE AS saldo, admissoes::DOUBLE AS admissoes, desligamentos::DOUBLE AS desligamentos
     FROM serie_mensal WHERE year(mes) BETWEEN ${periodo[0]} AND ${periodo[1]} ORDER BY 1` : null);
-  const rais = useConsulta(`
+  const rais = useConsulta(parte !== "estoque" ? null : `
     SELECT ano, sum(estoque_3112)::DOUBLE AS estoque
     FROM ${tabelaRais(f.ativo)} WHERE ${TI} AND ${entre(periodo)} AND ${f.sql()} GROUP BY 1 ORDER BY 1`);
 
@@ -55,6 +61,16 @@ export default function Crescimento() {
   const soNacional = grao === "mes" && !!mensal.erro;
   const crescimento = raisL.length > 1 ? (num(raisL.at(-1), "estoque") / num(raisL[0], "estoque") - 1) * 100 : NaN;
   const saldoTotal = a.reduce((s, l) => s + num(l, "saldo"), 0);
+  const admissoesTotal = a.reduce((s, l) => s + num(l, "admissoes"), 0);
+  const desligamentosTotal = a.reduce((s, l) => s + num(l, "desligamentos"), 0);
+  const ritmo = raisL.length > 1
+    ? ((num(raisL.at(-1), "estoque") / num(raisL[0], "estoque")) ** (1 / (num(raisL.at(-1), "ano") - num(raisL[0], "ano"))) - 1) * 100
+    : NaN;
+  // 1c: o crescimento de cada estado no período, para a frase do topo.
+  const fimRais = Math.min(periodo[1], 2025);
+  const porEstado = useConsulta(parte !== "estados" ? null : `
+    SELECT uf, sum(estoque_3112) FILTER (WHERE ano = ${periodo[0]})::DOUBLE AS inicio, sum(estoque_3112) FILTER (WHERE ano = ${fimRais})::DOUBLE AS fim
+    FROM rais_estoque_uf WHERE ${TI} AND ano IN (${periodo[0]}, ${fimRais}) GROUP BY 1`);
 
   const op = useMemo(() => {
     const x = rotulos(fluxo, "periodo");
@@ -79,6 +95,29 @@ export default function Crescimento() {
     { chave: "saldo", rotulo: "Saldo", formato: fmtSinal, numero: true },
   ];
 
+  // 1b: o que entrou, o que saiu e os anos extremos (só anos completos).
+  const respostaFluxo = (() => {
+    const completos = a.filter((l) => num(l, "ano") !== anoParcial);
+    if (!completos.length) return undefined;
+    const [melhor, pior] = [
+      completos.reduce((m, l) => (num(l, "saldo") > num(m, "saldo") ? l : m)),
+      completos.reduce((m, l) => (num(l, "saldo") < num(m, "saldo") ? l : m)),
+    ];
+    const onde = f.ativo ? ` em ${f.rotulo}` : "";
+    return `De ${periodo[0]} a ${periodo[1]}, o mercado de TI${onde} contratou ${fmtCompacto(admissoesTotal)} e desligou ${fmtCompacto(desligamentosTotal)}, um saldo de ${fmtSinal(saldoTotal)} vagas; o melhor ano foi ${num(melhor, "ano")} (${fmtSinal(num(melhor, "saldo"))}) e o pior, ${num(pior, "ano")} (${fmtSinal(num(pior, "saldo"))}).`;
+  })();
+  // 1c: quem mais e quem menos cresceu entre os 27 estados.
+  const respostaEstados = (() => {
+    const taxas = porEstado.linhas
+      .filter((l) => num(l, "inicio") > 0 && num(l, "fim") > 0)
+      .map((l) => ({ uf: String(l.uf), taxa: (num(l, "fim") / num(l, "inicio") - 1) * 100, inicio: num(l, "inicio"), fim: num(l, "fim") }))
+      .sort((x, y) => y.taxa - x.taxa);
+    if (taxas.length < 2) return undefined;
+    const brasil = (taxas.reduce((s, x) => s + x.fim, 0) / taxas.reduce((s, x) => s + x.inicio, 0) - 1) * 100;
+    const sinal = (v: number) => `${v >= 0 ? "+" : ""}${fmtDec(v, 0)}%`;
+    return `Entre ${periodo[0]} e ${fimRais}, o estoque de TI cresceu mais em ${taxas[0].uf} (${sinal(taxas[0].taxa)}) e menos em ${taxas.at(-1)!.uf} (${sinal(taxas.at(-1)!.taxa)}), contra ${sinal(brasil)} do Brasil.`;
+  })();
+
   // Resposta do topo: quanto cresceu no período, o ritmo médio e o maior salto.
   const resposta = (() => {
     if (raisL.length < 2 || !Number.isFinite(crescimento)) return undefined;
@@ -92,11 +131,21 @@ export default function Crescimento() {
 
   return (
     <>
-      <CabecalhoPergunta numero={1} pergunta="Quanto o mercado cresceu, e em que ritmo?" resposta={resposta} />
+      <CabecalhoPergunta
+        numero={parte === "estoque" ? "1a" : parte === "fluxo" ? "1b" : "1c"}
+        pergunta={
+          parte === "estoque" ? "Quanto o mercado cresceu: quantos empregos de TI há?"
+          : parte === "fluxo" ? "Quanto o mercado cresceu: quem entra e quem sai?"
+          : "Quanto o mercado cresceu: em que estados?"
+        }
+        resposta={parte === "estoque" ? resposta : parte === "fluxo" ? respostaFluxo : respostaEstados}
+      />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
       </LinhaFiltros>
 
+      {parte === "estoque" && (
+        <>
       <Grade colunas={3}>
         <Kpi
           destaque
@@ -106,7 +155,7 @@ export default function Crescimento() {
           detalhe={raisL.length ? `RAIS, ${num(raisL[0], "ano")}–${num(raisL.at(-1), "ano")}` : undefined}
         />
         <Kpi rotulo={`Vínculos ativos em ${num(raisL.at(-1), "ano") || "—"}`} valor={fmtCompacto(num(raisL.at(-1), "estoque"))} detalhe="RAIS, 31/12" />
-        <Kpi rotulo="Saldo no período" ajuda="saldo" valor={a.length ? fmtSinal(saldoTotal) : "—"} detalhe="CAGED, vagas líquidas" />
+        <Kpi rotulo="Ritmo médio" valor={Number.isFinite(ritmo) ? `${fmtDec(ritmo, 1)}% ao ano` : "—"} detalhe="crescimento composto do estoque" />
       </Grade>
 
       <Bloco titulo="Estoque">
@@ -120,6 +169,15 @@ export default function Crescimento() {
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "estoque", rotulo: "Vínculos ativos", formato: fmtNum, numero: true }], linhas: raisL }}
         />
       </Bloco>
+        </>
+      )}
+      {parte === "fluxo" && (
+        <>
+      <Grade colunas={3}>
+        <Kpi destaque rotulo="Saldo no período" ajuda="saldo" valor={a.length ? fmtSinal(saldoTotal) : "—"} detalhe="CAGED, vagas líquidas" />
+        <Kpi rotulo="Admissões" valor={a.length ? fmtCompacto(admissoesTotal) : "—"} detalhe={`CAGED, ${periodo[0]}–${periodo[1]}`} />
+        <Kpi rotulo="Desligamentos" valor={a.length ? fmtCompacto(desligamentosTotal) : "—"} detalhe={`CAGED, ${periodo[0]}–${periodo[1]}`} />
+      </Grade>
 
       <Bloco titulo="Fluxo: quem entra, quem sai e o que sobra">
         <div className="flex flex-wrap items-end gap-4">
@@ -161,8 +219,9 @@ export default function Crescimento() {
           tabela={{ colunas: colunasFluxo, linhas: fluxo }}
         />
       </Bloco>
-
-      <Comparar periodo={periodo} />
+        </>
+      )}
+      {parte === "estados" && <Comparar periodo={periodo} />}
     </>
   );
 }

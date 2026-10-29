@@ -116,6 +116,7 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
   const { cores: c } = useTema();
   const f = useFiltro();
   const setor = parte === "setor";
+  const [ano, setAno] = useParametro<number>("ano", 2025, (v) => (/^\d{4}$/.test(v) && +v >= 2007 && +v <= 2026 ? +v : null), String);
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const anoRais = Math.min(periodo[1], 2025);
   // A busca vale para o mapa e para a dispersão de municípios ao mesmo tempo.
@@ -220,8 +221,10 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
           <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
         </LinhaFiltros>
       ) : (
-        // O mapa tem o seu próprio ano; aqui, só o território.
-        <LinhaFiltros />
+        // Na 2b, o ano do mapa, ao lado do território.
+        <LinhaFiltros resumo={`RAIS ${ano}`}>
+          <Seletor rotulo="Ano" valor={ano} opcoes={intervalo(2007, 2026).map((a) => ({ valor: a, rotulo: String(a) }))} aoMudar={setAno} />
+        </LinhaFiltros>
       )}
 
       {setor && (
@@ -291,7 +294,8 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
               <option key={String(l.rotulo)} value={String(l.rotulo)} />
             ))}
           </datalist>
-          <Mapa busca={busca} aoBuscar={setBusca} />
+          <CartoesGrupos />
+          <Mapa busca={busca} aoBuscar={setBusca} ano={ano} />
           <Clusters busca={busca} aoBuscar={setBusca} />
         </>
       )}
@@ -374,11 +378,10 @@ function Trilha({ nivel, aoIr, meso, aoSairMeso, municipio, aoSairMunicipio }: {
   );
 }
 
-function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {
+function Mapa({ busca, aoBuscar, ano }: { busca: string; aoBuscar: (v: string) => void; ano: number }) {
   const { cores: c } = useTema();
   const f = useFiltro();
   const criterio = lerBusca(busca);
-  const [ano, setAno] = useState(2025);
   const [metrica, setMetrica] = useState<Metrica>("estoque");
   const [minimo, setMinimo] = useState(50);
   const [mapaPronto, setMapaPronto] = useState(false);
@@ -616,7 +619,6 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   return (
     <Bloco titulo="O mapa: estoque e movimento no mesmo lugar">
       <div className="flex flex-wrap items-end gap-4">
-        <Seletor rotulo="Ano" valor={ano} opcoes={intervalo(2007, 2026).map((a) => ({ valor: a, rotulo: String(a) }))} aoMudar={setAno} />
         <Seletor rotulo="Colorir por" valor={metrica} opcoes={(Object.keys(METRICAS) as Metrica[]).map((k) => ({ valor: k, rotulo: METRICAS[k].rotulo }))} aoMudar={setMetrica} />
         {nivel.tipo !== "brasil" && !meso && (
           <Seletor rotulo="Município a partir de" valor={minimo} opcoes={[10, 50, 200, 1000, 5000].map((v) => ({ valor: v, rotulo: `${fmtNum(v)} vínculos` }))} aoMudar={setMinimo} />
@@ -692,6 +694,46 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
 
 // Município: os pontos do agrupamento; estado: a mesma leitura por UF.
 type Nivel = "municipio" | "uf";
+
+// Os três grupos de municípios, em uma frase e em números, no topo da 2b: o
+// mapa colore as bolhas por eles e o gráfico de trajetória os desenha. Os
+// grupos são de uma janela fixa (2020–2025) e não mudam com o ano do mapa.
+function CartoesGrupos() {
+  const { cores: c } = useTema();
+  const f = useFiltro();
+  const perfil = useConsulta(`
+    SELECT nome, count(*)::DOUBLE AS municipios, sum(estoque)::DOUBLE AS estoque_total, median(estoque)::DOUBLE AS estoque_mediano,
+           median(por_mil_hab) AS por_mil_hab, median(crescimento) * 100 AS crescimento
+    FROM municipios_cluster WHERE ${f.sql()} GROUP BY 1`);
+  if (!perfil.linhas.length) return null;
+  const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
+  return (
+    <Bloco
+      titulo="Três tipos de município"
+      descricao="Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025 (tamanho, especialização, crescimento, contratação, rotatividade e salário). As cores são as das bolhas do mapa e dos pontos do gráfico de trajetória."
+    >
+      <div className="grid gap-3 md:grid-cols-3">
+        {GRUPOS.map((g, i) => {
+          const l = perfil.linhas.find((x) => x.nome === g);
+          if (!l) return null;
+          return (
+            <div key={g} className="cartao p-4">
+              <p className="flex items-center gap-2 whitespace-nowrap font-medium text-tinta">
+                <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
+                {g}
+              </p>
+              <p className="mt-0.5 text-[13px] text-tinta-3">{SENTIDO_GRUPO[g]}</p>
+              <p className="mt-1.5 text-[13px] leading-snug text-tinta-2">
+                {fmtNum(num(l, "municipios"))} municípios · típico de {fmtNum(num(l, "estoque_mediano"))} vínculos e {fmtDec(num(l, "por_mil_hab"), 1)} por mil habitantes ·
+                cresceu {fmtDec(num(l, "crescimento"), 0)}% de 2020 a 2025 · {fmtPct((num(l, "estoque_total") / total) * 100, 0)} dos vínculos
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </Bloco>
+  );
+}
 
 function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {
   const { cores: c } = useTema();
@@ -805,28 +847,6 @@ function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) =>
         />
         {nivel === "municipio" && <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={encontrados} />}
       </div>
-      {nivel === "municipio" && perfil.linhas.length > 0 && (
-        <div className="grid gap-3 md:grid-cols-3">
-          {GRUPOS.map((g, i) => {
-            const l = perfil.linhas.find((x) => x.nome === g);
-            if (!l) return null;
-            const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
-            return (
-              <div key={g} className="cartao p-4">
-                <p className="flex items-center gap-2 whitespace-nowrap font-medium text-tinta">
-                  <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
-                  {g}
-                </p>
-                <p className="mt-0.5 text-[13px] text-tinta-3">{SENTIDO_GRUPO[g]}</p>
-                <p className="mt-1.5 text-[13px] leading-snug text-tinta-2">
-                  {fmtNum(num(l, "municipios"))} municípios · típico de {fmtNum(num(l, "estoque_mediano"))} vínculos e {fmtDec(num(l, "por_mil_hab"), 1)} por mil habitantes ·
-                  cresceu {fmtDec(num(l, "crescimento"), 0)}% de 2020 a 2025 · {fmtPct((num(l, "estoque_total") / total) * 100, 0)} dos vínculos
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      )}
       <CartaoGrafico
         titulo={`Especialização × crescimento · ${nivel === "uf" ? "por estado" : f.rotulo}`}
         ajuda={nivel === "uf" ? "porMil" : "trajetoria"}
