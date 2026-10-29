@@ -2,7 +2,7 @@
 // página (ou clicar num estado do mapa) recorta todas as outras. Vazio = Brasil.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { literal } from "./sql";
-import { gravarParametro, partesHash } from "./url";
+import { EVENTO_LIMPAR, gravarParametro, partesHash } from "./url";
 
 export const REGIOES = {
   Norte: ["AC", "AM", "AP", "PA", "RO", "RR", "TO"],
@@ -66,8 +66,17 @@ export function ProvedorFiltro({ children }: { children: ReactNode }) {
         if (lidas.join(",") !== atuais.current.join(",")) setUfs(lidas);
       } else if (atuais.current.length) gravarParametro("uf", atuais.current.join(","));
     };
+    // Limpar filtros: o território zera já, antes de o endereço mudar.
+    const aoLimpar = () => {
+      atuais.current = [];
+      setUfs([]);
+    };
     window.addEventListener("hashchange", aoMudar);
-    return () => window.removeEventListener("hashchange", aoMudar);
+    window.addEventListener(EVENTO_LIMPAR, aoLimpar);
+    return () => {
+      window.removeEventListener("hashchange", aoMudar);
+      window.removeEventListener(EVENTO_LIMPAR, aoLimpar);
+    };
   }, []);
 
   // Todas marcadas é o mesmo que nenhuma: guarda vazio, para "ativo" ser falso.

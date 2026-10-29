@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useFiltro } from "../lib/filtro";
+import { limparFiltros } from "../lib/url";
 import { GLOSSARIO, type Termo } from "../lib/glossario";
 import { SeletorUF } from "./SeletorUF";
 
@@ -127,6 +128,17 @@ export function LinhaFiltros({ children, nota, resumo, territorio = true }: { ch
       <div className={`${aberto ? "mt-3 grid" : "hidden"} gap-3 sm:mt-0 sm:flex sm:flex-wrap sm:items-end sm:gap-x-4 sm:gap-y-3`}>
         {territorio && <SeletorUF />}
         {children}
+        <button
+          type="button"
+          onClick={limparFiltros}
+          title="Voltar esta página ao padrão: Brasil, período completo, sem destaques"
+          className="flex h-11 items-center gap-1.5 self-end rounded-full border border-borda px-3 text-[13px] text-tinta-2 transition-colors hover:border-serie-1/60 hover:text-tinta sm:ml-auto sm:h-9"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden className="h-3.5 w-3.5 fill-current">
+            <path d="M10 3a7 7 0 1 1-6.6 9.3 1 1 0 1 1 1.9-.6A5 5 0 1 0 6.4 6.4H8a1 1 0 0 1 0 2H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 2 0v1.7A7 7 0 0 1 10 3Z" />
+          </svg>
+          Limpar filtros
+        </button>
       </div>
       {nota && <p className={`${aberto ? "block" : "hidden"} mt-3 text-[12px] leading-relaxed text-tinta-3 sm:mt-2 sm:block`}>{nota}</p>}
     </div>

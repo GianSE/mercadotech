@@ -119,8 +119,16 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
           extraTooltip: (i) => `previu ${fmtNum(num(rt[i], "previsto"))} (${num(rt[i], "erro_pct") < 0 ? "abaixo" : "acima"} do real, ${fmtNum(num(rt[i], "real"))})`,
         })
       : null;
-    const extras = { placar: placarOp, retro: retroOp, media: mediaOp, retido: retidoOp };
-    if (!obs.length || !p.length) return { previsao: null, nowcast: null, ...extras };
+    const fl = pares.linhas.map((l) => num(l, "fluxo"));
+    const nowcast = pares.linhas.length
+      ? opcaoDispersao(
+          c,
+          [{ nome: "Ano", pontos: pares.linhas.map((l) => ({ x: num(l, "fluxo"), y: num(l, "delta"), rotulo: String(l.ano), tamanho: 12 })) }],
+          { formatoX: fmtCompacto, formatoY: fmtCompacto, nomeX: "Saldo acumulado do CAGED no ano", nomeY: "Variação do estoque da RAIS", identidade: [Math.min(...fl), Math.max(...fl)] as [number, number], rotularPontos: true },
+        )
+      : null;
+    const extras = { placar: placarOp, retro: retroOp, media: mediaOp, retido: retidoOp, nowcast };
+    if (!obs.length || !p.length) return { previsao: null, ...extras };
     // Eixo único: os meses observados seguidos dos projetados; cada série
     // só tem valor no seu trecho, e a previsão começa no último observado
     // para a linha não ficar solta.
@@ -130,17 +138,8 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
     const previsto = meses.map((_, i) => (i === k - 1 ? num(obs[k - 1], "saldo") : i >= k ? num(p[i - k], "previsao") : null));
     const inferior = meses.map((_, i) => (i >= k ? num(p[i - k], "inferior") : null));
     const superior = meses.map((_, i) => (i >= k ? num(p[i - k], "superior") : null));
-    const fl = pares.linhas.map((l) => num(l, "fluxo"));
-    const lim: [number, number] = [Math.min(...fl), Math.max(...fl)];
     return {
       previsao: opcaoPrevisao(c, meses, observado, previsto, inferior, superior, fmtSinal),
-      nowcast: pares.linhas.length
-        ? opcaoDispersao(
-            c,
-            [{ nome: "Ano", pontos: pares.linhas.map((l) => ({ x: num(l, "fluxo"), y: num(l, "delta"), rotulo: String(l.ano), tamanho: 12 })) }],
-            { formatoX: fmtCompacto, formatoY: fmtCompacto, nomeX: "Saldo acumulado do CAGED no ano", nomeY: "Variação do estoque da RAIS", identidade: lim, rotularPontos: true },
-          )
-        : null,
       ...extras,
     };
   }, [obs, p, pares.linhas, placar.linhas, retro.linhas, retroAnos.linhas, retido.linhas, modelo, c]);

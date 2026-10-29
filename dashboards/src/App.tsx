@@ -2,19 +2,21 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import { obterManifesto } from "./lib/db";
 import { useFiltro } from "./lib/filtro";
 import { useTema } from "./lib/tema";
-import { partesHash } from "./lib/url";
+import { EVENTO_LIMPAR, partesHash } from "./lib/url";
 
 // `grupo`: as perguntas 2 e 3 têm duas páginas cada (2a/2b, 3a/3b), que o
 // menu mostra num submenu com o nome da pergunta.
 type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType; grupo?: string };
 
 const ROTAS: Rota[] = [
-  { id: "pesquisa", rotulo: "Visão geral", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
+  { id: "pesquisa", rotulo: "Apresentação", curto: "Início", grupo: "Visão geral", componente: lazy(() => import("./secoes/Pesquisa")) },
+  { id: "recorte", rotulo: "O que é TI", curto: "TI", grupo: "Visão geral", componente: lazy(() => import("./secoes/Recorte")) },
   { id: "estoque", rotulo: "1a · Estoque", curto: "1a", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estoque")) },
   { id: "fluxo", rotulo: "1b · Fluxo", curto: "1b", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Fluxo")) },
   { id: "comparar-estados", rotulo: "1c · Estados", curto: "1c", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estados")) },
   { id: "setor", rotulo: "2a · Setor", curto: "2a", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Setor")) },
   { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Lugares")) },
+  { id: "trajetoria", rotulo: "2c · Trajetória", curto: "2c", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Trajetoria")) },
   { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Salario")) },
   { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Permanencia")) },
   { id: "perfil", rotulo: "4a · Perfil", curto: "4a", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/Perfil")) },
@@ -325,6 +327,14 @@ export default function App() {
       .catch(() => setAtualizado(null));
   }, []);
 
+  // Limpar filtros remonta a página: as escolhas que não vão para o link
+  // (Ano/Mês, séries ligadas, unidade) voltam ao padrão junto com o resto.
+  const [versao, setVersao] = useState(0);
+  useEffect(() => {
+    const aoLimpar = () => setVersao((v) => v + 1);
+    window.addEventListener(EVENTO_LIMPAR, aoLimpar);
+    return () => window.removeEventListener(EVENTO_LIMPAR, aoLimpar);
+  }, []);
   const indice = ROTAS.findIndex((r) => r.id === rota);
   const Secao = ROTAS[indice].componente;
   const anterior = ROTAS[indice - 1];
@@ -479,7 +489,7 @@ export default function App() {
       >
         <div ref={pagina}>
           <Suspense fallback={<div className="h-64 animate-pulse rounded-[var(--radius-cartao)] bg-superficie" />}>
-            <Secao />
+            <Secao key={versao} />
           </Suspense>
         </div>
 

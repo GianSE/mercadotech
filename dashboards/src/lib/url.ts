@@ -51,6 +51,17 @@ export function useParametro<T>(nome: string, padrao: T, ler: (s: string) => T |
   return [valor, definir] as const;
 }
 
+// "Limpar filtros": volta a página ao padrão. Avisa antes (o filtro de
+// território zera e a página se remonta, o que repõe também as escolhas que
+// não vão para o link, como Ano/Mês) e só depois tira os parâmetros do
+// endereço — nessa ordem, o território não é regravado no link novo.
+export const EVENTO_LIMPAR = "mercadotech:limpar-filtros";
+export function limparFiltros() {
+  window.dispatchEvent(new Event(EVENTO_LIMPAR));
+  const { rota } = partesHash();
+  if (window.location.hash !== `#/${rota}`) window.location.hash = `#/${rota}`;
+}
+
 // Período "2007-2026" no link.
 export const lerPeriodo = (s: string): [number, number] | null => {
   const m = s.match(/^(\d{4})-(\d{4})$/);

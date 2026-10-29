@@ -107,10 +107,10 @@ const ordenarLentes = <T extends { categoria?: unknown }>(l: T[]) =>
 // O clique numa bolha de município traz "Nome (UF)": filtra pela UF dele.
 const ufDoClique = ({ nome }: Clique) => (UFS.includes(nome) ? nome : nome.match(/\(([A-Z]{2})\)$/)?.[1] ?? null);
 
-// A pergunta 2 (onde está o trabalho de TI?) em duas páginas: 2a, em que
-// empresas (setor × ocupação); 2b, em que lugares (o mapa e os grupos de
-// municípios). Cada uma só consulta o que mostra.
-export type ParteOnde = "setor" | "mapa";
+// A pergunta 2 (onde está o trabalho de TI?) em três páginas: 2a, em que
+// empresas (setor × ocupação); 2b, em que lugares (o mapa); 2c, que tipo de
+// lugar cresce (os grupos de municípios). Cada uma só consulta o que mostra.
+export type ParteOnde = "setor" | "mapa" | "trajetoria";
 
 export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
   const { cores: c } = useTema();
@@ -194,9 +194,17 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
     const [polo, emergente] = [g("Polo maduro"), g("Emergente")];
     const total = grupos.linhas.reduce((s, l) => s + num(l, "estoque"), 0);
     const somaUf = u.reduce((s, l) => s + num(l, "estoque"), 0);
-    if (!u.length || !polo || !emergente || !total) return undefined;
-    const topo = u.length > 1 ? `${u[0].uf} concentra ${fmtDec((num(u[0], "estoque") / somaUf) * 100, 0)}% do emprego formal de TI${f.ativo ? ` em ${f.rotulo}` : ""}; ` : "";
-    return `${topo}${fmtNum(num(polo, "municipios"))} polos maduros reúnem ${fmtDec((num(polo, "estoque") / total) * 100, 0)}% dos vínculos dos municípios analisados, e ${fmtNum(num(emergente, "municipios"))} municípios emergentes cresceram ${fmtDec(num(emergente, "crescimento"), 0)}% de 2020 a 2025.`;
+    // 2b: a concentração por estado e região. 2c: os grupos de municípios.
+    if (parte === "mapa") {
+      if (u.length < 2) return undefined;
+      const porRegiao = (Object.keys(REGIOES) as Regiao[])
+        .map((r) => ({ r, v: u.filter((l) => REGIAO_DA_UF[String(l.uf)] === r).reduce((s2, l) => s2 + num(l, "estoque"), 0) }))
+        .sort((x, y) => y.v - x.v);
+      const regiao = !f.ativo && porRegiao[0].v ? `, e o ${porRegiao[0].r}, ${fmtDec((porRegiao[0].v / somaUf) * 100, 0)}%` : "";
+      return `${u[0].uf} concentra ${fmtDec((num(u[0], "estoque") / somaUf) * 100, 0)}% do emprego formal de TI${f.ativo ? ` em ${f.rotulo}` : ""}${regiao}.`;
+    }
+    if (!polo || !emergente || !total) return undefined;
+    return `${fmtNum(num(polo, "municipios"))} polos maduros reúnem ${fmtDec((num(polo, "estoque") / total) * 100, 0)}% dos vínculos dos municípios analisados, e ${fmtNum(num(emergente, "municipios"))} municípios emergentes cresceram ${fmtDec(num(emergente, "crescimento"), 0)}% de 2020 a 2025.`;
   })();
 
   // Resposta do topo: a parcela dos profissionais de TI fora das empresas de TI.
@@ -212,14 +220,21 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
   return (
     <>
       <CabecalhoPergunta
-        numero={setor ? "2a" : "2b"}
-        pergunta={setor ? "Onde está o trabalho de TI: em que empresas?" : "Onde está o trabalho de TI: em que lugares?"}
+        numero={setor ? "2a" : parte === "mapa" ? "2b" : "2c"}
+        pergunta={
+          setor ? "Onde está o trabalho de TI: em que empresas?"
+          : parte === "mapa" ? "Onde está o trabalho de TI: em que lugares?"
+          : "Onde está o trabalho de TI: que tipo de lugar cresce?"
+        }
         resposta={setor ? resposta : respostaMapa}
       />
       {setor ? (
         <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}>
           <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
         </LinhaFiltros>
+      ) : parte === "trajetoria" ? (
+        // Os grupos são de uma janela fixa (2020–2025): só o território.
+        <LinhaFiltros resumo="janela 2020–2025" />
       ) : (
         // Na 2b, o ano do mapa, ao lado do território.
         <LinhaFiltros resumo={`RAIS ${ano}`}>
@@ -295,8 +310,7 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
             ))}
           </datalist>
           <CartoesGrupos />
-          <Mapa busca={busca} aoBuscar={setBusca} ano={ano} />
-          <Clusters busca={busca} aoBuscar={setBusca} />
+          {parte === "mapa" ? <Mapa busca={busca} aoBuscar={setBusca} ano={ano} /> : <Clusters busca={busca} aoBuscar={setBusca} />}
         </>
       )}
     </>

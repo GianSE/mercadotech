@@ -232,14 +232,9 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
         pergunta={salario ? "Qualidade do emprego: o salário de TI melhorou?" : "Qualidade do emprego: quanto tempo as pessoas ficam, e o que leva a sair?"}
         resposta={resposta}
       />
-      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
+      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}${salario ? ` · ${emReais ? "reais" : "salários mínimos"}` : ""}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
-      </LinhaFiltros>
-
-      {salario && (
-        <>
-      <Bloco titulo="Remuneração">
-        <div className="flex flex-wrap items-end gap-4">
+        {salario && (
           <Seletor<Unidade>
             rotulo="Mostrar em"
             valor={unidade}
@@ -249,7 +244,14 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
             ]}
             aoMudar={setUnidade}
           />
-        </div>
+        )}
+      </LinhaFiltros>
+
+      {salario && (
+        <>
+      {/* Um bloco por slide no modo apresentação: a remuneração, as áreas e a
+          escolaridade, em vez de cinco gráficos espremidos num só. */}
+      <Bloco titulo="Remuneração">
         <CartaoGrafico
           titulo={`Mediana e média da remuneração · ${f.rotulo}`}
           ajuda="mediana"
@@ -263,6 +265,8 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
           rodape={emReais ? "Em reais, a linha sobe também por causa da inflação; para comparar anos entre si, a medida certa é o salário mínimo." : undefined}
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mediana", rotulo: "Mediana", formato: fmtValor, numero: true }, { chave: "media", rotulo: "Média", formato: fmtValor, numero: true }], linhas: a }}
         />
+      </Bloco>
+      <Bloco titulo="Por área de atuação">
         <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <CartaoGrafico
           titulo="Por área de atuação"
@@ -287,6 +291,8 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
           }}
         />
         </div>
+      </Bloco>
+      <Bloco titulo="Por escolaridade">
         <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
           <CartaoGrafico
             titulo="Por escolaridade"
@@ -318,7 +324,7 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
       )}
       {!salario && (
         <>
-      <Bloco titulo={`Quanto dura um emprego de tecnologia`}>
+      <Bloco titulo="Giro do mercado">
         <CartaoGrafico
           titulo={`Giro do mercado · ${f.rotulo}`}
           ajuda="giro"
@@ -336,6 +342,8 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
             linhas: giro,
           }}
         />
+      </Bloco>
+      <Bloco titulo="Quanto dura um emprego de tecnologia">
         <Grade>
           <CartaoGrafico
             titulo="Risco anual de desligamento"
@@ -358,6 +366,8 @@ export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidad
             tabela={todos ? { colunas: [{ chave: "faixa", rotulo: "Tempo de casa" }, { chave: "valor", rotulo: "Ainda no emprego", formato: (v) => fmtPct(v, 1), numero: true }], linhas: FAIXAS.map((fx) => ({ faixa: ROTULO_FAIXA[fx], valor: num(todos, fx) })) } : undefined}
           />
         </Grade>
+      </Bloco>
+      <Bloco titulo="O que leva as pessoas a saírem">
         <CartaoGrafico
           titulo="O que muda o risco de desligamento, comparando pessoas parecidas no resto"
           subtitulo={`Modelo de risco em tempo discreto, RAIS ${anoSobrevivencia || ""} · cada ponto compara uma característica com a referência do grupo, com as demais iguais`}

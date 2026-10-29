@@ -88,7 +88,12 @@ const FONTES = [
   },
 ];
 
-export default function Pesquisa() {
+// A visão geral em duas páginas: a apresentação (o painel, as bases e os
+// números) e o recorte (o que conta como TI, pela CBO e pela CNAE).
+export type PartePesquisa = "apresentacao" | "recorte";
+
+export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesquisa }) {
+  const recorte = parte === "recorte";
   const { cores: c } = useTema();
 
   const estoque = useConsulta(`SELECT ano, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_anual WHERE ${TI} AND ano = ${ULTIMO_RAIS} GROUP BY 1`);
@@ -141,8 +146,12 @@ export default function Pesquisa() {
           <span className="mr-2 inline-block h-2 w-2 rounded-[2px] bg-acento align-middle" />
           Visão geral · RAIS + CAGED · 2007–2026
         </p>
-        <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">Emprego formal em tecnologia no Brasil</h1>
-        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-tinta-2">
+        <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">{recorte ? "O que conta como emprego de TI" : "Emprego formal em tecnologia no Brasil"}</h1>
+      </header>
+      {!recorte && (
+        <>
+      <header className="-mt-4 mb-6">
+        <p className="max-w-3xl text-[15px] leading-relaxed text-tinta-2">
           Este painel acompanha o mercado de trabalho de TI no Brasil desde 2007, com os dados públicos do Ministério do Trabalho. Duas bases contam essa história:
         </p>
       </header>
@@ -156,6 +165,9 @@ export default function Pesquisa() {
         ))}
       </div>
 
+        </>
+      )}
+      {!recorte && (
       <Bloco titulo="Os dados em números">
       <Grade colunas={4}>
         <Kpi destaque ajuda="estoque" rotulo={`Empregos de TI em ${num(est, "ano") || "—"}`} valor={est ? fmtCompacto(num(est, "estoque")) : "—"} detalhe="vínculos formais ativos em 31/12" />
@@ -164,9 +176,11 @@ export default function Pesquisa() {
         <Kpi rotulo="Período" valor={cob ? `${num(cob, "de")}–${String(cob.ate_caged ?? "").slice(-4)}` : "—"} detalhe={cob ? `RAIS até ${anoRais} · CAGED até ${cob.ate_caged}` : undefined} />
       </Grade>
       </Bloco>
+      )}
 
+      {recorte && (
       <Bloco
-        titulo="O que conta como emprego de TI"
+        titulo="As duas lentes do recorte"
         descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE)."
       >
         <Grade>
@@ -207,6 +221,7 @@ export default function Pesquisa() {
           />
         </Grade>
       </Bloco>
+      )}
     </>
   );
 }
