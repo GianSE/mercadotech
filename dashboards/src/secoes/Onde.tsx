@@ -188,16 +188,7 @@ export default function Onde() {
       <LinhaFiltros
         resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}
       >
-        <FiltroPeriodo
-          anos={ANOS}
-          valor={periodo}
-          aoMudar={setPeriodo}
-          atalhos={[
-            { rotulo: "Novo CAGED", periodo: [2020, 2026] },
-            { rotulo: "Tudo", periodo: [2007, 2026] },
-            { rotulo: "Último ano", periodo: [2025, 2025] },
-          ]}
-        />
+        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
       </LinhaFiltros>
 
       <Bloco

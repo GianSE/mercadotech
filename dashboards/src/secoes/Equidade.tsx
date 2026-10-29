@@ -120,7 +120,7 @@ export default function Equidade() {
         resposta={resposta}
       />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
-        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2026] }, { rotulo: "Novo CAGED", periodo: [2020, 2026] }]} />
+        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
       </LinhaFiltros>
 
       <Bloco titulo="Quem é contratado">

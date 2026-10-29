@@ -222,7 +222,7 @@ export default function Qualidade() {
         resposta={resposta}
       />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
-        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} atalhos={[{ rotulo: "Tudo", periodo: [2007, 2025] }, { rotulo: "Últimos 10 anos", periodo: [2016, 2025] }]} />
+        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
       </LinhaFiltros>
 
       <Bloco titulo="Remuneração">
