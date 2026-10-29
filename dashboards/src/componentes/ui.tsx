@@ -145,6 +145,23 @@ export function LinhaFiltros({ children, nota, resumo, territorio = true }: { ch
   );
 }
 
+// Mostrar/ocultar um detalhe: o essencial fica à vista, o resto a um clique.
+export function BotaoExpandir({ aberto, aoAlternar, rotulo, rotuloAberto = "Ocultar" }: { aberto: boolean; aoAlternar: () => void; rotulo: string; rotuloAberto?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={aoAlternar}
+      aria-expanded={aberto}
+      className="inline-flex items-center gap-1.5 rounded-full border border-borda px-3 py-1.5 text-[13px] font-medium text-tinta-2 transition-colors hover:border-serie-1/60 hover:text-tinta"
+    >
+      {aberto ? rotuloAberto : rotulo}
+      <svg viewBox="0 0 20 20" aria-hidden className={`h-4 w-4 fill-current transition-transform ${aberto ? "rotate-180" : ""}`}>
+        <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />
+      </svg>
+    </button>
+  );
+}
+
 export function Seletor<T extends string | number>(props: {
   rotulo: string;
   valor: T;

@@ -4,7 +4,7 @@
 // a série atualiza, o texto acompanha.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CartaoTabela } from "../componentes/Grafico";
-import { AvisoNacional, Bloco } from "../componentes/ui";
+import { AvisoNacional, BotaoExpandir, Bloco } from "../componentes/ui";
 import { obterManifesto } from "../lib/db";
 import { fmtDec, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
 import { arcoSaldo, TextoEstoque, TextoLentesEstoque, TextoRemuneracao, TextoSaldo } from "../lib/narrativa";
@@ -37,14 +37,20 @@ function correlacao(x: number[], y: number[]) {
   return sxy / Math.sqrt(sxx * syy);
 }
 
+// Cada resposta mostra a pergunta e a frase; os números e os gráficos que a
+// sustentam ficam fechados, a um clique.
 function Resposta({ numero, id, pergunta, resposta, children }: { numero: number; id: string; pergunta: string; resposta: string; children: ReactNode }) {
+  const [aberta, setAberta] = useState(false);
   return (
     <article className="cartao p-5 sm:p-6">
       <p className="sobrelinha">Pergunta {String(numero).padStart(2, "0")}</p>
       <h3 className="mt-1 text-lg font-semibold text-tinta">{pergunta}</h3>
       <p className="mt-2 rounded-xl bg-superficie-2/70 px-4 py-3 text-[15px] font-medium leading-relaxed text-tinta shadow-[inset_3px_0_0_var(--acento)]">{resposta}</p>
-      <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-tinta-2 [&_strong]:font-semibold [&_strong]:text-tinta">{children}</div>
-      <a href={`#/${id}`} className="mt-4 inline-block text-[14px] font-medium text-serie-1 hover:underline">Ver os gráficos →</a>
+      {aberta && <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-tinta-2 [&_strong]:font-semibold [&_strong]:text-tinta">{children}</div>}
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <BotaoExpandir aberto={aberta} aoAlternar={() => setAberta((v) => !v)} rotulo="Ver detalhes" rotuloAberto="Ocultar detalhes" />
+        <a href={`#/${id}`} className="text-[14px] font-medium text-serie-1 hover:underline">Ver os gráficos →</a>
+      </div>
     </article>
   );
 }

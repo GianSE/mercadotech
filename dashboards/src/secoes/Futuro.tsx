@@ -191,6 +191,7 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
         />
         <CartaoGrafico
           titulo="Por que este modelo, e não outro"
+          recolhido
           ajuda="backtest"
           subtitulo="Quanto cada modelo erra a menos que a regra mais simples possível: repetir o saldo do mesmo mês do ano anterior"
           opcao={op.placar}

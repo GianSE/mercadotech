@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../componentes/Grafico";
-import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
+import { Bloco, BotaoExpandir, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { REGIOES, rotuloTerritorio, UFS, useFiltro, type Regiao } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoDispersao, opcaoMapa, opcaoRosca } from "../lib/graficos";
@@ -715,6 +715,7 @@ type Nivel = "municipio" | "uf";
 function CartoesGrupos() {
   const { cores: c } = useTema();
   const f = useFiltro();
+  const [aberto, setAberto] = useState(false);
   const perfil = useConsulta(`
     SELECT nome, count(*)::DOUBLE AS municipios, sum(estoque)::DOUBLE AS estoque_total, median(estoque)::DOUBLE AS estoque_mediano,
            median(por_mil_hab) AS por_mil_hab, median(crescimento) * 100 AS crescimento
@@ -722,10 +723,22 @@ function CartoesGrupos() {
   if (!perfil.linhas.length) return null;
   const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
   return (
-    <Bloco
-      titulo="Três tipos de município"
-      descricao="Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025 (tamanho, especialização, crescimento, contratação, rotatividade e salário). As cores são as das bolhas do mapa e dos pontos do gráfico de trajetória."
-    >
+    <Bloco titulo="Três tipos de município">
+      {/* Fechado: os três nomes com a cor (a legenda do mapa); aberto, o que é cada um. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {GRUPOS.map((g, i) => (
+          <span key={g} className="flex items-center gap-1.5 text-[14px] font-medium text-tinta">
+            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
+            {g}
+          </span>
+        ))}
+        <BotaoExpandir aberto={aberto} aoAlternar={() => setAberto((v) => !v)} rotulo="O que é cada tipo" />
+      </div>
+      {aberto && (
+        <>
+      <p className="max-w-3xl text-sm text-tinta-3">
+        Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025 (tamanho, especialização, crescimento, contratação, rotatividade e salário). As cores são as das bolhas do mapa e dos pontos do gráfico de trajetória.
+      </p>
       <div className="grid gap-3 md:grid-cols-3">
         {GRUPOS.map((g, i) => {
           const l = perfil.linhas.find((x) => x.nome === g);
@@ -745,6 +758,8 @@ function CartoesGrupos() {
           );
         })}
       </div>
+        </>
+      )}
     </Bloco>
   );
 }

@@ -20,7 +20,7 @@ import type { Linha } from "../lib/db";
 import { useFiltro } from "../lib/filtro";
 import type { Termo } from "../lib/glossario";
 import { alturaSugerida } from "../lib/graficos";
-import { Ajuda } from "./ui";
+import { Ajuda, BotaoExpandir } from "./ui";
 
 echarts.use([
   BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart,
@@ -134,8 +134,11 @@ export function CartaoGrafico(props: {
   nacional?: boolean;
   // Termo do glossário explicado no "?" ao lado do título.
   ajuda?: Termo;
+  // Começa fechado: só o título e o subtítulo, e o gráfico abre no clique.
+  recolhido?: boolean;
 }) {
   const [verTabela, setVerTabela] = useState(false);
+  const [fechado, setFechado] = useState(!!props.recolhido);
   const filtro = useFiltro();
   const grafico = useRef<echarts.ECharts | null>(null);
   // Rosca e mosaico (e, no celular, barras horizontais) dizem a altura de que
@@ -161,17 +164,18 @@ export function CartaoGrafico(props: {
           {props.aoClicar && props.dicaClique && !verTabela && <p className="mt-1 text-[12px] font-medium text-serie-1">{props.dicaClique}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {mostraGrafico && (
+          {props.recolhido && <BotaoExpandir aberto={!fechado} aoAlternar={() => setFechado((v) => !v)} rotulo="Mostrar gráfico" />}
+          {!fechado && mostraGrafico && (
             <BotaoBaixar rotulo="Baixar imagem (PNG)" aoClicar={baixarPng}>
               <path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v8.6l3.3-3.3a1 1 0 0 1 1.4 0l1.8 1.8 1.3-1.3a1 1 0 0 1 1.4 0L15 12.6V5H5Zm7.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
             </BotaoBaixar>
           )}
-          {props.tabela && props.tabela.linhas.length > 0 && (
+          {!fechado && props.tabela && props.tabela.linhas.length > 0 && (
             <BotaoBaixar rotulo="Baixar dados (CSV)" aoClicar={() => baixarCsv(props.tabela!.colunas, props.tabela!.linhas, props.titulo)}>
               <path d="M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z" />
             </BotaoBaixar>
           )}
-          {props.tabela && (
+          {!fechado && props.tabela && (
             <button
               type="button"
               onClick={() => setVerTabela((v) => !v)}
@@ -183,6 +187,7 @@ export function CartaoGrafico(props: {
           )}
         </div>
       </figcaption>
+      {!fechado && (
       <div className={`transition-opacity duration-200 ${props.carregando ? "opacity-50" : ""}`}>
         {props.erro ? (
           <p className="flex items-center text-sm text-tinta-2" style={{ minHeight: altura }}>
@@ -198,7 +203,8 @@ export function CartaoGrafico(props: {
           <p className="grid place-items-center text-sm text-tinta-3" style={{ height: altura }}>Sem dados para este recorte.</p>
         )}
       </div>
-      {props.rodape && <div className="mt-3 text-[12px] leading-relaxed text-tinta-3">{props.rodape}</div>}
+      )}
+      {!fechado && props.rodape && <div className="mt-3 text-[12px] leading-relaxed text-tinta-3">{props.rodape}</div>}
     </figure>
   );
 }
