@@ -294,18 +294,24 @@ function useMesorregioes(ativo: boolean): Mesos | null {
   return dado;
 }
 
+// Barras visíveis de uma vez; as demais, rolando.
+const JANELA_BARRAS = 20;
+
 // Quantas bolhas ganham nome em cada nível.
 const NOMEADAS = { brasil: 0, regiao: 8, selecao: 8, estado: 10 } as const;
 
-function Trilha({ nivel, aoIr, meso, aoSairMeso }: { nivel: NivelMapa; aoIr: (ufs: string[]) => void; meso?: string; aoSairMeso: () => void }) {
-  const passos: { rotulo: string; ufs: string[]; meso?: boolean }[] = [{ rotulo: "Brasil", ufs: [] }];
+function Trilha({ nivel, aoIr, meso, aoSairMeso, municipio, aoSairMunicipio }: {
+  nivel: NivelMapa; aoIr: (ufs: string[]) => void; meso?: string; aoSairMeso: () => void; municipio?: string; aoSairMunicipio: () => void;
+}) {
+  const passos: { rotulo: string; ufs: string[]; meso?: boolean; municipio?: boolean }[] = [{ rotulo: "Brasil", ufs: [] }];
   if (nivel.tipo === "regiao") passos.push({ rotulo: nivel.regiao, ufs: nivel.ufs });
   if (nivel.tipo === "selecao") passos.push({ rotulo: `${nivel.ufs.length} estados`, ufs: nivel.ufs });
   if (nivel.tipo === "estado") {
     const regiao = REGIAO_DA_UF[nivel.uf] as Regiao | undefined;
     if (regiao) passos.push({ rotulo: regiao, ufs: [...REGIOES[regiao]] });
     passos.push({ rotulo: nivel.uf, ufs: [nivel.uf], meso: true });
-    if (meso) passos.push({ rotulo: meso, ufs: [nivel.uf] });
+    if (meso) passos.push({ rotulo: meso, ufs: [nivel.uf], municipio: true });
+    if (municipio) passos.push({ rotulo: municipio, ufs: [nivel.uf] });
   }
   return (
     <nav aria-label="Nível do mapa" className="flex flex-wrap items-center gap-1 text-[14px]">
@@ -317,7 +323,7 @@ function Trilha({ nivel, aoIr, meso, aoSairMeso }: { nivel: NivelMapa; aoIr: (uf
             {atual ? (
               <span className="rounded-full bg-acento/15 px-3 py-1 font-semibold text-tinta">{p.rotulo}</span>
             ) : (
-              <button type="button" onClick={() => (p.meso ? aoSairMeso() : aoIr(p.ufs))} className="rounded-full px-3 py-1 text-tinta-2 underline-offset-2 hover:bg-superficie hover:text-tinta hover:underline">
+              <button type="button" onClick={() => (p.municipio ? aoSairMunicipio() : p.meso ? (aoSairMunicipio(), aoSairMeso()) : aoIr(p.ufs))} className="rounded-full px-3 py-1 text-tinta-2 underline-offset-2 hover:bg-superficie hover:text-tinta hover:underline">
                 {p.rotulo}
               </button>
             )}
@@ -394,6 +400,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   const totalPais = linhasUf.reduce((s, l) => s + num(l, "estoque"), 0);
   const totalSel = selecionadas.reduce((s, l) => s + num(l, "estoque"), 0);
   const saldoSel = selecionadas.reduce((s, l) => s + num(l, "saldo"), 0);
+  const totalEstado = nivel.tipo === "estado" ? doEstado.linhas.reduce((s, l) => s + num(l, "estoque"), 0) : 0;
   const ranking = useMemo(() => [...linhasUf].sort((a, b) => num(b, "estoque") - num(a, "estoque")), [linhasUf]);
 
   const bolhas = useMemo(
@@ -433,6 +440,38 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bolhas, meso?.id, doEstado.linhas, tabelaMesos, metrica, busca]);
   const encontrados = bolhas.filter((b) => b.destaque);
+  // Município marcado (um só, no estado aberto): os cards passam a ser dele.
+  const marcado = nivel.tipo === "estado" && encontrados.length === 1 && encontrados[0].uf === nivel.uf
+    ? doEstado.linhas.find((l) => String(l.cod) === encontrados[0].cod)
+    : undefined;
+  const daMesoSel = meso ? doEstado.linhas.filter((l) => mesoDe(l.cod) === meso.id) : [];
+  const cards = (() => {
+    if (marcado) {
+      return {
+        rotulo: String(marcado.municipio),
+        estoque: num(marcado, "estoque"),
+        saldo: num(marcado, "saldo"),
+        parte: totalEstado ? `${fmtPct((num(marcado, "estoque") / totalEstado) * 100, 1)} do estado` : undefined,
+        terceiro: { rotulo: "Remuneração mediana", valor: fmtSM(marcado.remuneracao_sm_mediana), detalhe: `RAIS, ${ano}` },
+      };
+    }
+    const municipios = meso ? daMesoSel : nivel.tipo === "estado" ? doEstado.linhas : null;
+    if (municipios) {
+      const estoque = municipios.reduce((s, l) => s + num(l, "estoque"), 0);
+      return {
+        rotulo: meso ? meso.nome : f.rotulo,
+        estoque: meso ? estoque : totalSel,
+        saldo: meso ? municipios.reduce((s, l) => s + num(l, "saldo"), 0) : saldoSel,
+        parte: meso && totalEstado ? `${fmtPct((estoque / totalEstado) * 100, 1)} do estado` : undefined,
+        terceiro: {
+          rotulo: "Municípios com saldo positivo",
+          valor: `${municipios.filter((l) => num(l, "saldo") > 0).length} de ${municipios.length}`,
+          detalhe: "entre os que têm vínculo de TI",
+        },
+      };
+    }
+    return null;
+  })();
 
   // Enquadramento: os achados da busca, se forem poucos; senão, o nível.
   const foco = useMemo(() => {
@@ -451,7 +490,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
     const [lon0, lon1] = [Math.min(...caixas.map((l) => num(l, "lon0"))), Math.max(...caixas.map((l) => num(l, "lon1")))];
     const [lat0, lat1] = [Math.min(...caixas.map((l) => num(l, "lat0"))), Math.max(...caixas.map((l) => num(l, "lat1")))];
     // O Brasil inteiro tem ~40° de largura e de altura no zoom 1.
-    const zoom = Math.max(1, Math.min(12, 0.85 * Math.min(40 / Math.max(lon1 - lon0, 0.8), 39 / Math.max(lat1 - lat0, 0.8))));
+    const zoom = Math.max(1, Math.min(24, 0.85 * Math.min(40 / Math.max(lon1 - lon0, 0.5), 39 / Math.max(lat1 - lat0, 0.5))));
     return { lon: (lon0 + lon1) / 2, lat: (lat0 + lat1) / 2, zoom };
     // `busca` e `f.ufs` no lugar dos derivados, refeitos a cada render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -483,7 +522,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
       return { rotulos: mesosDoEstado.map((x) => x.nome), valores: mesosDoEstado.map((x) => x.estoque), linhas: mesosDoEstado.map((x) => ({ nome: x.nome, estoque: x.estoque })) };
     }
     if (nivel.tipo === "estado" && meso) {
-      const d = doEstado.linhas.filter((l) => mesoDe(l.cod) === meso.id).slice(0, TOP_MUNICIPIOS);
+      const d = doEstado.linhas.filter((l) => mesoDe(l.cod) === meso.id);
       return { rotulos: d.map((l) => String(l.nome)), valores: d.map((l) => num(l, "estoque")), linhas: d.map((l) => ({ nome: l.nome, estoque: l.estoque })) };
     }
     if (nivel.tipo === "brasil") {
@@ -503,7 +542,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
     const esmaecer = meso && criterio
       ? barras.rotulos.map((r, i) => (criterio.casa(r.replace(/ \([A-Z]{2}\)$/, ""), r.slice(-3, -1)) ? -1 : i)).filter((i) => i >= 0)
       : [];
-    return opcaoBarras(c, barras.rotulos, barras.valores, { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: nivel.tipo === "estado" ? (meso ? 170 : 200) : nivel.tipo === "brasil" ? 100 : 40, esmaecer });
+    return opcaoBarras(c, barras.rotulos, barras.valores, { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: nivel.tipo === "estado" ? (meso ? 170 : 200) : nivel.tipo === "brasil" ? 100 : 40, esmaecer, janela: JANELA_BARRAS, rotulos: !!meso });
     // `busca` no lugar de `criterio`: o critério é refeito a cada render.
   }, [barras, nivel.tipo, meso?.id, busca, c]);
 
@@ -547,14 +586,28 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
       <Grade colunas={3}>
         <Kpi
           destaque
-          rotulo={`Estoque · ${f.rotulo}`}
-          valor={totalSel ? fmtCompacto(totalSel) : "—"}
-          detalhe={!totalPais ? `a RAIS de ${ano} ainda não saiu` : f.ativo ? `${fmtPct((totalSel / totalPais) * 100, 1)} do país` : `RAIS, ${ano}`}
+          rotulo={`Estoque · ${cards?.rotulo ?? f.rotulo}`}
+          valor={(cards?.estoque ?? totalSel) ? fmtCompacto(cards?.estoque ?? totalSel) : "—"}
+          detalhe={
+            !totalPais ? `a RAIS de ${ano} ainda não saiu`
+            : cards?.parte ?? (f.ativo ? `${fmtPct(((cards?.estoque ?? totalSel) / totalPais) * 100, 1)} do país` : `RAIS, ${ano}`)
+          }
         />
-        <Kpi rotulo={`Saldo do ano · ${f.rotulo}`} valor={fmtSinal(saldoSel)} detalhe={`CAGED, ${ano}`} />
-        <Kpi rotulo="Estados com saldo positivo" valor={`${selecionadas.filter((l) => num(l, "saldo") > 0).length} de ${selecionadas.length}`} />
+        <Kpi rotulo={`Saldo do ano · ${cards?.rotulo ?? f.rotulo}`} valor={fmtSinal(cards?.saldo ?? saldoSel)} detalhe={`CAGED, ${ano}`} />
+        {cards ? (
+          <Kpi rotulo={cards.terceiro.rotulo} valor={cards.terceiro.valor} detalhe={cards.terceiro.detalhe} />
+        ) : (
+          <Kpi rotulo="Estados com saldo positivo" valor={`${selecionadas.filter((l) => num(l, "saldo") > 0).length} de ${selecionadas.length}`} />
+        )}
       </Grade>
-      <Trilha nivel={nivel} aoIr={(ufs) => { setMesoSel(""); f.definir(ufs); }} meso={meso?.nome} aoSairMeso={() => setMesoSel("")} />
+      <Trilha
+        nivel={nivel}
+        aoIr={(ufs) => { setMesoSel(""); aoBuscar(""); f.definir(ufs); }}
+        meso={meso?.nome}
+        aoSairMeso={() => setMesoSel("")}
+        municipio={marcado ? String(marcado.municipio) : undefined}
+        aoSairMunicipio={() => aoBuscar("")}
+      />
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <CartaoGrafico
           titulo={nivel.tipo === "brasil" ? `O mercado de TI no Brasil — ${ano}` : `O mercado de TI · ${meso ? meso.nome : f.rotulo} — ${ano}`}
@@ -583,13 +636,13 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
         />
         <CartaoGrafico
           titulo={`${nomeNivel} por estoque`}
-          subtitulo={`RAIS · vínculos ativos, ${ano}${meso ? ` · até os ${TOP_MUNICIPIOS} maiores` : nivel.tipo === "estado" ? " · mesorregiões do IBGE" : ""}`}
+          subtitulo={`RAIS · vínculos ativos, ${ano}${meso ? ` · todos os ${fmtNum(barras.valores.length)} municípios${barras.valores.length > JANELA_BARRAS ? ", role para ver" : ""}` : nivel.tipo === "estado" ? " · mesorregiões do IBGE" : ""}`}
           dicaClique={proximo}
           aoClicar={clicar}
           opcao={totalPais ? opRanking : null}
           carregando={nivel.tipo === "estado" ? doEstado.carregando || !tabelaMesos : uf.carregando}
           erro={nivel.tipo === "estado" ? doEstado.erro : undefined}
-          altura={meso ? Math.max(300, 90 + barras.valores.length * 19) : 90 + barras.valores.length * 44}
+          altura={meso ? 90 + Math.min(barras.valores.length, JANELA_BARRAS) * 21 : 90 + Math.min(barras.valores.length, JANELA_BARRAS) * 44}
           tabela={{ colunas: [{ chave: "nome", rotulo: meso ? "Município" : nivel.tipo === "estado" ? "Mesorregião" : nivel.tipo === "brasil" ? "Região" : "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: barras.linhas }}
         />
       </div>
@@ -700,7 +753,6 @@ function SaoPaulo({ periodo }: { periodo: Periodo }) {
 }
 
 type Nivel = "municipio" | "uf";
-const TOP_MUNICIPIOS = 30;
 
 function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {
   const { cores: c } = useTema();

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as echarts from "echarts/core";
 import { BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart } from "echarts/charts";
 import {
+  DataZoomComponent,
   GeoComponent,
   GridComponent,
   LegendComponent,
@@ -23,7 +24,7 @@ import { Ajuda } from "./ui";
 
 echarts.use([
   BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart,
-  GeoComponent, GridComponent, LegendComponent, MarkLineComponent, TitleComponent, TooltipComponent, VisualMapComponent,
+  DataZoomComponent, GeoComponent, GridComponent, LegendComponent, MarkLineComponent, TitleComponent, TooltipComponent, VisualMapComponent,
   CanvasRenderer, LabelLayout,
 ]);
 

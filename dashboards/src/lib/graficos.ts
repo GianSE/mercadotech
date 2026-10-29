@@ -316,6 +316,9 @@ export function opcaoBarras(
     esmaecer?: number[];
     // Texto ao lado do valor de cada barra ("25,6 mil · R$ 5.744").
     rotuloExtra?: (i: number) => string;
+    // Barras horizontais: quantas cabem de uma vez; o resto se vê rolando
+    // (roda do mouse, dedo ou a barrinha à direita).
+    janela?: number;
     // Pirulito: haste fina + ponto na ponta. Para rankings longos, onde a
     // massa de tinta de 15 barras grossas não acrescenta nada à comparação.
     forma?: "barra" | "pirulito";
@@ -381,14 +384,32 @@ export function opcaoBarras(
     });
   }
 
+  const rolar = h && !!o.janela && categorias.length > o.janela;
+  const fundo = base(c, false, (rotulos && h ? (c.compacto ? 44 : o.rotuloExtra ? 150 : 60) : c.compacto ? 8 : 20) + (rolar ? 18 : 0));
   const opcao: EChartsOption = {
-    ...base(c, false, rotulos && h ? (c.compacto ? 44 : o.rotuloExtra ? 150 : 60) : c.compacto ? 8 : 20),
+    ...fundo,
     tooltip: tooltipEixo(c, fmt, { extra: o.extraTooltip, sombra: true }),
     xAxis: h ? eixoVal : eixoCat,
     yAxis: h ? eixoCat : eixoVal,
     series: series as EChartsOption["series"],
+    ...(rolar
+      ? {
+          dataZoom: [
+            {
+              // filterMode "none": rolar não reajusta a escala às barras visíveis —
+              // a 20ª cidade não pode parecer do tamanho da capital.
+              type: "slider" as const, yAxisIndex: 0, filterMode: "none" as const, right: 2, width: 8, startValue: 0, endValue: o.janela! - 1,
+              zoomLock: true, brushSelect: false, showDetail: false, showDataShadow: false,
+              borderColor: "transparent", backgroundColor: c.grade, fillerColor: comAlfa(c.azul[1], 0.45),
+              handleSize: 0, moveHandleSize: 0,
+            },
+            { type: "inside" as const, yAxisIndex: 0, filterMode: "none" as const, startValue: 0, endValue: o.janela! - 1, zoomOnMouseWheel: false, moveOnMouseWheel: true, moveOnMouseMove: true },
+          ],
+        }
+      : {}),
   };
-  return comAltura(opcao, compactoH ? categorias.length * LINHA_COMPACTA + 16 : undefined);
+  const linhas = rolar ? o.janela! : categorias.length;
+  return comAltura(opcao, compactoH ? linhas * LINHA_COMPACTA + 16 : undefined);
 }
 
 export function opcaoBarrasAgrupadas(
@@ -970,7 +991,8 @@ export function opcaoMapa(
       // No celular arrastar o mapa sequestraria a rolagem da página pelo dedo;
       // o toque fica só para o tooltip.
       roam: !c.compacto,
-      scaleLimit: { min: 1, max: 8 },
+      // Até 24x: o bastante para uma mesorregião metropolitana caber no cartão.
+      scaleLimit: { min: 1, max: 24 },
       ...(o.foco ? { center: [o.foco.lon, o.foco.lat], zoom: o.foco.zoom } : {}),
       layoutCenter: ["50%", c.compacto ? "46%" : "48%"],
       layoutSize: c.compacto ? "100%" : "96%",

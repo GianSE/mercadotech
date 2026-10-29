@@ -10,17 +10,9 @@ import { useTema } from "../lib/tema";
 import { useConsulta } from "../lib/useConsulta";
 
 // A visão geral só situa quem chega, nesta ordem: o que é o painel e as duas
-// bases (RAIS e CAGED), as cinco perguntas, os números do recorte e o que
+// bases (RAIS e CAGED), os números do recorte e o que
 // conta como TI (CBO e CNAE). As respostas ficam nas páginas de cada
 // pergunta e na Análise.
-const PAGINAS = [
-  { id: "crescimento", p: "Quanto o mercado cresceu, e em que ritmo?" },
-  { id: "onde", p: "Onde está o trabalho de TI?" },
-  { id: "qualidade", p: "O emprego melhorou em qualidade?" },
-  { id: "equidade", p: "Quem ganha menos, e por quê?" },
-  { id: "futuro", p: "Para onde o mercado vai?" },
-];
-
 const ULTIMO_RAIS = "(SELECT max(ano) FROM rais_estoque_anual)";
 
 // A CBO é uma árvore: grande grupo (1 dígito), subgrupos (2 e 3), família
@@ -163,23 +155,6 @@ export default function Pesquisa() {
           </div>
         ))}
       </div>
-
-      <Bloco titulo="O que queremos saber">
-        <nav aria-label="Páginas" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {PAGINAS.map((q, i) => (
-            <a key={q.id} href={`#/${q.id}`} className="cartao group flex items-center gap-4 p-4 transition-colors hover:border-acento">
-              <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-serie-1/12 font-mono text-[14px] font-semibold text-serie-1">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span className="min-w-0 font-medium text-tinta">{q.p}</span>
-            </a>
-          ))}
-          <a href="#/analise" className="flex items-center gap-4 rounded-[var(--radius-cartao)] bg-acento p-4 text-sobre-acento">
-            <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-black/10 font-mono text-[14px] font-semibold">→</span>
-            <span className="font-semibold">Análise e conclusões</span>
-          </a>
-        </nav>
-      </Bloco>
 
       <Bloco titulo="Os dados em números">
       <Grade colunas={4}>
