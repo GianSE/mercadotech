@@ -168,9 +168,12 @@ function LinkGithub() {
       rel="noreferrer"
       aria-label="Código no GitHub"
       title="Código do painel e do pipeline no GitHub"
-      className="grid h-10 w-10 flex-none place-items-center rounded-full text-sobre-marca/80 transition-colors hover:bg-white/10 hover:text-sobre-marca"
+      // No largo, o logo com o nome (um ícone sozinho entre outros três passa
+      // despercebido); no celular, só o logo.
+      className="flex h-10 min-w-10 flex-none items-center justify-center gap-1.5 rounded-full border-white/15 px-0 text-sobre-marca/80 transition-colors hover:bg-white/10 hover:text-sobre-marca lg:mr-1 lg:border lg:px-3"
     >
       <MarcaGithub className="h-[18px] w-[18px] fill-current" />
+      <span className="hidden text-[13px] font-medium lg:inline">GitHub</span>
     </a>
   );
 }
