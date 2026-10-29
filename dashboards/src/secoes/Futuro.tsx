@@ -27,17 +27,23 @@ function nomeModelo(m: string, escolhido: string): string {
   return m === escolhido ? `${nome} · escolhido` : nome;
 }
 
-export default function Futuro() {
+// A pergunta 5 (para onde o mercado vai?) em duas páginas: 5a, a previsão do
+// saldo mensal; 5b, o estoque do ano corrente, estimado antes de a RAIS sair.
+// Cada uma só consulta o que mostra.
+export type ParteFuturo = "previsao" | "estoque";
+
+export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) {
+  const previsao5 = parte === "previsao";
   const { cores: c } = useTema();
-  const serie = useConsulta("SELECT strftime(mes, '%Y-%m') AS mes, saldo FROM serie_mensal ORDER BY mes DESC LIMIT 72");
+  const serie = useConsulta(!previsao5 ? null : "SELECT strftime(mes, '%Y-%m') AS mes, saldo FROM serie_mensal ORDER BY mes DESC LIMIT 72");
   // SELECT * para aceitar a Gold com ou sem as colunas acum_* (intervalo da soma).
-  const prev = useConsulta("SELECT * REPLACE (strftime(mes, '%Y-%m') AS mes) FROM previsao_saldo ORDER BY mes");
-  const placar = useConsulta(`SELECT modelo, mae, rmse, "ganho_vs_naive_%" AS ganho FROM previsao_placar ORDER BY mae`);
-  const pares = useConsulta("SELECT ano, fluxo, delta FROM nowcast_pares ORDER BY ano");
-  const retro = useConsulta("SELECT estimador, anos, erro_medio, erro_pct FROM nowcast_retrospectiva ORDER BY abs(erro_pct)");
-  const retroAnos = useConsulta("SELECT ano, estimador, previsto, real, erro_pct FROM nowcast_retrospectiva_anos ORDER BY ano");
-  const retido = useConsulta("SELECT estimador, previsto, real, erro, erro_pct, ano_teste FROM nowcast_ano_retido ORDER BY abs(erro_pct)");
-  const proj = useConsulta("SELECT * FROM nowcast_projecao");
+  const prev = useConsulta(!previsao5 ? null : "SELECT * REPLACE (strftime(mes, '%Y-%m') AS mes) FROM previsao_saldo ORDER BY mes");
+  const placar = useConsulta(!previsao5 ? null : `SELECT modelo, mae, rmse, "ganho_vs_naive_%" AS ganho FROM previsao_placar ORDER BY mae`);
+  const pares = useConsulta(previsao5 ? null : "SELECT ano, fluxo, delta FROM nowcast_pares ORDER BY ano");
+  const retro = useConsulta(previsao5 ? null : "SELECT estimador, anos, erro_medio, erro_pct FROM nowcast_retrospectiva ORDER BY abs(erro_pct)");
+  const retroAnos = useConsulta(previsao5 ? null : "SELECT ano, estimador, previsto, real, erro_pct FROM nowcast_retrospectiva_anos ORDER BY ano");
+  const retido = useConsulta(previsao5 ? null : "SELECT estimador, previsto, real, erro, erro_pct, ano_teste FROM nowcast_ano_retido ORDER BY abs(erro_pct)");
+  const proj = useConsulta(previsao5 ? null : "SELECT * FROM nowcast_projecao");
 
   const obs = [...serie.linhas].reverse();
   const p = prev.linhas;
@@ -140,20 +146,28 @@ export default function Futuro() {
   }, [obs, p, pares.linhas, placar.linhas, retro.linhas, retroAnos.linhas, retido.linhas, modelo, c]);
   const realRetido = num(retido.linhas[0], "real");
 
-  // Resposta do topo: o saldo previsto e o estoque estimado do ano corrente.
-  const resposta = p.length && pr
-    ? `O modelo prevê saldo de ${fmtSinal(acumulado)} vagas nos próximos ${p.length} meses (faixa de ${fmtCompacto(faixa[0])} a ${fmtCompacto(faixa[1])}), e o estoque de ${num(pr, "ano")} é estimado em ${fmtCompacto(num(pr, "estoque_estimado"))} vínculos (± ${fmtCompacto(num(pr, "margem"))}).`
-    : undefined;
+  // Resposta do topo. 5a: o saldo previsto. 5b: o estoque estimado do ano
+  // corrente, a variação sobre o último ano da RAIS e o erro do método.
+  const erroMedio = num(retro.linhas[0], "erro_pct");
+  const resposta = previsao5
+    ? p.length
+      ? `O modelo prevê saldo de ${fmtSinal(acumulado)} vagas de TI nos próximos ${p.length} meses, com 80% de chance de ficar entre ${fmtCompacto(faixa[0])} e ${fmtCompacto(faixa[1])}.`
+      : undefined
+    : pr && realRetido
+      ? `O estoque de ${num(pr, "ano")} é estimado em ${fmtNum(num(pr, "estoque_estimado"))} vínculos (± ${fmtCompacto(num(pr, "margem"))}), ${fmtDec((num(pr, "estoque_estimado") / realRetido - 1) * 100, 1)}% acima de ${num(pr, "ano") - 1}${Number.isFinite(erroMedio) ? `; nos ${num(retro.linhas[0], "anos")} anos testados, o método errou em média ${fmtDec(Math.abs(erroMedio), 1)}%` : ""}.`
+      : undefined;
 
   return (
     <>
       <CabecalhoPergunta
-        numero={5}
-        pergunta="Para onde o mercado vai?"
+        numero={previsao5 ? "5a" : "5b"}
+        pergunta={previsao5 ? "Para onde o mercado vai: quanto deve contratar nos próximos meses?" : "Para onde o mercado vai: quantos empregos de TI há hoje?"}
         resposta={resposta}
       />
       <AvisoNacional>Os modelos foram ajustados sobre a série nacional: o filtro de território não se aplica a esta página.</AvisoNacional>
 
+      {previsao5 && (
+        <>
       <Bloco titulo="Saldo mensal: observado e projetado">
         <Grade>
           <Kpi destaque ajuda="sarima" rotulo={`Saldo previsto em ${p.length} meses`} valor={fmtSinal(acumulado)} detalhe={<>modelo <span className="font-mono">{modelo}</span></>} />
@@ -195,7 +209,10 @@ export default function Futuro() {
           }}
         />
       </Bloco>
-
+        </>
+      )}
+      {!previsao5 && (
+        <>
       <Bloco titulo="Estimar a RAIS antes de ela sair">
         <CartaoGrafico
           titulo="Fluxo do CAGED × variação do estoque da RAIS"
@@ -271,6 +288,8 @@ export default function Futuro() {
           </>
         )}
       </Bloco>
+        </>
+      )}
     </>
   );
 }

@@ -15,8 +15,10 @@ const ROTAS: Rota[] = [
   { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Lugares")) },
   { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Salario")) },
   { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Permanencia")) },
-  { id: "equidade", rotulo: "4 · Equidade", curto: "4", componente: lazy(() => import("./secoes/Equidade")) },
-  { id: "futuro", rotulo: "5 · Futuro", curto: "5", componente: lazy(() => import("./secoes/Futuro")) },
+  { id: "perfil", rotulo: "4a · Perfil", curto: "4a", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/Perfil")) },
+  { id: "hiato-salarial", rotulo: "4b · Hiato salarial", curto: "4b", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/HiatoSalarial")) },
+  { id: "previsao", rotulo: "5a · Previsão", curto: "5a", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/Previsao")) },
+  { id: "estoque-atual", rotulo: "5b · Estoque atual", curto: "5b", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/EstoqueAtual")) },
   // A única página com texto: respostas, leitura dos números, ressalvas e método.
   { id: "analise", rotulo: "Análise", curto: "Análise", componente: lazy(() => import("./secoes/Analise")) },
 ];
@@ -88,9 +90,15 @@ function MenuGrupo({ grupo, rotas, atual }: { grupo: string; rotas: Rota[]; atua
 
 function rotaAtual(): string {
   const { rota, params } = partesHash();
-  // As antigas páginas das perguntas 2 e 3 viraram 2a/2b e 3a/3b. Um link
-  // velho de /onde que marcava município ou mesorregião era do mapa (2b).
-  const antigo: Record<string, string> = { qualidade: "salario", onde: params.has("destacar") || params.has("meso") ? "mapa" : "setor" };
+  // As antigas páginas das perguntas 2, 3 e 4 viraram a/b. Um link velho de
+  // /onde que marcava município ou mesorregião era do mapa (2b); o de
+  // /equidade vai para o hiato, que é o que a pergunta 4 responde.
+  const antigo: Record<string, string> = {
+    qualidade: "salario",
+    onde: params.has("destacar") || params.has("meso") ? "mapa" : "setor",
+    equidade: "hiato-salarial",
+    futuro: "previsao",
+  };
   const id = antigo[rota] ?? rota;
   return ROTAS.some((r) => r.id === id) ? id : "pesquisa";
 }

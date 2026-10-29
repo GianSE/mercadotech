@@ -46,22 +46,28 @@ const perfilSql = (dim: string, p: Periodo, territorio: string) => `
   FROM caged_cubo WHERE ${entre(p)} AND ${territorio} AND ${dim} IS NOT NULL AND ${dim} <> 'Não informado'
   GROUP BY 1 ORDER BY 2 DESC`;
 
-export default function Equidade() {
+// A pergunta 4 (quem ganha menos, e por quê?) em duas páginas: 4a, o perfil
+// de quem trabalha em TI; 4b, o hiato salarial. Cada uma só consulta o que
+// mostra.
+export type ParteEquidade = "perfil" | "hiato";
+
+export default function Equidade({ parte = "hiato" }: { parte?: ParteEquidade }) {
   const { cores: c } = useTema();
   const f = useFiltro();
+  const perfil4 = parte === "perfil";
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const [comparacao, setComparacao] = useParametro("comparacao", COMPARACOES[0], (s) => (COMPARACOES.includes(s) ? s : null), texto);
 
-  const sexo = useConsulta(perfilSql("sexo", periodo, f.sql()));
-  const raca = useConsulta(perfilSql("raca_cor", periodo, f.sql()));
-  const feminina = useConsulta(`
+  const sexo = useConsulta(perfil4 ? perfilSql("sexo", periodo, f.sql()) : null);
+  const raca = useConsulta(perfil4 ? perfilSql("raca_cor", periodo, f.sql()) : null);
+  const feminina = useConsulta(!perfil4 ? null : `
     SELECT ano, 100 * sum(estoque_3112) FILTER (WHERE sexo = 'Mulher') / sum(estoque_3112) FILTER (WHERE sexo IN ('Homem', 'Mulher')) AS mulheres
     FROM rais_estoque_perfil WHERE ${TI} AND ${entre([periodo[0], Math.min(periodo[1], 2025)])} GROUP BY 1 ORDER BY 1`);
-  const hiato = useConsulta(`
+  const hiato = useConsulta(perfil4 ? null : `
     SELECT ano, hiato_pct, hiato_log, explicada, nao_explicada, explicada_share, salario_a, salario_b
     FROM hiato_serie WHERE comparacao = '${comparacao}' ORDER BY ano`);
   // O último ano das três comparações, para a resposta do topo da página.
-  const ultimo = useConsulta(`
+  const ultimo = useConsulta(perfil4 ? null : `
     SELECT comparacao, hiato_pct, explicada, nao_explicada, ano FROM hiato_serie
     WHERE ano = (SELECT max(ano) FROM hiato_serie)`);
 
@@ -108,6 +114,15 @@ export default function Equidade() {
     const generoRetorno = num(g, "explicada") < 0;
     return `Em ${num(g, "ano")}, pessoas brancas ganham ${fmtDec(num(r, "hiato_pct"), 0)}% mais que ${PLURAL[rb]}, sobretudo por estarem nas posições que pagam mais; homens ganham ${fmtDec(num(g, "hiato_pct"), 1)}% mais que mulheres${generoRetorno ? ", e entre pessoas iguais a diferença seria ainda maior" : ""}.`;
   })();
+  // 4a: a participação feminina nas pontas e quem entra (admissões).
+  const respostaPerfil = (() => {
+    if (fem.length < 2 || !s.length || !raca.linhas.length) return undefined;
+    const soma = (linhas: typeof s, f2: (l: (typeof s)[number]) => boolean) => linhas.filter(f2).reduce((t, l) => t + num(l, "admissoes"), 0);
+    const mulheres = soma(s, (l) => l.categoria === "Mulher") / soma(s, () => true);
+    const negras = soma(raca.linhas, (l) => l.categoria === "Preta" || l.categoria === "Parda") / soma(raca.linhas, () => true);
+    const onde = f.ativo ? ` em ${f.rotulo}` : "";
+    return `Mulheres são ${fmtDec(num(fem.at(-1), "mulheres"), 1)}% dos vínculos de TI em ${num(fem.at(-1), "ano")} (eram ${fmtDec(num(fem[0], "mulheres"), 1)}% em ${num(fem[0], "ano")}); entre as admissões do período${onde}, ${fmtDec(mulheres * 100, 0)}% são de mulheres e ${fmtDec(negras * 100, 0)}% de pessoas pretas ou pardas.`;
+  })();
   const total = num(hu, "hiato_pct");
   const perfil = emPct(num(hu, "explicada"));
   const pagamento = emPct(num(hu, "nao_explicada"));
@@ -115,14 +130,21 @@ export default function Equidade() {
   return (
     <>
       <CabecalhoPergunta
-        numero={4}
-        pergunta="Quem ganha menos, e por quê?"
-        resposta={resposta}
+        numero={perfil4 ? "4a" : "4b"}
+        pergunta={perfil4 ? "Equidade: quem trabalha em TI?" : "Equidade: quem ganha menos, e por quê?"}
+        resposta={perfil4 ? respostaPerfil : resposta}
       />
-      <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
-        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
-      </LinhaFiltros>
+      {perfil4 ? (
+        <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
+          <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
+        </LinhaFiltros>
+      ) : (
+        // O hiato é nacional e usa a série inteira: sem período.
+        <LinhaFiltros />
+      )}
 
+      {perfil4 && (
+        <>
       <Bloco titulo="Quem é contratado">
         <Grade>
           <CartaoGrafico
@@ -153,7 +175,10 @@ export default function Equidade() {
             tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "mulheres", rotulo: "Mulheres", formato: (v) => fmtPct(v, 1), numero: true }], linhas: fem }}
           />
       </Bloco>
-
+        </>
+      )}
+      {!perfil4 && (
+        <>
       <Bloco
         titulo="Hiato salarial: o que vem do perfil e o que sobra entre iguais"
         descricao={hu ? leitura(num(hu, "ano"), grupoA, grupoB, total, perfil, pagamento) : undefined}
@@ -207,6 +232,8 @@ export default function Equidade() {
           }}
         />
       </Bloco>
+        </>
+      )}
     </>
   );
 }

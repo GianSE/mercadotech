@@ -212,7 +212,7 @@ export default function Analise() {
           )}
         </Resposta>
 
-        <Resposta numero={4} id="equidade" pergunta="Quem ganha menos, e por quê?" resposta="Mulheres e pessoas negras, por mecanismos diferentes: a diferença por gênero é de retorno; a por raça é sobretudo de acesso.">
+        <Resposta numero={4} id="hiato-salarial" pergunta="Quem ganha menos, e por quê?" resposta="Mulheres e pessoas negras, por mecanismos diferentes: a diferença por gênero é de retorno; a por raça é sobretudo de acesso.">
           {homem && mulher && (
             <p>
               Mulheres são <strong>{fmtPct((num(mulher, "admissoes") / (num(mulher, "admissoes") + num(homem, "admissoes"))) * 100, 0)} das admissões</strong> em
@@ -246,7 +246,7 @@ export default function Analise() {
           )}
         </Resposta>
 
-        <Resposta numero={5} id="futuro" pergunta="Para onde o mercado vai?" resposta="Para crescimento modesto e positivo, com intervalo declarado. Estimar o presente é bem mais preciso que prever o futuro.">
+        <Resposta numero={5} id="previsao" pergunta="Para onde o mercado vai?" resposta="Para crescimento modesto e positivo, com intervalo declarado. Estimar o presente é bem mais preciso que prever o futuro.">
           {vencedor && (
             <p>
               A previsão do saldo mensal usa o SARIMA escolhido por validação de origem móvel (treina até um ponto, prevê 12 meses, avança, repete).
