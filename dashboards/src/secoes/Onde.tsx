@@ -42,6 +42,13 @@ const METRICAS = {
 type Metrica = keyof typeof METRICAS;
 
 const GRUPOS = ["Polo maduro", "Emergente", "Mercado incipiente"];
+// O que cada grupo é, em uma frase. O k-médias não dá nomes: eles vêm do
+// perfil de cada grupo, que a página mostra ao lado, calculado do dado.
+const SENTIDO_GRUPO: Record<string, string> = {
+  "Polo maduro": "muito emprego de TI e cidade especializada",
+  Emergente: "ainda pequeno, mas é o que mais cresce",
+  "Mercado incipiente": "pequeno e cresce devagar",
+};
 // A cor segue o grupo no mapa e na dispersão. Laranja, verde-água e roxo:
 // o trio passa na validação de daltonismo em todos os pares, nos dois temas,
 // e nenhum é azul, então as bolhas não somem sobre o mapa (rampa azul).
@@ -766,6 +773,28 @@ function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) =>
         />
         {nivel === "municipio" && <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={encontrados} />}
       </div>
+      {nivel === "municipio" && perfil.linhas.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-3">
+          {GRUPOS.map((g, i) => {
+            const l = perfil.linhas.find((x) => x.nome === g);
+            if (!l) return null;
+            const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
+            return (
+              <div key={g} className="cartao p-4">
+                <p className="flex items-center gap-2 whitespace-nowrap font-medium text-tinta">
+                  <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
+                  {g}
+                </p>
+                <p className="mt-0.5 text-[13px] text-tinta-3">{SENTIDO_GRUPO[g]}</p>
+                <p className="mt-1.5 text-[13px] leading-snug text-tinta-2">
+                  {fmtNum(num(l, "municipios"))} municípios · típico de {fmtNum(num(l, "estoque_mediano"))} vínculos e {fmtDec(num(l, "por_mil_hab"), 1)} por mil habitantes ·
+                  cresceu {fmtDec(num(l, "crescimento"), 0)}% de 2020 a 2025 · {fmtPct((num(l, "estoque_total") / total) * 100, 0)} dos vínculos
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <CartaoGrafico
         titulo={`Especialização × crescimento · ${nivel === "uf" ? "por estado" : f.rotulo}`}
         ajuda={nivel === "uf" ? "porMil" : "trajetoria"}
