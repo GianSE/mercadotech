@@ -161,11 +161,11 @@ export function Modal({ aberto, aoFechar, titulo, children }: { aberto: boolean;
       ref={ref}
       onClose={aoFechar}
       onClick={(e) => e.target === e.currentTarget && aoFechar()}
-      className="m-auto max-h-[85vh] w-[min(56rem,calc(100vw-2rem))] rounded-2xl border border-borda bg-fundo p-0 text-tinta shadow-2xl backdrop:bg-black/50"
+      className="m-auto max-h-[90dvh] w-[min(56rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-2xl border border-borda bg-fundo p-0 text-tinta shadow-2xl backdrop:bg-black/50"
     >
-      <div className="p-5 sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="flex items-center gap-2.5 text-lg font-semibold text-tinta">
+      <div className="p-4 sm:p-6">
+        <div className="mb-3 flex items-start justify-between gap-3 sm:mb-4">
+          <h2 className="flex items-center gap-2.5 text-base font-semibold text-tinta sm:text-lg">
             <span aria-hidden className="faixa-azul h-5 w-1.5 flex-none rounded-full" />
             {titulo}
           </h2>

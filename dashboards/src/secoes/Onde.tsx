@@ -730,25 +730,33 @@ function CartoesGrupos() {
   const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
   return (
     <>
-      <p className="max-w-3xl text-sm text-tinta-3">
-        Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025 (tamanho, especialização, crescimento, contratação, rotatividade e salário). As cores são as das bolhas do mapa e dos pontos do gráfico de trajetória.
-      </p>
+      <p className="text-[13px] text-tinta-3 sm:text-sm">Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025.</p>
       {perfil.carregando && !perfil.linhas.length && <p className="mt-4 text-sm text-tinta-3">Carregando…</p>}
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-3 sm:mt-4 md:grid-cols-3">
         {GRUPOS.map((g, i) => {
           const l = perfil.linhas.find((x) => x.nome === g);
           if (!l) return null;
+          const numeros = [
+            { valor: fmtNum(num(l, "municipios")), rotulo: "municípios" },
+            { valor: fmtPct((num(l, "estoque_total") / total) * 100, 0), rotulo: "dos vínculos" },
+            { valor: `+${fmtDec(num(l, "crescimento"), 0)}%`, rotulo: "em 2020–25" },
+          ];
           return (
-            <div key={g} className="cartao p-4">
-              <p className="flex items-center gap-2 whitespace-nowrap font-medium text-tinta">
+            <div key={g} className="cartao p-3.5 sm:p-4">
+              <p className="flex items-center gap-2 font-medium text-tinta">
                 <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
                 {g}
               </p>
               <p className="mt-0.5 text-[13px] text-tinta-3">{SENTIDO_GRUPO[g]}</p>
-              <p className="mt-1.5 text-[13px] leading-snug text-tinta-2">
-                {fmtNum(num(l, "municipios"))} municípios · típico de {fmtNum(num(l, "estoque_mediano"))} vínculos e {fmtDec(num(l, "por_mil_hab"), 1)} por mil habitantes ·
-                cresceu {fmtDec(num(l, "crescimento"), 0)}% de 2020 a 2025 · {fmtPct((num(l, "estoque_total") / total) * 100, 0)} dos vínculos
-              </p>
+              <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-borda pt-3">
+                {numeros.map((n) => (
+                  // dt antes do dd, como pede o HTML; na tela, o número vem em cima.
+                  <div key={n.rotulo} className="flex min-w-0 flex-col-reverse">
+                    <dt className="mt-1 text-[11px] leading-tight text-tinta-3">{n.rotulo}</dt>
+                    <dd className="text-lg font-semibold leading-none tabular-nums text-tinta">{n.valor}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           );
         })}
