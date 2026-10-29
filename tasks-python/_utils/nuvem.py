@@ -267,6 +267,73 @@ def publicar_arquivo(local: Path, repo: str, caminho_repo: str, privado: bool = 
     arquivos_remotos(repo).add(caminho_repo)  # mantém o cache coerente sem relistar
 
 
+class LotePublicacao:
+    """
+    Junta os parquets de um job da Bronze e publica em um commit só, em vez
+    de um por arquivo: com o limite de 128 commits por hora, um job por mês
+    e quatro anos em paralelo esgotavam a cota em minutos. Também deixa o ano
+    coerente no Hub (sobe inteiro, não meio novo e meio antigo).
+
+    Os arquivos ficam no staging até a publicação. Na RAIS um ano passa de
+    alguns GB, e o disco do runner divide espaço com o texto descompactado:
+    acima de LIMITE_BYTES o job publica o que juntou e segue.
+    """
+
+    LIMITE_BYTES = 2 * 1024**3
+
+    def __init__(self) -> None:
+        self.pendentes: list[tuple[Path, str, str]] = []  # (local, repo, caminho no repo)
+
+    def adicionar(self, local: Path, repo: str, caminho_repo: str) -> None:
+        self.pendentes.append((local, repo, caminho_repo))
+
+    def cheio(self) -> bool:
+        return sum(local.stat().st_size for local, _, _ in self.pendentes) >= self.LIMITE_BYTES
+
+    def publicar(self) -> int:
+        """Publica o lote (um commit por repositório) e devolve quantos arquivos subiram."""
+        from huggingface_hub import CommitOperationAdd, HfApi
+
+        api = HfApi()
+        total = 0
+        for repo in sorted({r for _, r, _ in self.pendentes}):
+            do_repo = [(local, caminho) for local, r, caminho in self.pendentes if r == repo]
+            api.create_repo(repo_id=repo, repo_type="dataset", exist_ok=True)
+            operacoes = [CommitOperationAdd(path_in_repo=caminho, path_or_fileobj=str(local))
+                         for local, caminho in do_repo]
+            com_espera_no_limite(lambda: api.create_commit(
+                repo_id=repo, repo_type="dataset", operations=operacoes,
+                commit_message=f"{len(operacoes)} arquivo(s): {do_repo[0][1]} … {do_repo[-1][1]}"),
+                f"lote de {len(operacoes)} arquivo(s)")
+            for local, caminho in do_repo:
+                arquivos_remotos(repo).add(caminho)
+                local.unlink(missing_ok=True)
+            self.pendentes = [p for p in self.pendentes if p[1] != repo]
+            total += len(do_repo)
+        return total
+
+    def descartar(self) -> int:
+        """Apaga do staging o que não subiu e devolve quantos eram."""
+        n = len(self.pendentes)
+        for local, _, _ in self.pendentes:
+            local.unlink(missing_ok=True)
+        self.pendentes = []
+        return n
+
+
+def publicar_lote(lote: "LotePublicacao") -> int:
+    """Publica o lote e devolve quantos arquivos se PERDERAM (0 se subiu tudo)."""
+    try:
+        n = lote.publicar()
+        if n:
+            print(f"\n☁️  {n} arquivo(s) publicado(s) num commit", flush=True)
+        return 0
+    except Exception as e:
+        n = lote.descartar()
+        print(f"\n❌ Publicação do lote falhou, {n} arquivo(s) não subiram: {str(e)[:300]}", flush=True)
+        return n
+
+
 def publicar_diretorio(local_dir: Path, repo: str, prefixo_repo: str = "") -> int:
     """
     Sobe toda a árvore local (resultado de um COPY particionado hive) pro

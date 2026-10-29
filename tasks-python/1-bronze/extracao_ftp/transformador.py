@@ -240,11 +240,12 @@ class FalhaPublicacao(RuntimeError):
     novo, como se o arquivo de origem tivesse algum defeito."""
 
 
-def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
+def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path], lote=None) -> int:
     """
     Executa o COPY, publica o resultado no Hugging Face e devolve a
     contagem de linhas gravadas. O destino é um arquivo local temporário
-    — sobe pro Hub e é apagado em seguida (ver _utils/nuvem.py).
+    — sobe pro Hub e é apagado em seguida (ver _utils/nuvem.py). Com um
+    lote, o arquivo fica no staging e sobe junto com os outros do job.
     """
     colunas = _colunas(con, leitura)
     if not colunas:
@@ -284,6 +285,10 @@ def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
         destino.unlink()
         raise RuntimeError(f"leitura incompleta: {total:,} de {esperadas:,} linhas do texto")
 
+    if lote is not None:
+        lote.adicionar(destino, nuvem.repo_bronze(item.tabela), item.destino_rel)
+        return total
+
     try:
         nuvem.publicar_arquivo(destino, nuvem.repo_bronze(item.tabela), item.destino_rel)
     except Exception as e:
@@ -294,7 +299,7 @@ def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
     return total
 
 
-def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]:
+def converter(con, arquivos: list[Path], item: ItemTrabalho, lote=None) -> tuple[bool, int]:
     """
     Converte os arquivos de dados extraídos num único parquet e publica no Hugging Face.
 
@@ -315,7 +320,7 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
     delimitador = detectar_delimitador(arquivos[0])
     print(f"      🔤 Encoding detectado: {encoding}  |  delimitador: '{delimitador}'")
     try:
-        linhas = _copiar(con, _opcoes_leitura(arquivos, encoding, delimitador), item, arquivos)
+        linhas = _copiar(con, _opcoes_leitura(arquivos, encoding, delimitador), item, arquivos, lote)
         return True, linhas
     except FalhaPublicacao as e:
         print(f"      ❌ Publicação no Hub falhou: {str(e)[:300]}")
@@ -329,7 +334,7 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
             return False, 0
 
     try:
-        linhas = _copiar(con, _opcoes_leitura(arquivos, "utf-8", delimitador), item, arquivos)
+        linhas = _copiar(con, _opcoes_leitura(arquivos, "utf-8", delimitador), item, arquivos, lote)
         return True, linhas
     except FalhaPublicacao as e:
         print(f"      ❌ Publicação no Hub falhou: {str(e)[:300]}")

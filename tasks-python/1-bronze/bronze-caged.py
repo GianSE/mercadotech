@@ -118,7 +118,7 @@ def _limpar_temporarios(compactado, arquivos_extraidos) -> None:
 
 
 def _processar_item(item: ItemTrabalho, cliente: ClienteFTP, con, manifesto: Manifesto,
-                    indice: int, total: int) -> bool:
+                    indice: int, total: int, lote: nuvem.LotePublicacao) -> bool:
     inicio = time.time()
     compactado = DIR_DOWNLOAD / item.nome_arquivo
     extraidos: list = []
@@ -138,10 +138,10 @@ def _processar_item(item: ItemTrabalho, cliente: ClienteFTP, con, manifesto: Man
             return False
 
         print(f"      🔄 Gravando {item.destino_rel}")
-        ok, linhas = converter(con, extraidos, item)
+        ok, linhas = converter(con, extraidos, item, lote)
         segundos = time.time() - inicio
         if ok:
-            print(f"      ✅ {linhas:,} linhas em {segundos:.0f}s")
+            print(f"      ✅ {linhas:,} linhas em {segundos:.0f}s (sobe com o lote)")
             manifesto.registrar(item, linhas, segundos, "ok")
         else:
             manifesto.registrar(item, 0, segundos, "erro", "conversão falhou")
@@ -190,13 +190,21 @@ def modo_processar(args) -> int:
     con = nuvem.conectar_duckdb()
     manifesto = Manifesto()
     sucessos = falhas = 0
+    # Um commit para o job inteiro (ou a cada 2 GB juntados), não um por arquivo.
+    lote = nuvem.LotePublicacao()
 
     for n, item in enumerate(itens, start=1):
         print(f"\n[{n}/{len(itens)}] 🎯 {item.rotulo}  ({item.tamanho / 1e6:.0f} MB)")
-        if _processar_item(item, cliente, con, manifesto, n, len(itens)):
+        if _processar_item(item, cliente, con, manifesto, n, len(itens), lote):
             sucessos += 1
         else:
             falhas += 1
+        if lote.cheio():
+            perdidos = nuvem.publicar_lote(lote)
+            sucessos, falhas = sucessos - perdidos, falhas + perdidos
+
+    perdidos = nuvem.publicar_lote(lote)
+    sucessos, falhas = sucessos - perdidos, falhas + perdidos
 
     heartbeat.limpar()
     cliente.fechar()
