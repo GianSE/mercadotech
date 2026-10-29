@@ -4,24 +4,94 @@ import { useFiltro } from "./lib/filtro";
 import { useTema } from "./lib/tema";
 import { partesHash } from "./lib/url";
 
-type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType };
+// `grupo`: as perguntas 2 e 3 têm duas páginas cada (2a/2b, 3a/3b), que o
+// menu mostra num submenu com o nome da pergunta.
+type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType; grupo?: string };
 
 const ROTAS: Rota[] = [
   { id: "pesquisa", rotulo: "Visão geral", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
   { id: "crescimento", rotulo: "1 · Crescimento", curto: "1", componente: lazy(() => import("./secoes/Crescimento")) },
-  { id: "onde", rotulo: "2 · Onde", curto: "2", componente: lazy(() => import("./secoes/Onde")) },
-  { id: "salario", rotulo: "3a · Salário", curto: "3a", componente: lazy(() => import("./secoes/Salario")) },
-  { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", componente: lazy(() => import("./secoes/Permanencia")) },
+  { id: "setor", rotulo: "2a · Setor", curto: "2a", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Setor")) },
+  { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Lugares")) },
+  { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Salario")) },
+  { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Permanencia")) },
   { id: "equidade", rotulo: "4 · Equidade", curto: "4", componente: lazy(() => import("./secoes/Equidade")) },
   { id: "futuro", rotulo: "5 · Futuro", curto: "5", componente: lazy(() => import("./secoes/Futuro")) },
   // A única página com texto: respostas, leitura dos números, ressalvas e método.
   { id: "analise", rotulo: "Análise", curto: "Análise", componente: lazy(() => import("./secoes/Analise")) },
 ];
 
+type ItemMenu = { rota: Rota } | { grupo: string; rotas: Rota[] };
+function itensMenu(): ItemMenu[] {
+  const itens: ItemMenu[] = [];
+  for (const r of ROTAS) {
+    const ultimo = itens[itens.length - 1];
+    if (r.grupo && ultimo && "grupo" in ultimo && ultimo.grupo === r.grupo) ultimo.rotas.push(r);
+    else itens.push(r.grupo ? { grupo: r.grupo, rotas: [r] } : { rota: r });
+  }
+  return itens;
+}
+
+// Submenu de uma pergunta com duas páginas: abre no clique, fecha ao
+// escolher, ao clicar fora ou com Esc.
+function MenuGrupo({ grupo, rotas, atual }: { grupo: string; rotas: Rota[]; atual: string }) {
+  const [aberto, setAberto] = useState(false);
+  const raiz = useRef<HTMLLIElement>(null);
+  const ativo = rotas.some((r) => r.id === atual);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => !raiz.current?.contains(e.target as Node) && setAberto(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [aberto]);
+  const aqui = rotas.find((r) => r.id === atual);
+  return (
+    <li ref={raiz} className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((a) => !a)}
+        aria-expanded={aberto}
+        aria-haspopup="true"
+        className={`relative flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors ${
+          ativo ? "bg-white/10 text-sobre-marca after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-acento" : "text-sobre-marca/65 hover:bg-white/5 hover:text-sobre-marca"
+        }`}
+      >
+        {aqui ? aqui.rotulo : grupo}
+        <svg viewBox="0 0 20 20" aria-hidden className={`h-3.5 w-3.5 fill-current transition-transform ${aberto ? "rotate-180" : ""}`}>
+          <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />
+        </svg>
+      </button>
+      {aberto && (
+        <ul className="absolute left-0 top-full z-40 mt-2 min-w-[11rem] rounded-xl border border-white/10 bg-marca p-1.5 shadow-xl">
+          {rotas.map((r) => (
+            <li key={r.id}>
+              <a
+                href={`#/${r.id}`}
+                onClick={() => setAberto(false)}
+                aria-current={atual === r.id ? "page" : undefined}
+                className={`block whitespace-nowrap rounded-lg px-3 py-2 text-[13px] ${atual === r.id ? "bg-white/10 text-sobre-marca" : "text-sobre-marca/75 hover:bg-white/5 hover:text-sobre-marca"}`}
+              >
+                {r.rotulo}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 function rotaAtual(): string {
-  const { rota } = partesHash();
-  // A antiga página da pergunta 3 virou 3a e 3b: o link velho cai na 3a.
-  const id = rota === "qualidade" ? "salario" : rota;
+  const { rota, params } = partesHash();
+  // As antigas páginas das perguntas 2 e 3 viraram 2a/2b e 3a/3b. Um link
+  // velho de /onde que marcava município ou mesorregião era do mapa (2b).
+  const antigo: Record<string, string> = { qualidade: "salario", onde: params.has("destacar") || params.has("meso") ? "mapa" : "setor" };
+  const id = antigo[rota] ?? rota;
   return ROTAS.some((r) => r.id === id) ? id : "pesquisa";
 }
 
@@ -333,19 +403,23 @@ export default function App() {
             </a>
             <nav className="hidden flex-1 justify-center lg:flex" aria-label="Seções">
               <ul className="flex gap-1">
-                {ROTAS.map((r) => (
-                  <li key={r.id}>
-                    <a
-                      href={`#/${r.id}`}
-                      aria-current={rota === r.id ? "page" : undefined}
-                      className={`relative block whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors ${
-                        rota === r.id ? "bg-white/10 text-sobre-marca after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-acento" : "text-sobre-marca/65 hover:bg-white/5 hover:text-sobre-marca"
-                      }`}
-                    >
-                      {r.rotulo}
-                    </a>
-                  </li>
-                ))}
+                {itensMenu().map((item) =>
+                  "grupo" in item ? (
+                    <MenuGrupo key={item.grupo} grupo={item.grupo} rotas={item.rotas} atual={rota} />
+                  ) : (
+                    <li key={item.rota.id}>
+                      <a
+                        href={`#/${item.rota.id}`}
+                        aria-current={rota === item.rota.id ? "page" : undefined}
+                        className={`relative block whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors ${
+                          rota === item.rota.id ? "bg-white/10 text-sobre-marca after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-acento" : "text-sobre-marca/65 hover:bg-white/5 hover:text-sobre-marca"
+                        }`}
+                      >
+                        {item.rota.rotulo}
+                      </a>
+                    </li>
+                  ),
+                )}
               </ul>
             </nav>
             {/* Celular: a navegação é um seletor nativo na própria barra — uma
@@ -359,9 +433,17 @@ export default function App() {
                 }}
                 className="h-10 w-full max-w-[11.5rem] appearance-none truncate rounded-full border border-white/15 bg-white/10 pl-4 pr-9 text-[14px] font-medium text-sobre-marca"
               >
-                {ROTAS.map((r) => (
-                  <option key={r.id} value={r.id} className="bg-marca text-sobre-marca">{r.rotulo}</option>
-                ))}
+                {itensMenu().map((item) =>
+                  "grupo" in item ? (
+                    <optgroup key={item.grupo} label={item.grupo} className="bg-marca text-sobre-marca">
+                      {item.rotas.map((r) => (
+                        <option key={r.id} value={r.id} className="bg-marca text-sobre-marca">{r.rotulo}</option>
+                      ))}
+                    </optgroup>
+                  ) : (
+                    <option key={item.rota.id} value={item.rota.id} className="bg-marca text-sobre-marca">{item.rota.rotulo}</option>
+                  ),
+                )}
               </select>
               <svg viewBox="0 0 20 20" aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-acento">
                 <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />

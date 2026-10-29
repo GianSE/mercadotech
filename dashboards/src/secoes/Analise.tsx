@@ -155,7 +155,7 @@ export default function Analise() {
           </p>
         </Resposta>
 
-        <Resposta numero={2} id="onde" pergunta="Onde está o trabalho de TI: em que empresas e em que lugares?" resposta="A maior parte dos profissionais de TI está fora das empresas de TI, e o interior cresce mais rápido que as capitais.">
+        <Resposta numero={2} id="setor" pergunta="Onde está o trabalho de TI: em que empresas e em que lugares?" resposta="A maior parte dos profissionais de TI está fora das empresas de TI, e o interior cresce mais rápido que as capitais.">
           <TextoLentesEstoque fora={fora} dentro={dentro} />
           {admFora > 0 && (
             <p>

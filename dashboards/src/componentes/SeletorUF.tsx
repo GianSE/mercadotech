@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { REGIOES, SEM_SP, UFS, useFiltro, type Regiao } from "../lib/filtro";
+import { REGIOES, UFS, useFiltro, type Regiao } from "../lib/filtro";
 
-// Menu suspenso com caixas de seleção: atalhos (Brasil, Brasil sem SP, só SP),
-// regiões inteiras e estado a estado. Vale para o site todo.
+// Menu suspenso com caixas de seleção: o atalho "Brasil" (limpa a seleção),
+// regiões inteiras e estado a estado. Vale para o site todo. Para tirar um
+// estado, como SP, basta desmarcá-lo.
 export function SeletorUF() {
   const f = useFiltro();
   const [aberto, setAberto] = useState(false);
@@ -35,11 +36,7 @@ export function SeletorUF() {
   };
   const alternarUf = (uf: string) => f.definir(marcada(uf) ? marcadas.filter((u) => u !== uf) : [...marcadas, uf]);
 
-  const atalhos: { rotulo: string; ufs: string[] }[] = [
-    { rotulo: "Brasil", ufs: [] },
-    { rotulo: "Brasil sem SP", ufs: SEM_SP },
-    { rotulo: "Só SP", ufs: ["SP"] },
-  ];
+  const atalhos: { rotulo: string; ufs: string[] }[] = [{ rotulo: "Brasil", ufs: [] }];
 
   return (
     <div ref={raiz} className="relative flex min-w-0 flex-col gap-1">

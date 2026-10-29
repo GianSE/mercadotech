@@ -107,26 +107,32 @@ const ordenarLentes = <T extends { categoria?: unknown }>(l: T[]) =>
 // O clique numa bolha de município traz "Nome (UF)": filtra pela UF dele.
 const ufDoClique = ({ nome }: Clique) => (UFS.includes(nome) ? nome : nome.match(/\(([A-Z]{2})\)$/)?.[1] ?? null);
 
-export default function Onde() {
+// A pergunta 2 (onde está o trabalho de TI?) em duas páginas: 2a, em que
+// empresas (setor × ocupação); 2b, em que lugares (o mapa e os grupos de
+// municípios). Cada uma só consulta o que mostra.
+export type ParteOnde = "setor" | "mapa";
+
+export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
   const { cores: c } = useTema();
   const f = useFiltro();
+  const setor = parte === "setor";
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2026], lerPeriodo, escreverPeriodo);
   const anoRais = Math.min(periodo[1], 2025);
   // A busca vale para o mapa e para a dispersão de municípios ao mesmo tempo.
   const [busca, setBusca] = useParametro("destacar", "", texto, texto);
-  const sugestoes = useConsulta(`
+  const sugestoes = useConsulta(setor ? null : `
     SELECT DISTINCT g.nome || ' (' || g.uf || ')' AS rotulo
     FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
     WHERE m.estoque > 0 ORDER BY 1`);
 
-  const lentesFluxo = useConsulta(`
+  const lentesFluxo = useConsulta(!setor ? null : `
     SELECT lente AS categoria, sum(admissoes)::DOUBLE AS admissoes, sum(saldo)::DOUBLE AS saldo,
            sum(soma_salario_adm) / nullif(sum(n_salario_adm), 0) AS salario
     FROM caged_cubo WHERE ${entre(periodo)} AND ${f.sql()} GROUP BY 1`);
   // Sem filtro, a tabela do cruzamento setor × ocupação (a do TCC); com
   // filtro, a mesma conta sobre o estoque por UF, que tem as duas marcações.
   // A mediana de cada lente: exata sem filtro, pelo histograma com filtro.
-  const lentesEstoque = useConsulta(`
+  const lentesEstoque = useConsulta(!setor ? null : `
     SELECT e.categoria, e.estoque, m.mediana
     FROM (SELECT ${LENTE_RAIS} AS categoria, sum(estoque_3112)::DOUBLE AS estoque
           FROM ${f.ativo ? "rais_estoque_uf" : "rais_setor_vs_ocupacao"} WHERE ano = ${anoRais} AND ${f.sql()} GROUP BY 1) e
@@ -134,7 +140,7 @@ export default function Onde() {
       ? medianaHist(`ano = ${anoRais} AND ${f.sql()}`, LENTE_RAIS)
       : `SELECT CASE grupo WHEN 'dentro' THEN '${DENTRO}' WHEN 'fora' THEN '${FORA}' ELSE 'Outra ocupação em empresa de TI' END AS g, mediana
          FROM (${medianaExata("lente", `ano = ${anoRais}`)})`}) m ON m.g = e.categoria`);
-  const quemContrata = useConsulta(`
+  const quemContrata = useConsulta(!setor ? null : `
     SELECT setor, sum(admissoes)::DOUBLE AS admissoes, sum(saldo)::DOUBLE AS saldo,
            sum(soma_salario_adm) / nullif(sum(n_salario_adm), 0) AS salario
     FROM caged_cubo WHERE lente = '${FORA}' AND setor IS NOT NULL AND ${entre(periodo)} AND ${f.sql()}
@@ -175,6 +181,23 @@ export default function Onde() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fluxo, estoque, quemContrata.linhas, c]);
 
+  const ufsAno = useConsulta(setor ? null : `
+    SELECT uf, estoque::DOUBLE AS estoque FROM mapa_uf
+    WHERE ano = (SELECT max(ano) FROM mapa_uf WHERE estoque > 0) AND ${UF_VALIDA} AND ${f.sql()}`);
+  const grupos = useConsulta(setor ? null : `
+    SELECT nome, count(*)::DOUBLE AS municipios, sum(estoque)::DOUBLE AS estoque, median(crescimento) * 100 AS crescimento
+    FROM municipios_cluster WHERE ${f.sql()} GROUP BY 1`);
+  const respostaMapa = (() => {
+    const u = [...ufsAno.linhas].sort((a, b) => num(b, "estoque") - num(a, "estoque"));
+    const g = (nome: string) => grupos.linhas.find((l) => l.nome === nome);
+    const [polo, emergente] = [g("Polo maduro"), g("Emergente")];
+    const total = grupos.linhas.reduce((s, l) => s + num(l, "estoque"), 0);
+    const somaUf = u.reduce((s, l) => s + num(l, "estoque"), 0);
+    if (!u.length || !polo || !emergente || !total) return undefined;
+    const topo = u.length > 1 ? `${u[0].uf} concentra ${fmtDec((num(u[0], "estoque") / somaUf) * 100, 0)}% do emprego formal de TI${f.ativo ? ` em ${f.rotulo}` : ""}; ` : "";
+    return `${topo}${fmtNum(num(polo, "municipios"))} polos maduros reúnem ${fmtDec((num(polo, "estoque") / total) * 100, 0)}% dos vínculos dos municípios analisados, e ${fmtNum(num(emergente, "municipios"))} municípios emergentes cresceram ${fmtDec(num(emergente, "crescimento"), 0)}% de 2020 a 2025.`;
+  })();
+
   // Resposta do topo: a parcela dos profissionais de TI fora das empresas de TI.
   const resposta = (() => {
     const v = (cat: string) => num(estoque.find((l) => l.categoria === cat), "estoque");
@@ -188,16 +211,20 @@ export default function Onde() {
   return (
     <>
       <CabecalhoPergunta
-        numero={2}
-        pergunta="Onde está o trabalho de TI: em que empresas e em que lugares?"
-        resposta={resposta}
+        numero={setor ? "2a" : "2b"}
+        pergunta={setor ? "Onde está o trabalho de TI: em que empresas?" : "Onde está o trabalho de TI: em que lugares?"}
+        resposta={setor ? resposta : respostaMapa}
       />
-      <LinhaFiltros
-        resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}
-      >
-        <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
-      </LinhaFiltros>
+      {setor ? (
+        <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]} · RAIS ${anoRais}`}>
+          <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
+        </LinhaFiltros>
+      ) : (
+        // O mapa tem o seu próprio ano; aqui, só o território.
+        <LinhaFiltros />
+      )}
 
+      {setor && (
       <Bloco
         titulo="Setor de TI ou ocupação de TI?"
       >
@@ -255,14 +282,19 @@ export default function Onde() {
           }}
         />
       </Bloco>
+      )}
 
-      <datalist id="municipios-busca">
-        {sugestoes.linhas.map((l) => (
-          <option key={String(l.rotulo)} value={String(l.rotulo)} />
-        ))}
-      </datalist>
-      <Mapa busca={busca} aoBuscar={setBusca} />
-      <Clusters busca={busca} aoBuscar={setBusca} />
+      {!setor && (
+        <>
+          <datalist id="municipios-busca">
+            {sugestoes.linhas.map((l) => (
+              <option key={String(l.rotulo)} value={String(l.rotulo)} />
+            ))}
+          </datalist>
+          <Mapa busca={busca} aoBuscar={setBusca} />
+          <Clusters busca={busca} aoBuscar={setBusca} />
+        </>
+      )}
     </>
   );
 }
