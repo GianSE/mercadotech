@@ -6,6 +6,10 @@
 #                      só lista o FTP com --modo verificar)
 #   - nada do site de dashboards: ele é Node (dashboards/package.json) e é
 #     construído pelo próprio Cloudflare Pages, não pelo Actions
+# Os modelos (scikit-learn, statsmodels, prophet, que trazem scipy,
+# matplotlib e cmdstanpy) ficam em requirements-modelos.txt: só as duas
+# etapas da Gold que os usam instalam, e uma atualização deles não pode
+# quebrar a Bronze nem a Silver.
 # Ver requirements-pipeline.txt pro conjunto completo (máquina local).
 
 duckdb==1.5.6
@@ -16,10 +20,3 @@ huggingface_hub==2.2.0
 
 # --- extração do FTP do MTE (bronze-caged.yml / bronze-rais.yml) ---
 py7zr==1.1.3
-
-# --- modelos (gold-analise-mercado-ti.yml -> ciencia_dados.materializar) ---
-scikit-learn==1.9.1     # clusters_municipios.py
-statsmodels==0.15.0     # hiato_salarial.py, nowcast_estoque.py, previsao_saldo.py,
-                         # serie.py, sobrevivencia.py (traz scipy como dependência)
-prophet==1.5.0          # previsao_saldo.py: comparado ao SARIMA na mesma validação
-                         # (traz cmdstanpy; testado com pandas 3.0.6)

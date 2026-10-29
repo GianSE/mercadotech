@@ -1,0 +1,10 @@
+# Dependências das etapas de modelos da Gold no CI: gold-territorio.yml
+# (agrupamento dos municípios) e gold-modelos.yml (previsão, nowcast,
+# sobrevivência, hiato). O resto do pipeline instala só o básico.
+-r requirements-actions.txt
+
+scikit-learn==1.9.1     # clusters_municipios.py (gold-territorio.yml)
+statsmodels==0.15.0     # hiato_salarial.py, nowcast_estoque.py, previsao_saldo.py,
+                         # serie.py, sobrevivencia.py (traz scipy como dependência)
+prophet==1.5.0          # previsao_saldo.py: comparado ao SARIMA na mesma validação
+                         # (traz cmdstanpy; testado com pandas 3.0.6)
