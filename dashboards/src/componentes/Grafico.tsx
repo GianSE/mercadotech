@@ -165,25 +165,26 @@ export function CartaoGrafico(props: {
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {props.recolhido && <BotaoExpandir aberto={!fechado} aoAlternar={() => setFechado((v) => !v)} rotulo="Mostrar gráfico" />}
-          {!fechado && mostraGrafico && (
-            <BotaoBaixar rotulo="Baixar imagem (PNG)" aoClicar={baixarPng}>
-              <path d="M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v8.6l3.3-3.3a1 1 0 0 1 1.4 0l1.8 1.8 1.3-1.3a1 1 0 0 1 1.4 0L15 12.6V5H5Zm7.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
-            </BotaoBaixar>
-          )}
-          {!fechado && props.tabela && props.tabela.linhas.length > 0 && (
-            <BotaoBaixar rotulo="Baixar dados (CSV)" aoClicar={() => baixarCsv(props.tabela!.colunas, props.tabela!.linhas, props.titulo)}>
-              <path d="M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z" />
-            </BotaoBaixar>
-          )}
-          {!fechado && props.tabela && (
+          {!fechado && verTabela && (
             <button
               type="button"
-              onClick={() => setVerTabela((v) => !v)}
-              aria-pressed={verTabela}
-              className="rounded-full border border-borda px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta"
+              onClick={() => setVerTabela(false)}
+              className="rounded-full border border-borda px-3 py-1.5 text-[12px] font-medium text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta"
             >
-              {verTabela ? "Gráfico" : "Tabela"}
+              Ver gráfico
             </button>
+          )}
+          {!fechado && (
+            <MenuGrafico
+              titulo={props.titulo}
+              itens={[
+                props.tabela && !verTabela ? { rotulo: "Ver tabela", icone: ICONE_TABELA, aoEscolher: () => setVerTabela(true) } : null,
+                props.tabela && props.tabela.linhas.length > 0
+                  ? { rotulo: "Baixar dados (CSV)", icone: ICONE_CSV, aoEscolher: () => baixarCsv(props.tabela!.colunas, props.tabela!.linhas, props.titulo) }
+                  : null,
+                mostraGrafico ? { rotulo: "Baixar imagem (PNG)", icone: ICONE_PNG, aoEscolher: baixarPng } : null,
+              ]}
+            />
           )}
         </div>
       </figcaption>
@@ -209,18 +210,82 @@ export function CartaoGrafico(props: {
   );
 }
 
-// Botão redondo de ícone, do mesmo tamanho do "Tabela".
-function BotaoBaixar({ rotulo, aoClicar, children }: { rotulo: string; aoClicar: () => void; children: ReactNode }) {
+// Ícones do menu, no grid de 20×20.
+const ICONE_TABELA = "M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v2.5h10V5H5Zm10 4.5H11v2h4v-2Zm0 4H11V15h4v-1.5ZM9 15v-1.5H5V15h4Zm-4-3.5h4v-2H5v2Z";
+const ICONE_CSV = "M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z";
+const ICONE_PNG = "M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v8.6l3.3-3.3a1 1 0 0 1 1.4 0l1.8 1.8 1.3-1.3a1 1 0 0 1 1.4 0L15 12.6V5H5Zm7.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z";
+
+type ItemMenu = { rotulo: string; icone: string; aoEscolher: () => void };
+
+// As ações de um cartão (tabela, CSV, PNG) num menu só, atrás dos três
+// pontos: o título fica com a largura toda, e todo gráfico tem as ações no
+// mesmo lugar. Fecha ao escolher, com Esc ou com um clique fora.
+function MenuGrafico({ titulo, itens }: { titulo: string; itens: (ItemMenu | null)[] }) {
+  const [aberto, setAberto] = useState(false);
+  const caixa = useRef<HTMLDivElement>(null);
+  const visiveis = itens.filter((i): i is ItemMenu => i !== null);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: PointerEvent) => !caixa.current?.contains(e.target as Node) && setAberto(false);
+    const tecla = (e: KeyboardEvent) => {
+      const opcoes = [...(caixa.current?.querySelectorAll<HTMLButtonElement>("[role=menuitem]") ?? [])];
+      const atual = opcoes.indexOf(document.activeElement as HTMLButtonElement);
+      if (e.key === "Escape") {
+        setAberto(false);
+        caixa.current?.querySelector<HTMLButtonElement>("[aria-haspopup]")?.focus();
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        opcoes[(atual + (e.key === "ArrowDown" ? 1 : -1) + opcoes.length) % opcoes.length]?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", fora);
+    document.addEventListener("keydown", tecla);
+    caixa.current?.querySelector<HTMLButtonElement>("[role=menuitem]")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", fora);
+      document.removeEventListener("keydown", tecla);
+    };
+  }, [aberto]);
+  if (!visiveis.length) return null;
   return (
-    <button
-      type="button"
-      onClick={aoClicar}
-      aria-label={rotulo}
-      title={rotulo}
-      className="grid h-[30px] w-[30px] place-items-center rounded-full border border-borda text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta"
-    >
-      <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 fill-current" aria-hidden>{children}</svg>
-    </button>
+    <div ref={caixa} className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={aberto}
+        aria-label={`Opções do gráfico: ${titulo}`}
+        title="Tabela e downloads"
+        className={`grid h-8 w-8 place-items-center rounded-full border text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta ${aberto ? "border-serie-1 text-tinta" : "border-borda"}`}
+      >
+        <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current" aria-hidden>
+          <circle cx="10" cy="4.5" r="1.6" />
+          <circle cx="10" cy="10" r="1.6" />
+          <circle cx="10" cy="15.5" r="1.6" />
+        </svg>
+      </button>
+      {aberto && (
+        <div role="menu" className="absolute right-0 top-full z-30 mt-1.5 min-w-[13rem] rounded-xl border border-borda bg-superficie p-1 shadow-lg">
+          {visiveis.map((item) => (
+            <button
+              key={item.rotulo}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAberto(false);
+                item.aoEscolher();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] text-tinta-2 outline-none transition-colors hover:bg-superficie-2 hover:text-tinta focus-visible:bg-superficie-2 focus-visible:text-tinta"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4 flex-none fill-current text-tinta-3" aria-hidden>
+                <path d={item.icone} />
+              </svg>
+              {item.rotulo}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -248,11 +313,10 @@ export function CartaoTabela({ titulo, subtitulo, tabela, rodape, nacional, acao
         </div>
         <div className="flex items-end gap-3">
           {acao}
-          {tabela.linhas.length > 0 && (
-            <BotaoBaixar rotulo="Baixar dados (CSV)" aoClicar={() => baixarCsv(tabela.colunas, tabela.linhas, titulo)}>
-              <path d="M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z" />
-            </BotaoBaixar>
-          )}
+          <MenuGrafico
+            titulo={titulo}
+            itens={[tabela.linhas.length > 0 ? { rotulo: "Baixar dados (CSV)", icone: ICONE_CSV, aoEscolher: () => baixarCsv(tabela.colunas, tabela.linhas, titulo) } : null]}
+          />
         </div>
       </figcaption>
       <VistaTabela tabela={tabela} />

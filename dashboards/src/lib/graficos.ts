@@ -24,6 +24,9 @@ const ACENTO = "#ffc20e";
 // rótulo em cima, barra embaixo. A altura do gráfico passa a depender do
 // número de categorias, não o contrário (que espremeria as barras).
 const LINHA_COMPACTA = 46;
+// Tela de toque: o dedo que arrasta dentro do gráfico tem de rolar a página,
+// e não as barras; nelas, a rolagem fica só na barra lateral, mais larga.
+const TOQUE = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 const LARGURA_ROTULO_COMPACTO = 250;
 
 // Altura que o gráfico pede (fora das opções do ECharts, que ignoraria a
@@ -398,12 +401,14 @@ export function opcaoBarras(
             {
               // filterMode "none": rolar não reajusta a escala às barras visíveis —
               // a 20ª cidade não pode parecer do tamanho da capital.
-              type: "slider" as const, yAxisIndex: 0, filterMode: "none" as const, right: 2, width: 8, startValue: 0, endValue: o.janela! - 1,
+              type: "slider" as const, yAxisIndex: 0, filterMode: "none" as const, right: 2, width: TOQUE ? 14 : 8, startValue: 0, endValue: o.janela! - 1,
               zoomLock: true, brushSelect: false, showDetail: false, showDataShadow: false,
               borderColor: "transparent", backgroundColor: c.grade, fillerColor: comAlfa(c.azul[1], 0.45),
               handleSize: 0, moveHandleSize: 0,
             },
-            { type: "inside" as const, yAxisIndex: 0, filterMode: "none" as const, startValue: 0, endValue: o.janela! - 1, zoomOnMouseWheel: false, moveOnMouseWheel: true, moveOnMouseMove: true },
+            ...(TOQUE
+              ? []
+              : [{ type: "inside" as const, yAxisIndex: 0, filterMode: "none" as const, startValue: 0, endValue: o.janela! - 1, zoomOnMouseWheel: false, moveOnMouseWheel: true, moveOnMouseMove: true }]),
           ],
         }
       : {}),
