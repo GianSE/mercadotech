@@ -24,7 +24,8 @@ const ROTAS: Rota[] = [
   { id: "previsao", rotulo: "5a · Previsão", curto: "5a", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/Previsao")) },
   { id: "estoque-atual", rotulo: "5b · Estoque atual", curto: "5b", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/EstoqueAtual")) },
   // A única página com texto: respostas, leitura dos números, ressalvas e método.
-  { id: "analise", rotulo: "Análise", curto: "Análise", componente: lazy(() => import("./secoes/Analise")) },
+  { id: "respostas", rotulo: "Respostas", curto: "Respostas", grupo: "Análise", componente: lazy(() => import("./secoes/Respostas")) },
+  { id: "metodo-dados", rotulo: "Método e dados", curto: "Método", grupo: "Análise", componente: lazy(() => import("./secoes/MetodoDados")) },
 ];
 
 type ItemMenu = { rota: Rota } | { grupo: string; rotas: Rota[] };
@@ -103,6 +104,7 @@ function rotaAtual(): string {
     onde: params.has("destacar") || params.has("meso") ? "mapa" : "setor",
     equidade: "hiato-salarial",
     futuro: "previsao",
+    analise: "respostas",
   };
   const id = antigo[rota] ?? rota;
   return ROTAS.some((r) => r.id === id) ? id : "pesquisa";
@@ -149,6 +151,30 @@ function BotaoApresentar({ aoClicar }: { aoClicar: () => void }) {
 }
 
 // O endereço já guarda página e recorte; o botão só o copia, com confirmação.
+// O código do painel e do pipeline, para quem quiser ver como foi feito.
+const REPOSITORIO = "https://github.com/GianSE/mercadotech";
+function MarcaGithub({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} aria-hidden>
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  );
+}
+function LinkGithub() {
+  return (
+    <a
+      href={REPOSITORIO}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Código no GitHub"
+      title="Código do painel e do pipeline no GitHub"
+      className="grid h-10 w-10 flex-none place-items-center rounded-full text-sobre-marca/80 transition-colors hover:bg-white/10 hover:text-sobre-marca"
+    >
+      <MarcaGithub className="h-[18px] w-[18px] fill-current" />
+    </a>
+  );
+}
+
 function BotaoLink() {
   const [copiado, setCopiado] = useState(false);
   const copiar = () => {
@@ -472,6 +498,7 @@ export default function App() {
             </label>
             <SeloTerritorio />
             <div className="flex flex-none lg:ml-0">
+              <LinkGithub />
               <BotaoLink />
               <BotaoApresentar aoClicar={entrar} />
               <BotaoTema />
@@ -540,7 +567,11 @@ export default function App() {
           </p>
           <p>
             Gian Pedro Rodrigues · TCC · Engenharia da Computação ·{" "}
-            <span className="font-semibold text-tinta-2">UTFPR</span>
+            <span className="font-semibold text-tinta-2">UTFPR</span> ·{" "}
+            <a href={REPOSITORIO} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-tinta-2 underline-offset-2 hover:text-tinta hover:underline">
+              <MarcaGithub className="h-3.5 w-3.5 fill-current" />
+              Código no GitHub
+            </a>
           </p>
         </div>
       </footer>

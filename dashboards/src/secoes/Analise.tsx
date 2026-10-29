@@ -49,7 +49,12 @@ function Resposta({ numero, id, pergunta, resposta, children }: { numero: number
   );
 }
 
-export default function Analise() {
+// A análise em duas páginas: as respostas (com o que os dados não permitem
+// afirmar, que as limita) e o método e os dados por trás delas.
+export type ParteAnalise = "respostas" | "metodo";
+
+export default function Analise({ parte = "respostas" }: { parte?: ParteAnalise }) {
+  const respostas = parte === "respostas";
   // ---------------------------------------------------------- pergunta 1
   const estoque = useConsulta(`SELECT ano, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_anual WHERE ${TI} GROUP BY 1 ORDER BY 1`);
   const cagedAnual = useConsulta("SELECT ano, sum(saldo)::DOUBLE AS saldo, sum(admissoes)::DOUBLE AS admissoes FROM caged_cubo GROUP BY 1 ORDER BY 1");
@@ -136,15 +141,19 @@ export default function Analise() {
 
   return (
     <>
-      <AvisoNacional>A análise é sempre do Brasil inteiro; o filtro de território vale para as páginas de gráficos.</AvisoNacional>
+      {respostas && <AvisoNacional>A análise é sempre do Brasil inteiro; o filtro de território vale para as páginas de gráficos.</AvisoNacional>}
       <header className="mb-8">
         <p className="sobrelinha">
           <span className="mr-2 inline-block h-2 w-2 rounded-[2px] bg-acento align-middle" />
-          Análise e conclusões
+          {respostas ? "Análise e conclusões" : "Método e dados"}
         </p>
-        <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">O que os dados mostram</h1>
+        <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">
+          {respostas ? "O que os dados mostram" : "Como os números foram feitos"}
+        </h1>
       </header>
 
+      {respostas && (
+        <>
       <Bloco titulo="As cinco respostas">
         <Resposta numero={1} id="estoque" pergunta="Quanto o mercado cresceu, e em que ritmo?" resposta="Cresceu muito, com o salto concentrado em 2021–22 — e o ritmo agora desacelera.">
           {estoque.linhas.length > 1 && <TextoEstoque anual={estoque.linhas} />}
@@ -300,6 +309,10 @@ export default function Analise() {
         </ul>
       </Bloco>
 
+        </>
+      )}
+
+      {!respostas && (
       <Bloco titulo="Método e dados">
         <div className="grid gap-4 text-[15px] leading-relaxed text-tinta-2 lg:grid-cols-2 [&_strong]:text-tinta">
           <div className="space-y-3">
@@ -335,6 +348,7 @@ export default function Analise() {
           }}
         />
       </Bloco>
+      )}
     </>
   );
 }
