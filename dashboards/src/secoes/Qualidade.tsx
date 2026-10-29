@@ -71,7 +71,13 @@ function itensModelo(linhas: Linha[]): { itens: ItemModelo[]; referencias: strin
   return { itens, referencias };
 }
 
-export default function Qualidade() {
+// A pergunta 3 (o emprego melhorou em qualidade?) em duas páginas: 3a, o
+// salário; 3b, a permanência e o que leva ao desligamento. Cada uma só
+// consulta o que mostra.
+export type ParteQualidade = "salario" | "permanencia";
+
+export default function Qualidade({ parte = "salario" }: { parte?: ParteQualidade }) {
+  const salario = parte === "salario";
   const { cores: c } = useTema();
   const f = useFiltro();
   const [periodo, setPeriodo] = useParametro<Periodo>("periodo", [2007, 2025], lerPeriodo, escreverPeriodo);
@@ -87,23 +93,23 @@ export default function Qualidade() {
           FROM ${tabelaRais(f.ativo)} WHERE ${TI} AND ${entre(periodo)} AND ${f.sql()} GROUP BY 1) a
     LEFT JOIN (${f.ativo ? medianaHist(`${entre(periodo)} AND ${f.sql()}`) : `SELECT ano AS g, mediana FROM (${medianaExata("total")})`}) m ON m.g = a.ano
     ORDER BY 1`);
-  const areas = useConsulta(`
+  const areas = useConsulta(!salario ? null : `
     SELECT a.area, m.mediana, a.estoque
     FROM (SELECT area_ti AS area, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_area
           WHERE area_ti IS NOT NULL AND ano = ${ano} GROUP BY 1) a
     JOIN (${medianaExata("area", `ano = ${ano}`)}) m ON m.grupo = a.area
     ORDER BY 2 DESC`);
   // A mediana de cada área, ano a ano (exata, da Gold): uma linha por área.
-  const areasSerie = useConsulta(`
+  const areasSerie = useConsulta(!salario ? null : `
     SELECT ano, grupo AS area, mediana_sm AS mediana FROM rais_mediana
     WHERE recorte = 'area' AND ${entre(periodo)} ORDER BY ano`);
   // Por escolaridade: a mediana exata, quando a Gold já tem o recorte; numa
   // Gold anterior, a média ponderada da tabela de perfil (média se agrega
   // sem erro, mediana não) — e o título diz qual das duas está na tela.
-  const escMediana = useConsulta(`
+  const escMediana = useConsulta(!salario ? null : `
     SELECT ano, grupo AS escolaridade, mediana_sm AS valor FROM rais_mediana
     WHERE recorte = 'escolaridade' AND ${entre(periodo)} ORDER BY ano`);
-  const semMedianaEsc = !escMediana.carregando && !escMediana.linhas.length;
+  const semMedianaEsc = salario && !escMediana.carregando && !escMediana.linhas.length;
   const escMedia = useConsulta(semMedianaEsc ? `
     SELECT ano, escolaridade, ${ponderada("remuneracao_sm")} AS valor FROM rais_estoque_perfil
     WHERE ${TI} AND escolaridade IS NOT NULL AND escolaridade <> 'Não informado' AND ${entre(periodo)}
@@ -113,12 +119,12 @@ export default function Qualidade() {
   // O salário mínimo de cada ano sai do próprio dado: a RAIS traz a
   // remuneração em reais e em salários mínimos, e a razão entre as duas é o
   // mínimo vigente (R$ 1.518 em 2025), sem tabela digitada à mão.
-  const salarioMinimo = useConsulta(`
+  const salarioMinimo = useConsulta(!salario ? null : `
     SELECT ano, sum(remuneracao_nominal * estoque_3112) / nullif(sum(remuneracao_sm * estoque_3112), 0) AS sm
     FROM rais_estoque_anual WHERE remuneracao_sm > 0 GROUP BY 1`);
-  const risco = useConsulta(`SELECT tempo_de_casa, "risco_%" AS risco, vinculos::DOUBLE AS vinculos, ano FROM sobrevivencia_risco`);
-  const tabua = useConsulta(`SELECT * EXCLUDE (ano) FROM sobrevivencia_tabua`);
-  const multi = useConsulta(`SELECT * FROM sobrevivencia_multivariado`);
+  const risco = useConsulta(salario ? null : `SELECT tempo_de_casa, "risco_%" AS risco, vinculos::DOUBLE AS vinculos, ano FROM sobrevivencia_risco`);
+  const tabua = useConsulta(salario ? null : `SELECT * EXCLUDE (ano) FROM sobrevivencia_tabua`);
+  const multi = useConsulta(salario ? null : `SELECT * FROM sobrevivencia_multivariado`);
   const modelo = useMemo(() => itensModelo(multi.linhas), [multi.linhas]);
 
   const smDoAno = useMemo(() => new Map(salarioMinimo.linhas.map((l) => [num(l, "ano"), num(l, "sm")])), [salarioMinimo.linhas]);
@@ -202,29 +208,36 @@ export default function Qualidade() {
     [a, linhasAreas, serieAreas, esc, medidaEsc, fmtValor, emReais, giro, riscoOrdenado, todos, modelo, c],
   );
 
-  // Resposta do topo: a mediana nas pontas do período e a faixa de maior risco.
+  // Resposta do topo. 3a: a mediana nas pontas do período. 3b: a faixa de
+  // tempo de casa de maior risco e a característica que mais o muda.
   const resposta = (() => {
-    const com = anual.linhas.filter((l) => l.mediana !== null);
-    if (com.length < 2) return undefined;
-    const [p0, p1] = [com[0], com[com.length - 1]];
-    const v = (num(p1, "mediana") / num(p0, "mediana") - 1) * 100;
-    const pico = riscoOrdenado.length ? riscoOrdenado.reduce((m, l) => (num(l, "risco") > num(m, "risco") ? l : m)) : null;
     const onde = f.ativo ? ` em ${f.rotulo}` : "";
-    const movimento = Math.abs(v) < 5 ? "ficou praticamente estável" : v > 0 ? `subiu ${fmtDec(v, 0)}%` : `caiu ${fmtDec(-v, 0)}%`;
-    return `A remuneração mediana de TI${onde} ${movimento} em salários mínimos entre ${num(p0, "ano")} e ${num(p1, "ano")} (de ${fmtDec(num(p0, "mediana"), 2)} para ${fmtDec(num(p1, "mediana"), 2)})${pico ? `; o risco de perder o emprego é maior com ${ROTULO_FAIXA[String(pico.tempo_de_casa)]} de casa` : ""}.`;
+    if (salario) {
+      const com = anual.linhas.filter((l) => l.mediana !== null);
+      if (com.length < 2) return undefined;
+      const [p0, p1] = [com[0], com[com.length - 1]];
+      const v = (num(p1, "mediana") / num(p0, "mediana") - 1) * 100;
+      const movimento = Math.abs(v) < 5 ? "ficou praticamente estável" : v > 0 ? `subiu ${fmtDec(v, 0)}%` : `caiu ${fmtDec(-v, 0)}%`;
+      return `A remuneração mediana de TI${onde} ${movimento} em salários mínimos entre ${num(p0, "ano")} e ${num(p1, "ano")} (de ${fmtDec(num(p0, "mediana"), 2)} para ${fmtDec(num(p1, "mediana"), 2)}).`;
+    }
+    const pico = riscoOrdenado.length ? riscoOrdenado.reduce((m, l) => (num(l, "risco") > num(m, "risco") ? l : m)) : null;
+    if (!pico) return undefined;
+    return `O risco de perder o emprego no ano é maior com ${ROTULO_FAIXA[String(pico.tempo_de_casa)]} de casa (${fmtPct(num(pico, "risco"), 1)}) e cai a partir daí; salário mais alto e mais tempo de casa são o que mais segura as pessoas no emprego.`;
   })();
 
   return (
     <>
       <CabecalhoPergunta
-        numero={3}
-        pergunta="O emprego de TI melhorou em qualidade?"
+        numero={salario ? "3a" : "3b"}
+        pergunta={salario ? "Qualidade do emprego: o salário de TI melhorou?" : "Qualidade do emprego: quanto tempo as pessoas ficam, e o que leva a sair?"}
         resposta={resposta}
       />
       <LinhaFiltros resumo={`${periodo[0]}–${periodo[1]}`}>
         <FiltroPeriodo anos={ANOS} valor={periodo} aoMudar={setPeriodo} />
       </LinhaFiltros>
 
+      {salario && (
+        <>
       <Bloco titulo="Remuneração">
         <div className="flex flex-wrap items-end gap-4">
           <Seletor<Unidade>
@@ -301,6 +314,10 @@ export default function Qualidade() {
         </div>
       </Bloco>
 
+        </>
+      )}
+      {!salario && (
+        <>
       <Bloco titulo={`Quanto dura um emprego de tecnologia`}>
         <CartaoGrafico
           titulo={`Giro do mercado · ${f.rotulo}`}
@@ -360,6 +377,8 @@ export default function Qualidade() {
           }}
         />
       </Bloco>
+        </>
+      )}
     </>
   );
 }

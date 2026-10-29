@@ -33,7 +33,7 @@ export function Ajuda({ termo }: { termo: Termo }) {
 // recorte): a leitura detalhada continua na página Análise. No modo
 // apresentação o cabeçalho aparece em todos os slides, e a frase vira a
 // legenda de cada um.
-export function CabecalhoPergunta({ numero, pergunta, resposta }: { numero: number; pergunta: string; resposta?: ReactNode }) {
+export function CabecalhoPergunta({ numero, pergunta, resposta }: { numero: number | string; pergunta: string; resposta?: ReactNode }) {
   return (
     // data-fixo: no modo apresentação, aparece em todos os slides da página.
     <header data-fixo className="mb-6">

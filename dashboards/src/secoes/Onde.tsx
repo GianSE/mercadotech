@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../componentes/Grafico";
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
-import { REGIOES, UFS, useFiltro, type Regiao } from "../lib/filtro";
+import { REGIOES, rotuloTerritorio, UFS, useFiltro, type Regiao } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoRosca } from "../lib/graficos";
-import { coluna, entre, intervalo, literal, medianaExata, medianaHist, num, rotulos } from "../lib/sql";
+import { opcaoBarras, opcaoDispersao, opcaoMapa, opcaoRosca } from "../lib/graficos";
+import { entre, intervalo, literal, medianaExata, medianaHist, num } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
 import { useConsulta } from "../lib/useConsulta";
@@ -255,7 +255,6 @@ export default function Onde() {
         ))}
       </datalist>
       <Mapa busca={busca} aoBuscar={setBusca} />
-      <SaoPaulo periodo={periodo} />
       <Clusters busca={busca} aoBuscar={setBusca} />
     </>
   );
@@ -294,8 +293,10 @@ function useMesorregioes(ativo: boolean): Mesos | null {
   return dado;
 }
 
-// Barras visíveis de uma vez; as demais, rolando.
-const JANELA_BARRAS = 20;
+// O cartão das barras tem a altura do mapa; cabem 18 barras de uma vez, e
+// as demais se veem rolando.
+const ALTURA_MAPA = 520;
+const JANELA_BARRAS = 18;
 
 // Quantas bolhas ganham nome em cada nível.
 const NOMEADAS = { brasil: 0, regiao: 8, selecao: 8, estado: 10 } as const;
@@ -305,7 +306,7 @@ function Trilha({ nivel, aoIr, meso, aoSairMeso, municipio, aoSairMunicipio }: {
 }) {
   const passos: { rotulo: string; ufs: string[]; meso?: boolean; municipio?: boolean }[] = [{ rotulo: "Brasil", ufs: [] }];
   if (nivel.tipo === "regiao") passos.push({ rotulo: nivel.regiao, ufs: nivel.ufs });
-  if (nivel.tipo === "selecao") passos.push({ rotulo: `${nivel.ufs.length} estados`, ufs: nivel.ufs });
+  if (nivel.tipo === "selecao") passos.push({ rotulo: rotuloTerritorio(nivel.ufs), ufs: nivel.ufs });
   if (nivel.tipo === "estado") {
     const regiao = REGIAO_DA_UF[nivel.uf] as Regiao | undefined;
     if (regiao) passos.push({ rotulo: regiao, ufs: [...REGIOES[regiao]] });
@@ -623,7 +624,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
           opcao={opMapa}
           carregando={uf.carregando || muni.carregando || !mapaPronto}
           erro={uf.erro || muni.erro}
-          altura={520}
+          altura={ALTURA_MAPA}
           tabela={{
             colunas: [
               { chave: "uf", rotulo: "UF" },
@@ -642,7 +643,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
           opcao={totalPais ? opRanking : null}
           carregando={nivel.tipo === "estado" ? doEstado.carregando || !tabelaMesos : uf.carregando}
           erro={nivel.tipo === "estado" ? doEstado.erro : undefined}
-          altura={meso ? 90 + Math.min(barras.valores.length, JANELA_BARRAS) * 21 : 90 + Math.min(barras.valores.length, JANELA_BARRAS) * 44}
+          altura={ALTURA_MAPA}
           tabela={{ colunas: [{ chave: "nome", rotulo: meso ? "Município" : nivel.tipo === "estado" ? "Mesorregião" : nivel.tipo === "brasil" ? "Região" : "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: barras.linhas }}
         />
       </div>
@@ -650,108 +651,7 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   );
 }
 
-// São Paulo tem ~40% do estoque: o bloco mede se as conclusões dependem dele,
-// comparando SP com o resto do país. Não usa o filtro de território — a
-// comparação é sempre a mesma.
-function SaoPaulo({ periodo }: { periodo: Periodo }) {
-  const { cores: c } = useTema();
-  const fim = Math.min(periodo[1], 2025);
-  const inicio = Math.min(periodo[0], fim);
-  const serie = useConsulta(`
-    SELECT ano,
-           sum(estoque_3112) FILTER (WHERE uf = 'SP')::DOUBLE  AS sp,
-           sum(estoque_3112) FILTER (WHERE uf <> 'SP')::DOUBLE AS resto,
-           any_value(m.sp) AS mediana_sp, any_value(m.resto) AS mediana_resto
-    FROM rais_estoque_uf e
-    LEFT JOIN (SELECT ano AS m_ano, max(mediana) FILTER (WHERE grupo = 'SP') AS sp, max(mediana) FILTER (WHERE grupo = 'Brasil sem SP') AS resto
-               FROM (${medianaExata("sp")}) GROUP BY 1) m ON m.m_ano = e.ano
-    WHERE (setor_ti OR ocupacao_ti) AND ano BETWEEN ${inicio} AND ${fim} GROUP BY 1 ORDER BY 1`);
-
-  const s = serie.linhas;
-  const [p, u] = [s[0], s.at(-1)];
-  const cresce = (chave: string) => (num(u, chave) / num(p, chave) - 1) * 100;
-  const cresceTotal = ((num(u, "sp") + num(u, "resto")) / (num(p, "sp") + num(p, "resto")) - 1) * 100;
-  const participacao = (l: (typeof s)[number] | undefined) => (num(l, "sp") / (num(l, "sp") + num(l, "resto"))) * 100;
-
-  const op = useMemo(() => {
-    if (s.length < 2) return { indice: null, mediana: null, participacao: null };
-    const anos = rotulos(s, "ano");
-    const base = (chave: string) => s.map((l) => (num(l, chave) / num(p, chave)) * 100);
-    return {
-      participacao: opcaoLinhas(c, anos, [{ nome: "Participação de SP", dados: s.map(participacao), rotuloFinal: true }], { formato: (v) => fmtPct(v, 1), formatoEixo: (v) => fmtPct(v, 0) }),
-      indice: opcaoLinhas(
-        c,
-        anos,
-        [
-          { nome: "São Paulo", dados: base("sp"), rotuloFinal: true },
-          { nome: "Brasil sem SP", dados: base("resto"), rotuloFinal: true },
-        ],
-        { formato: (v) => fmtDec(v, 0), formatoEixo: (v) => fmtDec(v, 0) },
-      ),
-      mediana: opcaoLinhas(
-        c,
-        anos,
-        [
-          { nome: "São Paulo", dados: coluna(s, "mediana_sp"), rotuloFinal: true },
-          { nome: "Brasil sem SP", dados: coluna(s, "mediana_resto"), rotuloFinal: true },
-        ],
-        { formato: fmtSM, formatoEixo: (v) => fmtDec(v, 1), zero: true },
-      ),
-    };
-  }, [s, p, c]);
-
-  return (
-    <Bloco
-      titulo="São Paulo e o resto do país"
-    >
-      {s.length > 1 && (
-        <Grade colunas={3}>
-          <Kpi destaque rotulo={`Participação de SP no estoque (${num(u, "ano")})`} valor={fmtPct(participacao(u), 1)} detalhe={`era ${fmtPct(participacao(p), 1)} em ${num(p, "ano")}`} />
-          <Kpi
-            rotulo={`Crescimento ${num(p, "ano")}–${num(u, "ano")}`}
-            valor={`${fmtDec(cresce("sp"), 0)}% × ${fmtDec(cresce("resto"), 0)}%`}
-            detalhe={`SP × Brasil sem SP · Brasil: ${fmtDec(cresceTotal, 0)}%`}
-          />
-          <Kpi rotulo={`Mediana em ${num(u, "ano")}`} valor={`${fmtDec(num(u, "mediana_sp"), 2)} × ${fmtDec(num(u, "mediana_resto"), 2)} SM`} detalhe="SP × Brasil sem SP" />
-        </Grade>
-      )}
-      <Grade>
-        <CartaoGrafico
-          titulo="Quem cresceu mais"
-          subtitulo={`RAIS · índice ${num(p, "ano") || ""} = 100 · não segue o filtro`}
-          opcao={op.indice}
-          carregando={serie.carregando}
-          erro={serie.erro}
-          altura={300}
-          tabela={{
-            colunas: [
-              { chave: "ano", rotulo: "Ano" },
-              { chave: "sp", rotulo: "SP", formato: fmtNum, numero: true },
-              { chave: "resto", rotulo: "Brasil sem SP", formato: fmtNum, numero: true },
-            ],
-            linhas: s,
-          }}
-        />
-        <CartaoGrafico
-          titulo="Remuneração mediana"
-          subtitulo="RAIS · salários mínimos, mediana exata"
-          opcao={op.mediana}
-          carregando={serie.carregando}
-          altura={300}
-          tabela={{
-            colunas: [
-              { chave: "ano", rotulo: "Ano" },
-              { chave: "mediana_sp", rotulo: "SP", formato: fmtSM, numero: true },
-              { chave: "mediana_resto", rotulo: "Brasil sem SP", formato: fmtSM, numero: true },
-            ],
-            linhas: s,
-          }}
-        />
-      </Grade>
-    </Bloco>
-  );
-}
-
+// Município: os pontos do agrupamento; estado: a mesma leitura por UF.
 type Nivel = "municipio" | "uf";
 
 function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {

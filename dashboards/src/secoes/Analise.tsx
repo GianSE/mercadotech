@@ -194,7 +194,7 @@ export default function Analise() {
           </p>
         </Resposta>
 
-        <Resposta numero={3} id="qualidade" pergunta="O emprego de TI melhorou em qualidade?" resposta="Não em remuneração relativa: o salário medido em salários mínimos está praticamente parado, e o risco de desligamento se concentra no primeiro ano.">
+        <Resposta numero={3} id="salario" pergunta="O emprego de TI melhorou em qualidade?" resposta="Não em remuneração relativa: o salário medido em salários mínimos está praticamente parado, e o risco de desligamento se concentra no primeiro ano.">
           {rem.length > 1 && <TextoRemuneracao u={rem.at(-1)!} inicio={num(rem[0], "ano")} />}
           <p>
             A partir de 2023 a fonte traz registros com a conversão para salário mínimo invertida (multiplicada em vez de dividida). Eles foram

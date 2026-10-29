@@ -9,16 +9,19 @@ type Rota = { id: string; rotulo: string; curto: string; componente: ComponentTy
 const ROTAS: Rota[] = [
   { id: "pesquisa", rotulo: "Visão geral", curto: "Início", componente: lazy(() => import("./secoes/Pesquisa")) },
   { id: "crescimento", rotulo: "1 · Crescimento", curto: "1", componente: lazy(() => import("./secoes/Crescimento")) },
-  { id: "onde", rotulo: "2 · Onde está", curto: "2", componente: lazy(() => import("./secoes/Onde")) },
-  { id: "qualidade", rotulo: "3 · Qualidade", curto: "3", componente: lazy(() => import("./secoes/Qualidade")) },
-  { id: "equidade", rotulo: "4 · Quem ganha menos", curto: "4", componente: lazy(() => import("./secoes/Equidade")) },
-  { id: "futuro", rotulo: "5 · Para onde vai", curto: "5", componente: lazy(() => import("./secoes/Futuro")) },
+  { id: "onde", rotulo: "2 · Onde", curto: "2", componente: lazy(() => import("./secoes/Onde")) },
+  { id: "salario", rotulo: "3a · Salário", curto: "3a", componente: lazy(() => import("./secoes/Salario")) },
+  { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", componente: lazy(() => import("./secoes/Permanencia")) },
+  { id: "equidade", rotulo: "4 · Equidade", curto: "4", componente: lazy(() => import("./secoes/Equidade")) },
+  { id: "futuro", rotulo: "5 · Futuro", curto: "5", componente: lazy(() => import("./secoes/Futuro")) },
   // A única página com texto: respostas, leitura dos números, ressalvas e método.
   { id: "analise", rotulo: "Análise", curto: "Análise", componente: lazy(() => import("./secoes/Analise")) },
 ];
 
 function rotaAtual(): string {
-  const { rota: id } = partesHash();
+  const { rota } = partesHash();
+  // A antiga página da pergunta 3 virou 3a e 3b: o link velho cai na 3a.
+  const id = rota === "qualidade" ? "salario" : rota;
   return ROTAS.some((r) => r.id === id) ? id : "pesquisa";
 }
 
@@ -335,7 +338,7 @@ export default function App() {
                     <a
                       href={`#/${r.id}`}
                       aria-current={rota === r.id ? "page" : undefined}
-                      className={`relative block rounded-full px-3 py-1.5 text-[13px] transition-colors ${
+                      className={`relative block whitespace-nowrap rounded-full px-2.5 py-1.5 text-[13px] transition-colors ${
                         rota === r.id ? "bg-white/10 text-sobre-marca after:absolute after:inset-x-3 after:-bottom-[11px] after:h-0.5 after:rounded-full after:bg-acento" : "text-sobre-marca/65 hover:bg-white/5 hover:text-sobre-marca"
                       }`}
                     >
