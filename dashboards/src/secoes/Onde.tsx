@@ -3,13 +3,30 @@ import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../co
 import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
 import { REGIOES, UFS, useFiltro, type Regiao } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoMosaico, opcaoRosca } from "../lib/graficos";
+import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoMapa, opcaoRosca } from "../lib/graficos";
 import { coluna, entre, intervalo, literal, medianaExata, medianaHist, num, rotulos } from "../lib/sql";
 import { useTema } from "../lib/tema";
 import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
 import { useConsulta } from "../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
+// Nomes curtos para as seções da CNAE, que no CAGED vêm por extenso ("Atividades
+// Financeiras, de Seguros e Serviços Relacionados"). A seção N reúne locação
+// de mão de obra e serviços terceirizados: por isso o "terceirização".
+const SETORES_CURTOS: Record<string, string> = {
+  "Atividades Administrativas e Serviços Complementares": "Serviços administrativos e terceirização",
+  "Comércio, Reparação de Veículos Automotores e Motocicletas": "Comércio",
+  "Atividades Profissionais, Científicas e Técnicas": "Serviços profissionais e técnicos",
+  "Atividades Financeiras, de Seguros e Serviços Relacionados": "Bancos e seguros",
+  "Indústrias de Transformação": "Indústria",
+  "Informação e Comunicação": "Informação e comunicação",
+  "Outras Atividades de Serviços": "Outros serviços",
+  "Saúde Humana e Serviços Sociais": "Saúde",
+  "Transporte, Armazenagem e Correio": "Transporte e logística",
+  "Administração Pública, Defesa e Seguridade Social": "Administração pública",
+  "Artes, Cultura, Esporte e Recreação": "Artes, cultura e esporte",
+};
+const nomeSetor = (s: string) => SETORES_CURTOS[s] ?? s;
 const FORA = "Profissional de TI fora do setor de TI";
 const DENTRO = "Profissional de TI em empresa de TI";
 const LENTES = [DENTRO, FORA, "Outra ocupação em empresa de TI"];
@@ -116,6 +133,7 @@ export default function Onde() {
     FROM caged_cubo WHERE lente = '${FORA}' AND setor IS NOT NULL AND ${entre(periodo)} AND ${f.sql()}
     GROUP BY 1 ORDER BY 2 DESC LIMIT 10`);
 
+  const contrata = quemContrata.linhas.map((l) => Object.assign({}, l, { curto: nomeSetor(String(l.setor)) }));
   const fluxo = ordenarLentes(lentesFluxo.linhas);
   const estoque = ordenarLentes(lentesEstoque.linhas);
 
@@ -132,10 +150,22 @@ export default function Onde() {
             extraTooltip: (i) => `<div style="margin-top:3px;opacity:.85">Mediana: <strong>${escapar(fmtSM(estoque[i]?.mediana))}</strong></div>`,
           })
         : null,
-      quemContrata: quemContrata.linhas.length
-        ? opcaoMosaico(c, quemContrata.linhas.map((l) => ({ nome: String(l.setor), valor: num(l, "admissoes") })), { extraTooltip: salarioExtra(quemContrata.linhas) })
+      quemContrata: contrata.length
+        ? opcaoBarras(c, contrata.map((l) => l.curto), contrata.map((l) => num(l, "admissoes")), {
+            horizontal: true,
+            nome: "Admissões",
+            formato: fmtNum,
+            formatoEixo: fmtCompacto,
+            larguraRotulo: 230,
+            rotulos: true,
+            rotuloExtra: (i) => (contrata[i]?.salario ? fmtReais(contrata[i].salario) : ""),
+            extraTooltip: (i) =>
+              `<div style="margin-top:3px;opacity:.85">${escapar(String(contrata[i]?.setor ?? ""))}</div>` +
+              (contrata[i]?.salario ? `<div style="margin-top:3px;opacity:.85">Salário médio de admissão: <strong>${escapar(fmtReais(contrata[i].salario))}</strong></div>` : ""),
+          })
         : null,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fluxo, estoque, quemContrata.linhas, c]);
 
   // Resposta do topo: a parcela dos profissionais de TI fora das empresas de TI.
@@ -212,13 +242,13 @@ export default function Onde() {
         </Grade>
         <CartaoGrafico
           titulo="Quem mais contrata profissionais de TI fora do setor"
-          subtitulo={`CAGED · admissões em ocupações de TI por setor da empresa · ${periodo[0]}–${periodo[1]} · ${f.rotulo}`}
+          subtitulo={`CAGED · admissões em ocupações de TI por setor da empresa, com o salário médio de admissão ao lado · ${periodo[0]}–${periodo[1]} · ${f.rotulo}`}
           opcao={op.quemContrata}
           carregando={quemContrata.carregando}
-          altura={380}
+          altura={400}
           tabela={{
             colunas: [
-              { chave: "setor", rotulo: "Setor da empresa" },
+              { chave: "setor", rotulo: "Setor da empresa (seção CNAE)" },
               { chave: "admissoes", rotulo: "Admissões", formato: fmtNum, numero: true },
               { chave: "saldo", rotulo: "Saldo", formato: fmtSinal, numero: true },
               { chave: "salario", rotulo: "Salário médio", formato: fmtReais, numero: true },
@@ -240,6 +270,58 @@ export default function Onde() {
   );
 }
 
+// ------------------------------------------------------- mapa em níveis
+// Brasil → região → estado, guiado pelo filtro de território: descer um nível
+// é filtrar a página por ele, e a trilha no topo volta. No país, só os
+// estados (sem bolhas: 882 pontos sem nome não ajudam a achar uma cidade);
+// numa região ou num estado, as bolhas dos municípios aparecem, as maiores
+// com o nome, e o município buscado ou clicado ganha um pino.
+type NivelMapa =
+  | { tipo: "brasil" }
+  | { tipo: "regiao"; regiao: Regiao; ufs: string[] }
+  | { tipo: "selecao"; ufs: string[] }
+  | { tipo: "estado"; uf: string };
+
+function nivelDoFiltro(ufs: string[]): NivelMapa {
+  if (!ufs.length) return { tipo: "brasil" };
+  if (ufs.length === 1) return { tipo: "estado", uf: ufs[0] };
+  const regiao = (Object.keys(REGIOES) as Regiao[]).find((r) => REGIOES[r].length === ufs.length && REGIOES[r].every((u) => ufs.includes(u)));
+  return regiao ? { tipo: "regiao", regiao, ufs } : { tipo: "selecao", ufs };
+}
+
+// Quantas bolhas ganham nome em cada nível.
+const NOMEADAS = { brasil: 0, regiao: 8, selecao: 8, estado: 10 } as const;
+
+function Trilha({ nivel, aoIr }: { nivel: NivelMapa; aoIr: (ufs: string[]) => void }) {
+  const passos: { rotulo: string; ufs: string[] }[] = [{ rotulo: "Brasil", ufs: [] }];
+  if (nivel.tipo === "regiao") passos.push({ rotulo: nivel.regiao, ufs: nivel.ufs });
+  if (nivel.tipo === "selecao") passos.push({ rotulo: `${nivel.ufs.length} estados`, ufs: nivel.ufs });
+  if (nivel.tipo === "estado") {
+    const regiao = REGIAO_DA_UF[nivel.uf] as Regiao | undefined;
+    if (regiao) passos.push({ rotulo: regiao, ufs: [...REGIOES[regiao]] });
+    passos.push({ rotulo: nivel.uf, ufs: [nivel.uf] });
+  }
+  return (
+    <nav aria-label="Nível do mapa" className="flex flex-wrap items-center gap-1 text-[14px]">
+      {passos.map((p, i) => {
+        const atual = i === passos.length - 1;
+        return (
+          <span key={p.rotulo} className="flex items-center gap-1">
+            {i > 0 && <span className="text-tinta-3">›</span>}
+            {atual ? (
+              <span className="rounded-full bg-acento/15 px-3 py-1 font-semibold text-tinta">{p.rotulo}</span>
+            ) : (
+              <button type="button" onClick={() => aoIr(p.ufs)} className="rounded-full px-3 py-1 text-tinta-2 underline-offset-2 hover:bg-superficie hover:text-tinta hover:underline">
+                {p.rotulo}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => void }) {
   const { cores: c } = useTema();
   const f = useFiltro();
@@ -247,8 +329,10 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   const [ano, setAno] = useState(2025);
   const [metrica, setMetrica] = useState<Metrica>("estoque");
   const [minimo, setMinimo] = useState(50);
-  const [nivelRanking, setNivelRanking] = useState<Nivel>("uf");
   const [mapaPronto, setMapaPronto] = useState(false);
+  const nivel = nivelDoFiltro(f.ufs);
+  const ufsNivel = nivel.tipo === "brasil" ? [] : nivel.tipo === "estado" ? [nivel.uf] : nivel.ufs;
+  const sqlUfs = ufsNivel.map(literal).join(", ");
 
   useEffect(() => {
     registrarMapaBR().then(() => setMapaPronto(true));
@@ -257,21 +341,27 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   // O mapa mostra sempre o país inteiro — o filtro apaga os demais estados em
   // vez de tirá-los, para o recorte continuar com contexto.
   const uf = useConsulta(`SELECT uf, estoque::DOUBLE AS estoque, saldo::DOUBLE AS saldo, remuneracao_sm_mediana FROM mapa_uf WHERE ano = ${ano} AND ${UF_VALIDA}`);
-  // O município buscado entra mesmo abaixo do mínimo: pedir por ele e não
-  // vê-lo no mapa seria pior que a bolha pequena. O grupo vem da dispersão.
-  const muni = useConsulta(`
+  // Bolhas só abaixo do país; o município buscado entra em qualquer nível,
+  // mesmo abaixo do mínimo — pedir por ele e não vê-lo seria pior.
+  const condicoes = [
+    ...(ufsNivel.length ? [`(m.uf IN (${sqlUfs}) AND m.estoque >= ${minimo})`] : []),
+    ...(criterio ? [criterio.sql("g.nome", "g.uf")] : []),
+  ];
+  const muni = useConsulta(condicoes.length ? `
     SELECT g.nome AS municipio, m.uf, m.estoque::DOUBLE AS estoque, m.saldo::DOUBLE AS saldo, m.remuneracao_sm_mediana,
            g.longitude AS lon, g.latitude AS lat, k.nome AS grupo
     FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
     LEFT JOIN municipios_cluster k ON k.cod_municipio = m.cod_municipio
-    WHERE m.ano = ${ano} AND (m.estoque >= ${minimo}${criterio ? ` OR ${criterio.sql("g.nome", "g.uf")}` : ""})`);
-
-  // Ranking por município: os 30 maiores do recorte de território, no mesmo
-  // formato "Nome (UF)" das bolhas do mapa, para o clique funcionar igual.
-  const rankMuni = useConsulta(nivelRanking === "municipio" ? `
+    WHERE m.ano = ${ano} AND (${condicoes.join(" OR ")})` : null);
+  // A extensão de cada estado, para enquadrar o mapa na região ou no estado.
+  const extensao = useConsulta(`
+    SELECT uf, min(longitude) AS lon0, max(longitude) AS lon1, min(latitude) AS lat0, max(latitude) AS lat1
+    FROM geo_municipios GROUP BY uf`);
+  // No estado, as barras são os 30 maiores municípios dele.
+  const rankMuni = useConsulta(nivel.tipo === "estado" ? `
     SELECT g.nome || ' (' || m.uf || ')' AS nome, m.uf, m.estoque::DOUBLE AS estoque
     FROM mapa_municipio m JOIN geo_municipios g ON g.cod6 = m.cod_municipio
-    WHERE m.ano = ${ano} AND m.estoque > 0 AND ${f.sql("m.uf")}
+    WHERE m.ano = ${ano} AND m.estoque > 0 AND m.uf = ${literal(nivel.uf)}
     ORDER BY m.estoque DESC LIMIT ${TOP_MUNICIPIOS}` : null);
 
   const m = METRICAS[metrica];
@@ -299,16 +389,28 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
   );
   const encontrados = bolhas.filter((b) => b.destaque);
 
+  // Enquadramento: os achados da busca, se forem poucos; senão, o nível.
+  const foco = useMemo(() => {
+    if (encontrados.length && encontrados.length <= 5) {
+      return {
+        lon: encontrados.reduce((s, b) => s + b.lon, 0) / encontrados.length,
+        lat: encontrados.reduce((s, b) => s + b.lat, 0) / encontrados.length,
+        zoom: encontrados.length === 1 ? 4 : 2.5,
+      };
+    }
+    const caixas = extensao.linhas.filter((l) => ufsNivel.includes(String(l.uf)));
+    if (!caixas.length) return undefined;
+    const [lon0, lon1] = [Math.min(...caixas.map((l) => num(l, "lon0"))), Math.max(...caixas.map((l) => num(l, "lon1")))];
+    const [lat0, lat1] = [Math.min(...caixas.map((l) => num(l, "lat0"))), Math.max(...caixas.map((l) => num(l, "lat1")))];
+    // O Brasil inteiro tem ~40° de largura e de altura no zoom 1.
+    const zoom = Math.max(1, Math.min(9, 0.85 * Math.min(40 / Math.max(lon1 - lon0, 1), 39 / Math.max(lat1 - lat0, 1))));
+    return { lon: (lon0 + lon1) / 2, lat: (lat0 + lat1) / 2, zoom };
+    // `busca` e `f.ufs` no lugar dos derivados, refeitos a cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [encontrados.length, bolhas, extensao.linhas, f.ufs.join(",")]);
+
   const opMapa = useMemo(() => {
     if (!mapaPronto || !linhasUf.length) return null;
-    // Poucos achados: o mapa centra neles e aproxima; muitos ("São..."), fica no país.
-    const foco = encontrados.length && encontrados.length <= 5
-      ? {
-          lon: encontrados.reduce((s, b) => s + b.lon, 0) / encontrados.length,
-          lat: encontrados.reduce((s, b) => s + b.lat, 0) / encontrados.length,
-          zoom: encontrados.length === 1 ? 4 : 2.5,
-        }
-      : undefined;
     return opcaoMapa(
       c,
       linhasUf.map((l) => ({ uf: String(l.uf), valor: num(l, metrica) })),
@@ -319,54 +421,66 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
         rotulo: m.rotulo,
         formatoBolha: fmtNum,
         destacar: f.ufs,
-        grupos: GRUPOS.map((g, i) => ({ nome: g, cor: c.series[COR_GRUPO[i]] })),
+        // No país não há bolhas: a legenda dos grupos só aparece abaixo dele.
+        grupos: nivel.tipo === "brasil" ? undefined : GRUPOS.map((g, i) => ({ nome: g, cor: c.series[COR_GRUPO[i]] })),
         foco,
+        nomear: NOMEADAS[nivel.tipo],
       },
     );
-  }, [mapaPronto, linhasUf, bolhas, encontrados, metrica, m, f.ufs, c]);
+  }, [mapaPronto, linhasUf, bolhas, metrica, m, f.ufs, nivel.tipo, foco, c]);
+
+  // Barras do nível: regiões no país, estados numa região, municípios no estado.
+  const barras = useMemo(() => {
+    if (nivel.tipo === "estado") {
+      const d = rankMuni.linhas;
+      return { rotulos: d.map((l) => String(l.nome)), valores: d.map((l) => num(l, "estoque")), linhas: d.map((l) => ({ nome: l.nome, estoque: l.estoque })) };
+    }
+    if (nivel.tipo === "brasil") {
+      const porRegiao = (Object.keys(REGIOES) as Regiao[])
+        .map((r) => ({ nome: r, estoque: linhasUf.filter((l) => REGIAO_DA_UF[String(l.uf)] === r).reduce((s, l) => s + num(l, "estoque"), 0) }))
+        .sort((a, b) => b.estoque - a.estoque);
+      return { rotulos: porRegiao.map((r) => r.nome), valores: porRegiao.map((r) => r.estoque), linhas: porRegiao };
+    }
+    const estados = ranking.filter((l) => ufsNivel.includes(String(l.uf)));
+    return { rotulos: estados.map((l) => String(l.uf)), valores: estados.map((l) => num(l, "estoque")), linhas: estados.map((l) => ({ nome: l.uf, estoque: l.estoque })) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nivel.tipo, rankMuni.linhas, linhasUf, ranking, f.ufs.join(",")]);
 
   const opRanking = useMemo(() => {
-    if (nivelRanking === "municipio") {
-      const d = rankMuni.linhas;
-      if (!d.length) return null;
-      // Com uma busca ativa, o que não casa fica esmaecido.
-      const esmaecer = criterio
-        ? d.map((l, i) => (criterio.casa(String(l.nome).replace(/ \([A-Z]{2}\)$/, ""), String(l.uf)) ? -1 : i)).filter((i) => i >= 0)
-        : [];
-      return opcaoBarras(c, rotulos(d, "nome"), coluna(d, "estoque"), { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: 170, esmaecer });
-    }
-    if (!ranking.length) return null;
-    const esmaecer = f.ativo ? ranking.map((l, i) => (f.ufs.includes(String(l.uf)) ? -1 : i)).filter((i) => i >= 0) : [];
-    return opcaoBarras(c, rotulos(ranking, "uf"), coluna(ranking, "estoque"), { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: 40, esmaecer });
+    if (!barras.valores.length) return null;
+    // No estado, com uma busca ativa, o que não casa fica esmaecido.
+    const esmaecer = nivel.tipo === "estado" && criterio
+      ? barras.rotulos.map((r, i) => (criterio.casa(r.replace(/ \([A-Z]{2}\)$/, ""), r.slice(-3, -1)) ? -1 : i)).filter((i) => i >= 0)
+      : [];
+    return opcaoBarras(c, barras.rotulos, barras.valores, { horizontal: true, nome: "Vínculos", formato: fmtNum, larguraRotulo: nivel.tipo === "estado" ? 170 : nivel.tipo === "brasil" ? 100 : 40, esmaecer });
     // `busca` no lugar de `criterio`: o critério é refeito a cada render.
-  }, [nivelRanking, rankMuni.linhas, busca, ranking, f.ativo, f.ufs, c]);
-  const porMunicipio = nivelRanking === "municipio";
+  }, [barras, nivel.tipo, busca, c]);
 
-  // Estado: liga e desliga no filtro. Município: destaca-o nos dois gráficos
-  // e recorta a página pelo estado dele.
+  // Descer um nível: região → seus estados; estado → seu filtro; município → pino.
   const clicar = (cl: Clique) => {
+    if (cl.nome in REGIOES) return f.definir([...REGIOES[cl.nome as Regiao]]);
     const sigla = ufDoClique(cl);
     if (!sigla) return;
-    if (UFS.includes(cl.nome)) return f.alternar(sigla);
+    if (UFS.includes(cl.nome)) {
+      // No país, um estado do mapa leva à região dele (o nível seguinte).
+      if (nivel.tipo === "brasil") return f.definir([...REGIOES[REGIAO_DA_UF[sigla] as Regiao]]);
+      return f.definir([sigla]);
+    }
     aoBuscar(cl.nome);
-    if (!f.ufs.includes(sigla)) f.alternar(sigla);
+    if (nivel.tipo !== "estado" || nivel.uf !== sigla) f.definir([sigla]);
   };
+
+  const nomeNivel = nivel.tipo === "brasil" ? "Regiões" : nivel.tipo === "estado" ? `Municípios · ${nivel.uf}` : `Estados · ${f.rotulo}`;
+  const proximo = nivel.tipo === "brasil" ? "Clique numa região para ver os estados dela" : nivel.tipo === "estado" ? "Clique num município para marcá-lo no mapa" : "Clique num estado para ver os municípios";
 
   return (
     <Bloco titulo="O mapa: estoque e movimento no mesmo lugar">
       <div className="flex flex-wrap items-end gap-4">
         <Seletor rotulo="Ano" valor={ano} opcoes={intervalo(2007, 2026).map((a) => ({ valor: a, rotulo: String(a) }))} aoMudar={setAno} />
         <Seletor rotulo="Colorir por" valor={metrica} opcoes={(Object.keys(METRICAS) as Metrica[]).map((k) => ({ valor: k, rotulo: METRICAS[k].rotulo }))} aoMudar={setMetrica} />
-        <Seletor rotulo="Município a partir de" valor={minimo} opcoes={[10, 50, 200, 1000, 5000].map((v) => ({ valor: v, rotulo: `${fmtNum(v)} vínculos` }))} aoMudar={setMinimo} />
-        <Seletor<Nivel>
-          rotulo="Ranking por"
-          valor={nivelRanking}
-          opcoes={[
-            { valor: "uf", rotulo: "Estados" },
-            { valor: "municipio", rotulo: f.ativo ? `Municípios · ${f.rotulo}` : "Municípios" },
-          ]}
-          aoMudar={setNivelRanking}
-        />
+        {nivel.tipo !== "brasil" && (
+          <Seletor rotulo="Município a partir de" valor={minimo} opcoes={[10, 50, 200, 1000, 5000].map((v) => ({ valor: v, rotulo: `${fmtNum(v)} vínculos` }))} aoMudar={setMinimo} />
+        )}
         <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={criterio ? encontrados.length : undefined} />
       </div>
       <Grade colunas={3}>
@@ -379,11 +493,16 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
         <Kpi rotulo={`Saldo do ano · ${f.rotulo}`} valor={fmtSinal(saldoSel)} detalhe={`CAGED, ${ano}`} />
         <Kpi rotulo="Estados com saldo positivo" valor={`${selecionadas.filter((l) => num(l, "saldo") > 0).length} de ${selecionadas.length}`} />
       </Grade>
+      <Trilha nivel={nivel} aoIr={f.definir} />
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
         <CartaoGrafico
-          titulo={`O mercado de TI no Brasil — ${ano}`}
-          subtitulo={`${m.rotulo} por estado · ${fmtNum(muni.linhas.length)} municípios acima do mínimo, coloridos pelo grupo de trajetória`}
-          dicaClique="Clique num estado para filtrar, ou num município para destacá-lo"
+          titulo={nivel.tipo === "brasil" ? `O mercado de TI no Brasil — ${ano}` : `O mercado de TI · ${f.rotulo} — ${ano}`}
+          subtitulo={
+            nivel.tipo === "brasil"
+              ? `${m.rotulo} por estado`
+              : `${m.rotulo} por estado · ${fmtNum(bolhas.filter((b) => !b.destaque).length)} municípios acima do mínimo, coloridos pelo grupo de trajetória`
+          }
+          dicaClique={nivel.tipo === "brasil" ? "Clique num estado para abrir a região dele" : "Clique num estado para abri-lo, ou num município para marcá-lo"}
           aoClicar={clicar}
           opcao={opMapa}
           carregando={uf.carregando || muni.carregando || !mapaPronto}
@@ -400,19 +519,15 @@ function Mapa({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) => voi
           }}
         />
         <CartaoGrafico
-          titulo={porMunicipio ? `Municípios por estoque · ${f.rotulo}` : "Estados por estoque"}
-          subtitulo={porMunicipio ? `RAIS · vínculos ativos, ${ano} · os ${TOP_MUNICIPIOS} maiores` : `RAIS · vínculos ativos, ${ano}`}
-          dicaClique={porMunicipio ? "Clique num município para destacá-lo e filtrar pelo estado dele" : "Clique numa barra para filtrar"}
+          titulo={`${nomeNivel} por estoque`}
+          subtitulo={`RAIS · vínculos ativos, ${ano}${nivel.tipo === "estado" ? ` · os ${TOP_MUNICIPIOS} maiores` : ""}`}
+          dicaClique={proximo}
           aoClicar={clicar}
           opcao={totalPais ? opRanking : null}
-          carregando={porMunicipio ? rankMuni.carregando : uf.carregando}
-          erro={porMunicipio ? rankMuni.erro : undefined}
-          altura={Math.max(520, (porMunicipio ? rankMuni.linhas.length : ranking.length) * 19)}
-          tabela={
-            porMunicipio
-              ? { colunas: [{ chave: "nome", rotulo: "Município" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: rankMuni.linhas }
-              : { colunas: [{ chave: "uf", rotulo: "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: ranking }
-          }
+          carregando={nivel.tipo === "estado" ? rankMuni.carregando : uf.carregando}
+          erro={nivel.tipo === "estado" ? rankMuni.erro : undefined}
+          altura={nivel.tipo === "estado" ? Math.max(520, barras.valores.length * 19) : 90 + barras.valores.length * 44}
+          tabela={{ colunas: [{ chave: "nome", rotulo: nivel.tipo === "estado" ? "Município" : nivel.tipo === "brasil" ? "Região" : "UF" }, { chave: "estoque", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: barras.linhas }}
         />
       </div>
     </Bloco>

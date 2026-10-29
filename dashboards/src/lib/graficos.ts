@@ -314,6 +314,8 @@ export function opcaoBarras(
     larguraRotulo?: number;
     formatoEixo?: Formato;
     esmaecer?: number[];
+    // Texto ao lado do valor de cada barra ("25,6 mil · R$ 5.744").
+    rotuloExtra?: (i: number) => string;
     // Pirulito: haste fina + ponto na ponta. Para rankings longos, onde a
     // massa de tinta de 15 barras grossas não acrescenta nada à comparação.
     forma?: "barra" | "pirulito";
@@ -337,7 +339,11 @@ export function opcaoBarras(
     fontSize: 11,
     fontWeight: 500,
     distance: pirulito ? 10 : 5,
-    formatter: (p: unknown) => fmtRotulo(valorDe(p as Ponto, h ? 0 : 1)),
+    formatter: (p: unknown) => {
+      const ponto = p as Ponto;
+      const extra = o.rotuloExtra?.(ponto.dataIndex);
+      return fmtRotulo(valorDe(ponto, h ? 0 : 1)) + (extra ? `  ·  ${extra}` : "");
+    },
   };
 
   const series: Record<string, unknown>[] = [
@@ -376,7 +382,7 @@ export function opcaoBarras(
   }
 
   const opcao: EChartsOption = {
-    ...base(c, false, rotulos && h ? (c.compacto ? 44 : 60) : c.compacto ? 8 : 20),
+    ...base(c, false, rotulos && h ? (c.compacto ? 44 : o.rotuloExtra ? 150 : 60) : c.compacto ? 8 : 20),
     tooltip: tooltipEixo(c, fmt, { extra: o.extraTooltip, sombra: true }),
     xAxis: h ? eixoVal : eixoCat,
     yAxis: h ? eixoCat : eixoVal,
@@ -877,6 +883,8 @@ export function opcaoMapa(
     destacar?: string[];
     grupos?: { nome: string; cor: string }[];
     foco?: { lon: number; lat: number; zoom: number };
+    // Escreve o nome das N maiores bolhas visíveis (fora do filtro não conta).
+    nomear?: number;
   },
 ): EChartsOption {
   const apagado = (uf: string | undefined) => !!o.destacar?.length && !!uf && !o.destacar.includes(uf);
@@ -884,7 +892,9 @@ export function opcaoMapa(
   // entre os demais aparecem em vez de ficarem achatadas pelo maior.
   const valores = ufs.filter((u) => !apagado(u.uf)).map((u) => u.valor).filter(Number.isFinite);
   const absMax = Math.max(1, ...valores.map(Math.abs));
-  const max = o.divergente ? absMax : Math.max(...valores);
+  // Um estado só: no topo da escala ele ficaria azul-escuro e esconderia as
+  // bolhas; a escala vai além dele, e o estado fica num tom médio.
+  const max = o.divergente ? absMax : valores.length === 1 ? valores[0] * 1.8 : Math.max(...valores);
   // Um estado só no filtro: mínimo igual ao máximo deixa a escala sem
   // largura, e o ECharts pinta o país inteiro com a cor da ponta. A escala
   // passa a partir do zero.
@@ -895,10 +905,17 @@ export function opcaoMapa(
   const OUTROS = "Outros municípios";
   const grupos = o.grupos ?? [];
   const leg = grupos.length ? legenda(c, [...grupos, { nome: OUTROS }].map((g) => ({ nome: g.nome, icone: "ponto" as const }))) : undefined;
+  const nomeadas = new Set(
+    [...bolhas].filter((b) => !b.destaque && !apagado(b.uf)).sort((a, b) => b.tamanho - a.tamanho).slice(0, o.nomear ?? 0).map((b) => b.nome),
+  );
+  const semUf = (nome: string) => nome.replace(/ \([A-Z]{2}\)$/, "");
   const dadoBolha = (b: (typeof bolhas)[number]) => ({
     name: b.nome,
     value: [b.lon, b.lat, b.valor, b.tamanho],
     itemStyle: apagado(b.uf) ? { opacity: 0.06 } : undefined,
+    label: nomeadas.has(b.nome)
+      ? { show: true, position: "right" as const, distance: 4, color: c.tinta, fontSize: 11, fontWeight: 600, textBorderColor: c.superficie, textBorderWidth: 3, formatter: () => semUf(b.nome) }
+      : undefined,
   });
   // Uma série por grupo (a legenda liga e desliga cada um) e, por cima de
   // todas, a dos municípios que a busca encontrou.
@@ -910,6 +927,8 @@ export function opcaoMapa(
     symbolSize: tamanhoBolha,
     itemStyle: { color: g.cor, opacity: g.nome === OUTROS ? 0.28 : 0.8, borderColor: c.superficie, borderWidth: 1 },
     emphasis: { itemStyle: { opacity: 1 } },
+    // Nomes de municípios vizinhos (Curitiba, Pinhais…): o que colide some.
+    labelLayout: { hideOverlap: true },
     z: 3,
   }));
   const destacadas = bolhas.filter((b) => b.destaque);
@@ -973,11 +992,14 @@ export function opcaoMapa(
         type: "scatter",
         name: "_destaque",
         coordinateSystem: "geo",
-        data: destacadas.map(dadoBolha),
-        symbolSize: (v: number[]) => Math.max(14, tamanhoBolha(v)),
-        itemStyle: { color: ACENTO, opacity: 1, borderColor: c.tinta, borderWidth: 1.5 },
-        label: { show: true, position: "right", color: c.tinta, fontSize: 12, fontWeight: 600, textBorderColor: c.superficie, textBorderWidth: 3, formatter: (p: { name: string }) => p.name },
-        z: 5,
+        data: destacadas.map((b) => ({ name: b.nome, value: [b.lon, b.lat, b.valor, b.tamanho] })),
+        symbol: "pin",
+        symbolSize: c.compacto ? 28 : 36,
+        // O pino aponta para o lugar: a ponta, e não o centro, fica na cidade.
+        symbolOffset: [0, "-45%"],
+        itemStyle: { color: ACENTO, opacity: 1, borderColor: c.tinta, borderWidth: 1 },
+        label: { show: true, position: "right", distance: 2, color: c.tinta, fontSize: 12, fontWeight: 700, textBorderColor: c.superficie, textBorderWidth: 3, formatter: (p: { name: string }) => semUf(p.name) },
+        z: 6,
       },
     ],
   };

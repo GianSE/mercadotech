@@ -11,6 +11,8 @@ import {
   VisualMapComponent,
 } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
+// Sem ele, todo `labelLayout` (esconder ou afastar rótulos que colidem) é ignorado.
+import { LabelLayout } from "echarts/features";
 import type { EChartsOption } from "echarts";
 import { baixarCsv, baixarImagem } from "../lib/baixar";
 import type { Linha } from "../lib/db";
@@ -22,7 +24,7 @@ import { Ajuda } from "./ui";
 echarts.use([
   BarChart, LineChart, MapChart, PieChart, ScatterChart, SunburstChart, TreemapChart,
   GeoComponent, GridComponent, LegendComponent, MarkLineComponent, TitleComponent, TooltipComponent, VisualMapComponent,
-  CanvasRenderer,
+  CanvasRenderer, LabelLayout,
 ]);
 
 export type Coluna = { chave: string; rotulo: string; formato?: (v: unknown) => string; numero?: boolean };
