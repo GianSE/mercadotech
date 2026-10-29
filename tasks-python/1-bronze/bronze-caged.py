@@ -54,7 +54,20 @@ def _argumentos():
     p.add_argument("--ano-fim", type=int, default=9999)
     p.add_argument("--forcar", action="store_true",
                    help="Reprocessa itens que já existem no Hub")
-    return p.parse_args()
+    p.add_argument("--meses", nargs="*", default=None,
+                   help="Refaz só estes meses (ex.: caged_old/2012/08 caged_ajustes/2010/10); "
+                        "implica --forcar e define os anos sozinho")
+    args = p.parse_args()
+    # Refazer meses soltos (os que falharam numa reingestão) sem reprocessar
+    # os anos inteiros: cada mês é um commit no Hub, e o limite é por hora.
+    # No verificar, os anos saem dos meses pedidos; no processar, cada job da
+    # matriz já recebe o seu ano e só filtra os meses dele.
+    if args.meses:
+        args.meses, args.forcar = set(args.meses), True
+        if args.modo == "verificar":
+            anos = [int(m.split("/")[1]) for m in args.meses]
+            args.ano_inicio, args.ano_fim = min(anos), max(anos)
+    return args
 
 
 def modo_verificar(args) -> int:
@@ -72,6 +85,8 @@ def modo_verificar(args) -> int:
     # --forcar: todos os anos pedidos entram, mesmo os já publicados — é o
     # caminho para refazer um ano ingerido pela metade.
     faltantes = itens if args.forcar else [i for i in itens if not estado.ja_existe(i)]
+    if args.meses:
+        faltantes = [i for i in faltantes if i.rotulo in args.meses]
     print(f"   {len(faltantes)} arquivo(s) {'a reprocessar' if args.forcar else 'ainda não publicado(s)'}")
 
     pares = sorted({(i.tabela, i.ano) for i in faltantes})
@@ -165,6 +180,8 @@ def modo_processar(args) -> int:
     estado = EstadoLake()
     if not args.forcar:
         itens = [i for i in itens if not estado.ja_existe(i)]
+    if args.meses:
+        itens = [i for i in itens if i.rotulo in args.meses]
     if not itens:
         print("✨ Nada a fazer: já está em dia.")
         cliente.fechar()

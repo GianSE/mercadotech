@@ -19,6 +19,8 @@ on:
         description: "Reingerir os anos pedidos mesmo que já estejam publicados"
         type: boolean
         default: false
+      meses:
+        description: "Só estes meses, separados por espaço (ex.: caged_old/2012/08 caged_ajustes/2010/10); ignora os anos e já força"
   workflow_call:
     inputs:
       ano_inicio:
@@ -28,6 +30,8 @@ on:
       forcar:
         type: boolean
         default: false
+      meses:
+        type: string
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -60,7 +64,8 @@ jobs:
         run: |
           ANO_INICIO="${{ inputs.ano_inicio }}"
           ANO_FIM="${{ inputs.ano_fim }}"
-          python bronze-caged.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}" ${{ inputs.forcar && '--forcar' || '' }}
+          MESES="${{ inputs.meses }}"
+          python bronze-caged.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}" ${{ inputs.forcar && '--forcar' || '' }} ${MESES:+--meses $MESES}
 
   atualizar:
     needs: verificar
@@ -81,5 +86,6 @@ jobs:
       - name: Baixa ${{ matrix.item.tabela }} ${{ matrix.item.ano }}
         working-directory: tasks-python/1-bronze
         run: |
+          MESES="${{ inputs.meses }}"
           python bronze-caged.py --modo processar --tabela ${{ matrix.item.tabela }} \
-            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }} ${{ inputs.forcar && '--forcar' || '' }}
+            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }} ${{ inputs.forcar && '--forcar' || '' }} ${MESES:+--meses $MESES}

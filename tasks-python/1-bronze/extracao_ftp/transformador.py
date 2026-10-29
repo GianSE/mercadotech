@@ -233,6 +233,13 @@ def detectar_encoding(arquivo: Path, amostra_bytes: int = 8 * 1024 * 1024) -> st
     return "latin-1"
 
 
+class FalhaPublicacao(RuntimeError):
+    """O parquet foi gravado e conferido, mas não subiu para o Hub.
+
+    Separada das falhas de leitura: não adianta higienizar o texto e ler de
+    novo, como se o arquivo de origem tivesse algum defeito."""
+
+
 def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
     """
     Executa o COPY, publica o resultado no Hugging Face e devolve a
@@ -277,8 +284,12 @@ def _copiar(con, leitura: str, item: ItemTrabalho, arquivos: list[Path]) -> int:
         destino.unlink()
         raise RuntimeError(f"leitura incompleta: {total:,} de {esperadas:,} linhas do texto")
 
-    nuvem.publicar_arquivo(destino, nuvem.repo_bronze(item.tabela), item.destino_rel)
-    destino.unlink()
+    try:
+        nuvem.publicar_arquivo(destino, nuvem.repo_bronze(item.tabela), item.destino_rel)
+    except Exception as e:
+        raise FalhaPublicacao(str(e)) from e
+    finally:
+        destino.unlink(missing_ok=True)
 
     return total
 
@@ -306,6 +317,9 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
     try:
         linhas = _copiar(con, _opcoes_leitura(arquivos, encoding, delimitador), item, arquivos)
         return True, linhas
+    except FalhaPublicacao as e:
+        print(f"      ❌ Publicação no Hub falhou: {str(e)[:300]}")
+        return False, 0
     except Exception as e:
         print(f"      ⚠️  Leitura direta falhou: {str(e)[:200]}")
 
@@ -317,6 +331,9 @@ def converter(con, arquivos: list[Path], item: ItemTrabalho) -> tuple[bool, int]
     try:
         linhas = _copiar(con, _opcoes_leitura(arquivos, "utf-8", delimitador), item, arquivos)
         return True, linhas
+    except FalhaPublicacao as e:
+        print(f"      ❌ Publicação no Hub falhou: {str(e)[:300]}")
+        return False, 0
     except Exception as e:
         print(f"      ❌ Conversão falhou definitivamente: {str(e)[:300]}")
         return False, 0

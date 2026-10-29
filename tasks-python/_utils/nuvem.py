@@ -10,6 +10,7 @@ leem o que já está publicado.
 """
 import os
 import re
+import time
 from pathlib import Path
 
 REPO_BRONZE_CAGED = os.getenv("REPO_BRONZE_CAGED", "Gianpedro/bronze-caged")
@@ -234,13 +235,35 @@ def caminhos_fonte_ingeridos(tabela: str, ano: int) -> set:
     )
 
 
+# O Hub aceita 128 commits por hora em cada repositório, e na Bronze cada mês
+# é um commit: com quatro anos em paralelo o limite estoura (HTTP 429) e os
+# meses seguintes falhavam todos. A espera cresce até cobrir a janela inteira
+# de uma hora (53 min somados); passou disso, o erro sobe.
+ESPERAS_LIMITE_HUB = (60, 120, 300, 600, 900, 1200)
+
+
+def com_espera_no_limite(acao, descricao: str):
+    from huggingface_hub.utils import HfHubHTTPError
+
+    for tentativa, espera in enumerate((0, *ESPERAS_LIMITE_HUB)):
+        if espera:
+            print(f"      ⏳ limite de commits do Hub (429) em {descricao}: "
+                  f"nova tentativa em {espera // 60} min ({tentativa}/{len(ESPERAS_LIMITE_HUB)})", flush=True)
+            time.sleep(espera)
+        try:
+            return acao()
+        except HfHubHTTPError as e:
+            if getattr(e.response, "status_code", None) != 429 or tentativa == len(ESPERAS_LIMITE_HUB):
+                raise
+
+
 def publicar_arquivo(local: Path, repo: str, caminho_repo: str, privado: bool = False) -> None:
     from huggingface_hub import HfApi
 
     api = HfApi()
     api.create_repo(repo_id=repo, repo_type="dataset", exist_ok=True, private=privado)
-    api.upload_file(path_or_fileobj=str(local), path_in_repo=caminho_repo,
-                     repo_id=repo, repo_type="dataset")
+    com_espera_no_limite(lambda: api.upload_file(path_or_fileobj=str(local), path_in_repo=caminho_repo,
+                                                 repo_id=repo, repo_type="dataset"), caminho_repo)
     arquivos_remotos(repo).add(caminho_repo)  # mantém o cache coerente sem relistar
 
 
@@ -268,8 +291,8 @@ def publicar_diretorio(local_dir: Path, repo: str, prefixo_repo: str = "") -> in
         )
         for arq in arquivos
     ]
-    api.create_commit(repo_id=repo, repo_type="dataset", operations=operacoes,
-                      commit_message=f"{len(operacoes)} arquivo(s)")
+    com_espera_no_limite(lambda: api.create_commit(repo_id=repo, repo_type="dataset", operations=operacoes,
+                                                   commit_message=f"{len(operacoes)} arquivo(s)"), prefixo_repo or repo)
     _cache_listagem.pop(repo, None)  # relista na próxima consulta: mudou de verdade
 
     for arq in arquivos:
@@ -337,10 +360,10 @@ def publicar_particoes(con, local_dir: Path, repo: str, tabela: str) -> int:
             for a in anos)
     ]
     operacoes = adicionar + [CommitOperationDelete(path_in_repo=c) for c in apagar]
-    HfApi().create_commit(
+    com_espera_no_limite(lambda: HfApi().create_commit(
         repo_id=repo, repo_type="dataset", operations=operacoes,
         commit_message=f"{tabela}: ano(s) {', '.join(sorted(anos))} substituído(s) "
-                       f"({len(adicionar)} arquivo(s), {len(apagar)} removido(s))")
+                       f"({len(adicionar)} arquivo(s), {len(apagar)} removido(s))"), tabela)
     _cache_listagem.pop(repo, None)
     print(f"   ☁️  {tabela}: {len(adicionar)} partição(ões) publicada(s), {len(apagar)} arquivo(s) antigo(s) removido(s)")
 
