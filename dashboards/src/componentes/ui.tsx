@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useFiltro } from "../lib/filtro";
 import { limparFiltros } from "../lib/url";
 import { GLOSSARIO, type Termo } from "../lib/glossario";
@@ -145,6 +145,45 @@ export function LinhaFiltros({ children, nota, resumo, territorio = true }: { ch
   );
 }
 
+// Janela sobre a página para um conteúdo de consulta (uma legenda, uma
+// definição), que assim não ocupa lugar nem vira slide. Esc, o "×" ou um
+// clique fora fecham; o conteúdo só monta (e consulta) com a janela aberta.
+export function Modal({ aberto, aoFechar, titulo, children }: { aberto: boolean; aoFechar: () => void; titulo: string; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (aberto && !d.open) d.showModal();
+    if (!aberto && d.open) d.close();
+  }, [aberto]);
+  return (
+    <dialog
+      ref={ref}
+      onClose={aoFechar}
+      onClick={(e) => e.target === e.currentTarget && aoFechar()}
+      className="m-auto max-h-[85vh] w-[min(56rem,calc(100vw-2rem))] rounded-2xl border border-borda bg-fundo p-0 text-tinta shadow-2xl backdrop:bg-black/50"
+    >
+      <div className="p-5 sm:p-6">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <h2 className="flex items-center gap-2.5 text-lg font-semibold text-tinta">
+            <span aria-hidden className="faixa-azul h-5 w-1.5 flex-none rounded-full" />
+            {titulo}
+          </h2>
+          <button
+            type="button"
+            onClick={aoFechar}
+            aria-label="Fechar"
+            className="grid h-8 w-8 flex-none place-items-center rounded-full text-xl leading-none text-tinta-3 transition-colors hover:bg-superficie-2 hover:text-tinta"
+          >
+            ×
+          </button>
+        </div>
+        {aberto && children}
+      </div>
+    </dialog>
+  );
+}
+
 // Mostrar/ocultar um detalhe: o essencial fica à vista, o resto a um clique.
 export function BotaoExpandir({ aberto, aoAlternar, rotulo, rotuloAberto = "Ocultar" }: { aberto: boolean; aoAlternar: () => void; rotulo: string; rotuloAberto?: string }) {
   return (
@@ -159,6 +198,39 @@ export function BotaoExpandir({ aberto, aoAlternar, rotulo, rotuloAberto = "Ocul
         <path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z" />
       </svg>
     </button>
+  );
+}
+
+// Campo de busca que destaca no gráfico o que bate com o texto (um
+// município, um ano), com a contagem do que achou ao lado.
+export function CampoBusca({ rotulo, valor, aoMudar, placeholder, lista, encontrados, largura = "sm:w-64" }: {
+  rotulo: string;
+  valor: string;
+  aoMudar: (v: string) => void;
+  placeholder?: string;
+  // id de um <datalist> com as sugestões.
+  lista?: string;
+  encontrados?: number;
+  largura?: string;
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="sobrelinha">{rotulo}</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="search"
+          list={lista}
+          value={valor}
+          onChange={(e) => aoMudar(e.target.value)}
+          placeholder={placeholder}
+          // 16px no celular: abaixo disso o iOS dá zoom ao focar.
+          className={`h-11 w-full min-w-[10rem] rounded-[var(--radius-controle)] border border-borda bg-superficie px-3 text-base text-tinta shadow-sm transition-colors placeholder:text-tinta-3 hover:border-serie-1/60 sm:h-9 sm:px-2.5 sm:text-sm ${largura}`}
+        />
+        {valor && encontrados !== undefined && (
+          <span className="whitespace-nowrap text-[12px] text-tinta-3">{encontrados ? `${encontrados} encontrado${encontrados > 1 ? "s" : ""}` : "nenhum"}</span>
+        )}
+      </span>
+    </label>
   );
 }
 

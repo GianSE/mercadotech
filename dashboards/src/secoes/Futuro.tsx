@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi } from "../componentes/ui";
+import { AvisoNacional, Bloco, CabecalhoPergunta, CampoBusca, Grade, Kpi } from "../componentes/ui";
 import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
 import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoPrevisao } from "../lib/graficos";
 import { num } from "../lib/sql";
@@ -58,6 +58,10 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
     : [p.reduce((s, l) => s + num(l, "inferior"), 0), p.reduce((s, l) => s + num(l, "superior"), 0)];
   const pr = proj.linhas[0];
   const anoTeste = num(retido.linhas[0], "ano_teste");
+  // Ano buscado (ou clicado) no gráfico de dispersão: o ponto ganha destaque.
+  const [anoBusca, setAnoBusca] = useState("");
+  const buscaAno = anoBusca.trim();
+  const anoBate = (ano: unknown) => buscaAno !== "" && String(ano).startsWith(buscaAno);
 
 
   const op = useMemo(() => {
@@ -95,39 +99,15 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
           { formato: comSinal(1), formatoEixo: (v) => `${fmtDec(v, 0)}%` },
         )
       : null;
-    const rl = retro.linhas;
-    const mediaOp = rl.length
-      ? opcaoBarras(c, rl.map((l) => nomeEstimador(l.estimador)), rl.map((l) => Math.abs(num(l, "erro_pct"))), {
-          horizontal: true,
-          nome: "Erro médio",
-          formato: (v) => fmtPct(v, 1),
-          formatoEixo: (v) => fmtPct(v, 0),
-          larguraRotulo: 200,
-          rotulos: true,
-          extraTooltip: (i) => `em média ${fmtNum(num(rl[i], "erro_medio"))} vínculos de diferença`,
-        })
-      : null;
-    const rt = retido.linhas;
-    const retidoOp = rt.length
-      ? opcaoBarras(c, rt.map((l) => nomeEstimador(l.estimador)), rt.map((l) => Math.abs(num(l, "erro_pct"))), {
-          horizontal: true,
-          nome: "Erro",
-          formato: (v) => fmtPct(v, 2),
-          formatoEixo: (v) => `${fmtDec(v, 0)}%`,
-          larguraRotulo: 200,
-          rotulos: true,
-          extraTooltip: (i) => `previu ${fmtNum(num(rt[i], "previsto"))} (${num(rt[i], "erro_pct") < 0 ? "abaixo" : "acima"} do real, ${fmtNum(num(rt[i], "real"))})`,
-        })
-      : null;
     const fl = pares.linhas.map((l) => num(l, "fluxo"));
     const nowcast = pares.linhas.length
       ? opcaoDispersao(
           c,
-          [{ nome: "Ano", pontos: pares.linhas.map((l) => ({ x: num(l, "fluxo"), y: num(l, "delta"), rotulo: String(l.ano), tamanho: 12 })) }],
+          [{ nome: "Ano", pontos: pares.linhas.map((l) => ({ nome: String(l.ano), x: num(l, "fluxo"), y: num(l, "delta"), rotulo: String(l.ano), tamanho: 12, destaque: anoBate(l.ano) })) }],
           { formatoX: fmtCompacto, formatoY: fmtCompacto, nomeX: "Saldo acumulado do CAGED no ano", nomeY: "Variação do estoque da RAIS", identidade: [Math.min(...fl), Math.max(...fl)] as [number, number], rotularPontos: true },
         )
       : null;
-    const extras = { placar: placarOp, retro: retroOp, media: mediaOp, retido: retidoOp, nowcast };
+    const extras = { placar: placarOp, retro: retroOp, nowcast };
     if (!obs.length || !p.length) return { previsao: null, ...extras };
     // Eixo único: os meses observados seguidos dos projetados; cada série
     // só tem valor no seu trecho, e a previsão começa no último observado
@@ -142,8 +122,9 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
       previsao: opcaoPrevisao(c, meses, observado, previsto, inferior, superior, fmtSinal),
       ...extras,
     };
-  }, [obs, p, pares.linhas, placar.linhas, retro.linhas, retroAnos.linhas, retido.linhas, modelo, c]);
+  }, [obs, p, pares.linhas, placar.linhas, retroAnos.linhas, modelo, c, buscaAno]);
   const realRetido = num(retido.linhas[0], "real");
+  const escolhidoRetido = retido.linhas.find((l) => l.estimador === ORDEM_ESTIMADORES[0]);
 
   // Resposta do topo. 5a: o saldo previsto. 5b: o estoque estimado do ano
   // corrente, a variação sobre o último ano da RAIS e o erro do método.
@@ -213,16 +194,50 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
       )}
       {!previsao5 && (
         <>
+      {/* Três slides: a estimativa, a relação que a sustenta e o teste do método. */}
+      {pr && (
+        <Bloco titulo={`Estoque de TI estimado para ${num(pr, "ano")}`}>
+          <Grade colunas={3}>
+            <Kpi rotulo={`CAGED observado (${num(pr, "meses_observados")} meses)`} valor={fmtSinal(num(pr, "fluxo_observado"))} detalhe="saldo de vagas já registrado no ano" />
+            <Kpi rotulo="CAGED previsto (resto do ano)" valor={fmtSinal(num(pr, "fluxo_previsto"))} detalhe="saldo dos meses que faltam, pela previsão da 5a" />
+            <Kpi
+              destaque
+              ajuda="nowcast"
+              rotulo={`Estoque estimado em ${num(pr, "ano")}`}
+              valor={fmtNum(num(pr, "estoque_estimado"))}
+              detalhe={`± ${fmtNum(num(pr, "margem"))} vínculos · entre ${fmtNum(num(pr, "estoque_estimado") - num(pr, "margem"))} e ${fmtNum(num(pr, "estoque_estimado") + num(pr, "margem"))}`}
+            />
+          </Grade>
+        </Bloco>
+      )}
       <Bloco titulo="Estimar a RAIS antes de ela sair">
+        <div className="flex flex-wrap items-end gap-4">
+          <CampoBusca
+            rotulo="Destacar ano"
+            valor={anoBusca}
+            aoMudar={setAnoBusca}
+            placeholder="Ex.: 2025"
+            lista="anos-nowcast"
+            largura="sm:w-40"
+            encontrados={buscaAno ? pares.linhas.filter((l) => anoBate(l.ano)).length : undefined}
+          />
+          <datalist id="anos-nowcast">
+            {pares.linhas.map((l) => <option key={String(l.ano)} value={String(l.ano)} />)}
+          </datalist>
+        </div>
         <CartaoGrafico
           titulo="Fluxo do CAGED × variação do estoque da RAIS"
           ajuda="nowcast"
           subtitulo="Cada ponto é um ano · a linha tracejada é a identidade (1:1)"
+          dicaClique="Clique num ponto para destacar o ano"
+          aoClicar={({ nome }) => setAnoBusca((atual) => (atual === nome ? "" : nome))}
           opcao={op.nowcast}
           carregando={pares.carregando}
           altura={400}
           tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "fluxo", rotulo: "Saldo CAGED", formato: fmtSinal, numero: true }, { chave: "delta", rotulo: "Variação RAIS", formato: fmtSinal, numero: true }], linhas: pares.linhas }}
         />
+      </Bloco>
+      <Bloco titulo="O método teria acertado no passado?">
         <CartaoGrafico
           titulo="Quanto cada estimador teria errado, ano a ano"
           ajuda="backtest"
@@ -230,8 +245,14 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
           opcao={op.retro}
           carregando={retroAnos.carregando}
           erro={retroAnos.erro}
-          altura={340}
-          rodape="Acima de zero, o estimador previu mais vínculos do que houve; abaixo, menos. Repetir o ano anterior erra muito sempre que o mercado cresce rápido (2021 e 2022); a razão histórica entre o saldo do CAGED e a variação da RAIS fica perto de zero quase todo ano."
+          altura={360}
+          rodape={
+            <>
+              Acima de zero, o estimador previu mais vínculos do que houve; abaixo, menos. Repetir o ano anterior erra muito sempre que o mercado cresce rápido (2021 e 2022); a razão histórica entre o saldo do CAGED e a variação da RAIS fica perto de zero quase todo ano
+              {Number.isFinite(erroMedio) && <>, com erro médio de {fmtDec(Math.abs(erroMedio), 1)}% nos {num(retro.linhas[0], "anos")} anos testados</>}
+              {escolhidoRetido && <>. Na prova final, ajustada só até {anoTeste - 1}, previu {fmtNum(num(escolhidoRetido, "previsto"))} vínculos para {anoTeste}, contra {fmtNum(realRetido)} da RAIS ({comSinal(2)(num(escolhidoRetido, "erro_pct"))})</>}.
+            </>
+          }
           tabela={{
             colunas: [
               { chave: "ano", rotulo: "Ano" },
@@ -243,50 +264,6 @@ export default function Futuro({ parte = "previsao" }: { parte?: ParteFuturo }) 
             linhas: retroAnos.linhas,
           }}
         />
-        <Grade>
-          <CartaoGrafico
-            titulo={`Erro médio nos ${num(retro.linhas[0], "anos") || "—"} anos testados`}
-            subtitulo="Média do erro, sem o sinal · menor é melhor"
-            opcao={op.media}
-            carregando={retro.carregando}
-            altura={220}
-            tabela={{
-              colunas: [
-                { chave: "estimador", rotulo: "Estimador", formato: nomeEstimador },
-                { chave: "anos", rotulo: "Anos", formato: fmtNum, numero: true },
-                { chave: "erro_medio", rotulo: "Erro médio (vínculos)", formato: fmtNum, numero: true },
-                { chave: "erro_pct", rotulo: "Erro médio", formato: (v) => fmtPct(v, 2), numero: true },
-              ],
-              linhas: retro.linhas,
-            }}
-          />
-          <CartaoGrafico
-            titulo={`Prova final: ${anoTeste || "—"}, o último ano publicado`}
-            subtitulo={`Ajustados só até ${anoTeste ? anoTeste - 1 : "—"} e comparados aos ${realRetido ? fmtNum(realRetido) : "—"} vínculos que a RAIS registrou · tamanho do erro, menor é melhor`}
-            opcao={op.retido}
-            carregando={retido.carregando}
-            altura={220}
-            tabela={{
-              colunas: [
-                { chave: "estimador", rotulo: "Estimador", formato: nomeEstimador },
-                { chave: "previsto", rotulo: "Previsto", formato: fmtNum, numero: true },
-                { chave: "real", rotulo: "Real", formato: fmtNum, numero: true },
-                { chave: "erro_pct", rotulo: "Erro", formato: (v) => fmtPct(v, 2), numero: true },
-              ],
-              linhas: retido.linhas,
-            }}
-          />
-        </Grade>
-        {pr && (
-          <>
-            <h3 className="mt-2 text-[15px] font-semibold text-tinta">Projeção para {num(pr, "ano")}</h3>
-            <Grade colunas={3}>
-              <Kpi rotulo={`CAGED observado (${num(pr, "meses_observados")} meses)`} valor={fmtSinal(num(pr, "fluxo_observado"))} />
-              <Kpi rotulo="CAGED previsto (resto do ano)" valor={fmtSinal(num(pr, "fluxo_previsto"))} />
-              <Kpi destaque ajuda="nowcast" rotulo={`Estoque estimado em ${num(pr, "ano")}`} valor={fmtCompacto(num(pr, "estoque_estimado"))} detalhe={`± ${fmtCompacto(num(pr, "margem"))}`} />
-            </Grade>
-          </>
-        )}
       </Bloco>
         </>
       )}

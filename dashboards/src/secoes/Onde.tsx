@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../componentes/Grafico";
-import { Bloco, BotaoExpandir, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
+import { Bloco, CabecalhoPergunta, CampoBusca, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Modal, Seletor, type Periodo } from "../componentes/ui";
 import { REGIOES, rotuloTerritorio, UFS, useFiltro, type Regiao } from "../lib/filtro";
 import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
 import { opcaoBarras, opcaoDispersao, opcaoMapa, opcaoRosca } from "../lib/graficos";
@@ -80,25 +80,7 @@ const partesMunicipio = (m: unknown) => {
 const REGIAO_DA_UF = Object.fromEntries((Object.keys(REGIOES) as Regiao[]).flatMap((r) => REGIOES[r].map((u) => [u, r])));
 
 function BuscaMunicipio({ valor, aoMudar, encontrados }: { valor: string; aoMudar: (v: string) => void; encontrados?: number }) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1">
-      <span className="sobrelinha">Destacar município</span>
-      <span className="flex items-center gap-2">
-        <input
-          type="search"
-          list="municipios-busca"
-          value={valor}
-          onChange={(e) => aoMudar(e.target.value)}
-          placeholder="Ex.: Cornélio Procópio"
-          // 16px no celular: abaixo disso o iOS dá zoom ao focar.
-          className="h-11 w-full min-w-[12rem] rounded-[var(--radius-controle)] border border-borda bg-superficie px-3 text-base text-tinta shadow-sm transition-colors placeholder:text-tinta-3 hover:border-serie-1/60 sm:h-9 sm:w-64 sm:px-2.5 sm:text-sm"
-        />
-        {valor && encontrados !== undefined && (
-          <span className="whitespace-nowrap text-[12px] text-tinta-3">{encontrados ? `${encontrados} encontrado${encontrados > 1 ? "s" : ""}` : "nenhum"}</span>
-        )}
-      </span>
-    </label>
-  );
+  return <CampoBusca rotulo="Destacar município" valor={valor} aoMudar={aoMudar} placeholder="Ex.: Cornélio Procópio" lista="municipios-busca" encontrados={encontrados} />;
 }
 
 const ordenarLentes = <T extends { categoria?: unknown }>(l: T[]) =>
@@ -309,7 +291,6 @@ export default function Onde({ parte = "setor" }: { parte?: ParteOnde }) {
               <option key={String(l.rotulo)} value={String(l.rotulo)} />
             ))}
           </datalist>
-          <CartoesGrupos />
           {parte === "mapa" ? <Mapa busca={busca} aoBuscar={setBusca} ano={ano} /> : <Clusters busca={busca} aoBuscar={setBusca} />}
         </>
       )}
@@ -638,6 +619,7 @@ function Mapa({ busca, aoBuscar, ano }: { busca: string; aoBuscar: (v: string) =
           <Seletor rotulo="Município a partir de" valor={minimo} opcoes={[10, 50, 200, 1000, 5000].map((v) => ({ valor: v, rotulo: `${fmtNum(v)} vínculos` }))} aoMudar={setMinimo} />
         )}
         <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={criterio ? encontrados.length : undefined} />
+        <BotaoGrupos />
       </div>
       <Grade colunas={3}>
         <Kpi
@@ -709,37 +691,50 @@ function Mapa({ busca, aoBuscar, ano }: { busca: string; aoBuscar: (v: string) =
 // Município: os pontos do agrupamento; estado: a mesma leitura por UF.
 type Nivel = "municipio" | "uf";
 
-// Os três grupos de municípios, em uma frase e em números, no topo da 2b: o
-// mapa colore as bolhas por eles e o gráfico de trajetória os desenha. Os
+// Os três grupos de municípios, em uma frase e em números. O botão (com as
+// cores, a legenda das bolhas do mapa e dos pontos da trajetória) fica nos
+// controles da 2b e da 2c e abre uma janela: é consulta, não um slide. Os
 // grupos são de uma janela fixa (2020–2025) e não mudam com o ano do mapa.
+function BotaoGrupos() {
+  const { cores: c } = useTema();
+  const [aberto, setAberto] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        aria-haspopup="dialog"
+        className="inline-flex h-10 items-center gap-2 rounded-full border border-borda px-4 text-[13px] font-medium text-tinta-2 transition-colors hover:border-serie-1/60 hover:text-tinta"
+      >
+        <span aria-hidden className="flex -space-x-0.5">
+          {COR_GRUPO.map((k) => (
+            <span key={k} className="h-2.5 w-2.5 rounded-full ring-2 ring-fundo" style={{ background: c.series[k] }} />
+          ))}
+        </span>
+        Três tipos de município
+      </button>
+      <Modal aberto={aberto} aoFechar={() => setAberto(false)} titulo="Três tipos de município">
+        <CartoesGrupos />
+      </Modal>
+    </>
+  );
+}
+
 function CartoesGrupos() {
   const { cores: c } = useTema();
   const f = useFiltro();
-  const [aberto, setAberto] = useState(false);
   const perfil = useConsulta(`
     SELECT nome, count(*)::DOUBLE AS municipios, sum(estoque)::DOUBLE AS estoque_total, median(estoque)::DOUBLE AS estoque_mediano,
            median(por_mil_hab) AS por_mil_hab, median(crescimento) * 100 AS crescimento
     FROM municipios_cluster WHERE ${f.sql()} GROUP BY 1`);
-  if (!perfil.linhas.length) return null;
   const total = perfil.linhas.reduce((soma, x) => soma + num(x, "estoque_total"), 0);
   return (
-    <Bloco titulo="Três tipos de município">
-      {/* Fechado: os três nomes com a cor (a legenda do mapa); aberto, o que é cada um. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {GRUPOS.map((g, i) => (
-          <span key={g} className="flex items-center gap-1.5 text-[14px] font-medium text-tinta">
-            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: c.series[COR_GRUPO[i]] }} />
-            {g}
-          </span>
-        ))}
-        <BotaoExpandir aberto={aberto} aoAlternar={() => setAberto((v) => !v)} rotulo="O que é cada tipo" />
-      </div>
-      {aberto && (
-        <>
+    <>
       <p className="max-w-3xl text-sm text-tinta-3">
         Municípios com 30 ou mais vínculos de TI, agrupados pela trajetória de 2020 a 2025 (tamanho, especialização, crescimento, contratação, rotatividade e salário). As cores são as das bolhas do mapa e dos pontos do gráfico de trajetória.
       </p>
-      <div className="grid gap-3 md:grid-cols-3">
+      {perfil.carregando && !perfil.linhas.length && <p className="mt-4 text-sm text-tinta-3">Carregando…</p>}
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         {GRUPOS.map((g, i) => {
           const l = perfil.linhas.find((x) => x.nome === g);
           if (!l) return null;
@@ -758,9 +753,7 @@ function CartoesGrupos() {
           );
         })}
       </div>
-        </>
-      )}
-    </Bloco>
+    </>
   );
 }
 
@@ -875,6 +868,7 @@ function Clusters({ busca, aoBuscar }: { busca: string; aoBuscar: (v: string) =>
           aoMudar={setNivel}
         />
         {nivel === "municipio" && <BuscaMunicipio valor={busca} aoMudar={aoBuscar} encontrados={encontrados} />}
+        <BotaoGrupos />
       </div>
       <CartaoGrafico
         titulo={`Especialização × crescimento · ${nivel === "uf" ? "por estado" : f.rotulo}`}
