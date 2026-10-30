@@ -3,6 +3,7 @@ import { obterManifesto } from "./lib/db";
 import { useFiltro } from "./lib/filtro";
 import { useTema } from "./lib/tema";
 import { EVENTO_LIMPAR, partesHash } from "./lib/url";
+import { AvisoPWA } from "./componentes/AvisoPWA";
 
 // `grupo`: as perguntas 2 e 3 têm duas páginas cada (2a/2b, 3a/3b), que o
 // menu mostra num submenu com o nome da pergunta.
@@ -412,6 +413,7 @@ export default function App() {
 
   return (
     <div className={apresentando ? "apresentando fixed inset-0 z-50 overflow-hidden bg-fundo" : "min-h-screen"}>
+      <AvisoPWA />
       {/* A árvore é a mesma nos dois modos (só esconde partes): trocar de modo
           não remonta a página nem perde filtros e escolhas. */}
       {!apresentando && (

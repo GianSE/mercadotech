@@ -21,6 +21,16 @@ export function obterManifesto(): Promise<Manifesto> {
   return manifesto;
 }
 
+// O motor do DuckDB (worker e .wasm) vem do jsDelivr. Na primeira visita ele
+// é baixado antes de o service worker assumir a página, e fica só no cache
+// do navegador, que pode ser apagado. Pedido de novo com o service worker já
+// no controle, entra no cache do app: o painel passa a abrir sem internet.
+export async function guardarMotorNoCache(): Promise<void> {
+  if (import.meta.env.DEV) return;
+  const pacote = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  await Promise.all([pacote.mainModule, pacote.mainWorker].filter(Boolean).map((url) => fetch(url!)));
+}
+
 async function iniciar(): Promise<duckdb.AsyncDuckDB> {
   // Worker e .wasm vêm do jsDelivr: o .wasm passa do limite de 25 MiB por
   // arquivo do Cloudflare Pages, e o CDN entrega comprimido e em cache.

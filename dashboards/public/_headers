@@ -1,3 +1,11 @@
+# O service worker e o manifesto do app são sempre conferidos: com cache
+# longo, um deploy novo demoraria a chegar a quem já instalou o painel.
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+
 /dados/*
   Cache-Control: public, max-age=3600
 
