@@ -91,6 +91,7 @@ FONTES = {
     "tab-previsao.tex": CAGED,
     "tab-nowcast.tex": AMBAS,
     "fig-nowcast-anos.tex": AMBAS,
+    "tab-coerencia.tex": AMBAS,
     "tab-risco.tex": RAIS,
     "fig-risco.tex": RAIS,
     "tab-clusters.tex": AMBAS,
@@ -466,6 +467,61 @@ figura("fig-nowcast-anos.tex", f"Erro do \\textit{{nowcast}} em cada ano retido,
     \\end{{axis}}
     \\end{{tikzpicture}}""",
        nota="Erro positivo: o estimador superestimou o estoque. ")
+
+# ------------------------------------- coerência entre a RAIS e o CAGED
+# Por que a variação do estoque da RAIS não é igual ao saldo do CAGED. Nos
+# vínculos CLT da RAIS (os que o CAGED cobre), a variação se decompõe, sem
+# resto, em duas parcelas: os vínculos que entram ou saem da TI sem contratação
+# nem demissão (troca de ocupação ou de atividade da empresa, transferência
+# entre estabelecimentos) e as admissões menos os desligamentos da própria
+# RAIS. A segunda se compara com o CAGED. Lê a Silver da RAIS (mês de
+# admissão, situação em 31/12, tipo de vínculo e de admissão), não a Gold:
+# a Gold não guarda esses campos.
+CLT = "('10','15','20','25','55','60','65','70','75')"
+ADMITIDO = "try_cast(mes_admissao AS INT) BETWEEN 1 AND 12"
+ATIVO = "vinculo_ativo_3112::VARCHAR IN ('1', '01')"
+TRANSF_ENTRA = "try_cast(tipo_admissao AS INT) IN (3, 4)"
+TRANSF_SAI = "try_cast(motivo_desligamento AS INT) IN (30, 31)"
+rais_clt = con.execute(f"""
+    SELECT ano_particao::INT AS ano,
+           count(*) FILTER (WHERE {ATIVO}) AS estoque,
+           count(*) FILTER (WHERE NOT ({ADMITIDO})) AS vindos,
+           count(*) FILTER (WHERE {ADMITIDO} AND NOT ({TRANSF_ENTRA})) AS adm,
+           count(*) FILTER (WHERE {ADMITIDO} AND {TRANSF_ENTRA}) AS transf_entra,
+           count(*) FILTER (WHERE NOT ({ATIVO}) AND NOT ({TRANSF_SAI})) AS desl,
+           count(*) FILTER (WHERE NOT ({ATIVO}) AND {TRANSF_SAI}) AS transf_sai
+    FROM read_parquet('hf://datasets/{nuvem.REPO_SILVER_TI_RAIS}/rais_vinc/*/*.parquet', hive_partitioning = true)
+    WHERE tipo_vinculo::VARCHAR IN {CLT}
+    GROUP BY 1 ORDER BY 1""").df()
+caged_ano = con.execute(f"""
+    SELECT year(mes)::INT AS ano, sum(admissoes) AS adm_caged, sum(desligamentos) AS desl_caged, sum(saldo) AS saldo_caged
+    FROM read_parquet('{G}/serie_mensal.parquet') GROUP BY 1 HAVING count(*) = 12""").df()
+co = rais_clt.merge(caged_ano, on="ano")
+co["variacao"] = co["estoque"].diff()
+co["sem_contratacao"] = co["vindos"] - co["estoque"].shift(1) + co["transf_entra"] - co["transf_sai"]
+co["fluxo_rais"] = co["adm"] - co["desl"]
+co = co[co["variacao"].notna()]
+assert (co["sem_contratacao"] + co["fluxo_rais"] == co["variacao"]).all(), "a decomposição da RAIS não fecha"
+# Os períodos acompanham a mudança de regime: até 2018, os vínculos saem da TI
+# sem demissão; de 2019 a 2022, transição para o eSocial e expansão, entram.
+periodos = [(2008, 2018), (2019, 2022), (2023, int(co["ano"].max())), (int(co["ano"].min()), int(co["ano"].max()))]
+linhas_co = []
+for a, b in periodos:
+    w = co[(co["ano"] >= a) & (co["ano"] <= b)]
+    linhas_co.append([f"{a}--{b}" if (a, b) != periodos[-1] else f"\\textbf{{Total, {a}--{b}}}",
+                      num(w["variacao"].sum()), num(w["saldo_caged"].sum()), num(w["variacao"].sum() - w["saldo_caged"].sum()),
+                      num(w["sem_contratacao"].sum()), num(w["fluxo_rais"].sum() - w["saldo_caged"].sum()),
+                      num(w["adm"].sum() / w["adm_caged"].sum(), 3), num(w["desl"].sum() / w["desl_caged"].sum(), 3)])
+tabela("tab-coerencia.tex",
+       f"Variação do estoque da RAIS e saldo do CAGED, vínculos CLT de TI, {periodos[-1][0]}--{periodos[-1][1]}",
+       "tab:coerencia", "lrrrrrrr",
+       ["Período", "Var. RAIS", "Saldo CAGED", "Diferença", "Sem contratação", "Fluxos", "Adm.", "Desl."],
+       linhas_co,
+       nota="Var. RAIS: variação do estoque CLT em 31/12. A diferença para o saldo do CAGED se divide, sem resto, "
+            "em Sem contratação (vínculos que passam a contar ou deixam de contar como TI sem admissão nem desligamento, "
+            "inclusive transferências entre estabelecimentos) e Fluxos (admissões menos desligamentos da RAIS, "
+            "menos o saldo do CAGED). Adm. e Desl.: admissões e desligamentos da RAIS sobre os do CAGED, "
+            "sem as transferências. ")
 
 # ------------------------------------------------- sobrevivencia
 risco = con.execute(f"""

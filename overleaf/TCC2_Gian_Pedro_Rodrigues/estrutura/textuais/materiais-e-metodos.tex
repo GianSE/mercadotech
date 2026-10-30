@@ -97,6 +97,7 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
         Ocupações de dados fora do recorte; cinco códigos sem aderência & Avaliação & Negócio & Recorte revisto e camada reprocessada (\autoref{subsec:revisao-recorte}) \\
         Estoque de 2022 abaixo do de 2021 e do de 2023 & Avaliação & Preparação & Pedaços reconstruídos e verificação por pedaço \\
         Linhas duplicadas no CAGED de 2007 & Avaliação & Preparação & Ano reconstruído e recontagem de todos os anos (\autoref{sec:reprodutibilidade}) \\
+        Meses do CAGED antigo com poucas linhas & Avaliação & Preparação & Extração conferida pelo tamanho declarado no pacote e meses reingeridos (\autoref{sec:coerencia-bases}) \\
         Maior grupo de programadores do país em um único órgão público & Avaliação & Preparação & Grupo excluído na Gold e verificação de saltos (\autoref{subsec:artefato-ro}) \\
         Permanência mediana de 48 anos no Kaplan-Meier & Avaliação & Modelagem & Tábua de vida de período e risco em tempo discreto \\
         Mesma mediana, 3,55 ou 3,75 conforme a tabela & Avaliação & Preparação & Mediana exata e distribuição em faixas na Gold \\
@@ -111,7 +112,7 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
 
 \section{Fontes de dados}
 
-A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET), em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor público distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A camada Bronze guarda esse mesmo conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,4~GB, 11,7 vezes menos que o texto e quase o tamanho dos pacotes compactados de origem, com a diferença de que o Parquet é lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os arquivos: o formato 7z registra o tamanho original de cada arquivo no cabeçalho, ao fim do pacote, e basta ler esse trecho. A \autoref{fig:fluxo-dado}, na \autoref{sec:arquitetura}, mostra o volume em cada etapa, do servidor público ao navegador.
+A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET), em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor público distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A camada Bronze guarda esse mesmo conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,7~GB, 11,7 vezes menos que o texto e quase o tamanho dos pacotes compactados de origem, com a diferença de que o Parquet é lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os arquivos: o formato 7z registra o tamanho original de cada arquivo no cabeçalho, ao fim do pacote, e basta ler esse trecho. A \autoref{fig:fluxo-dado}, na \autoref{sec:arquitetura}, mostra o volume em cada etapa, do servidor público ao navegador.
 
 
 \subsection{Desafios de engenharia da RAIS}
@@ -187,7 +188,7 @@ A plataforma foi construída primeiro sobre infraestrutura local (um \textit{dat
     \node[etapa, fill=blue!3] (txt) at (4.3, 0)
         {Microdado em texto\\{\footnotesize largura fixa ou CSV}\\[2pt]{\bfseries$\approx$ 661~GB}};
     \node[etapa, fill=orange!20, publicado] (bronze) at (8.6, 0)
-        {Bronze\\{\footnotesize Parquet, ZSTD nível 3}\\[2pt]{\bfseries56,4~GB}};
+        {Bronze\\{\footnotesize Parquet, ZSTD nível 3}\\[2pt]{\bfseries56,7~GB}};
     \node[etapa, fill=gray!20, publicado] (silver) at (12.9, 0)
         {Silver de TI\\{\footnotesize recorte CNAE $\cup$ CBO, traduzido}\\[2pt]{\bfseries1,3~GB}};
 
