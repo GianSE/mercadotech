@@ -3,6 +3,7 @@
 # sobrevivência, hiato). O resto do pipeline instala só o básico.
 -r requirements-actions.txt
 
+pandas==3.0.6           # ciencia_dados/*.py (sklearn/statsmodels exigem pandas, não polars)
 scikit-learn==1.9.1     # clusters_municipios.py (gold-territorio.yml)
 statsmodels==0.15.0     # hiato_salarial.py, nowcast_estoque.py, previsao_saldo.py,
                          # serie.py, sobrevivencia.py (traz scipy como dependência)
