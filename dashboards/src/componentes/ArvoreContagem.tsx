@@ -41,7 +41,43 @@ export function contarItens(nos: NoContagem[], busca: string): number {
 }
 const folhas = (no: NoContagem): number => (no.filhos?.length ? no.filhos.reduce((s, f) => s + folhas(f), 0) : 1);
 
-function Realce({ texto, busca }: { texto: string; busca: string }) {
+// Um nó pelo id, em qualquer nível.
+export function acharNo(nos: NoContagem[], id: string): NoContagem | undefined {
+  for (const n of nos) {
+    if (n.id === id) return n;
+    const achado = acharNo(n.filhos ?? [], id);
+    if (achado) return achado;
+  }
+  return undefined;
+}
+
+// Do topo até o nó: os ancestrais e o próprio nó (a trilha do drill down).
+export function caminhoAte(nos: NoContagem[], id: string): NoContagem[] {
+  for (const n of nos) {
+    if (n.id === id) return [n];
+    const resto = caminhoAte(n.filhos ?? [], id);
+    if (resto.length) return [n, ...resto];
+  }
+  return [];
+}
+
+// As folhas debaixo de um nó (ou o próprio nó, se for folha).
+export function folhasDe(no: NoContagem): NoContagem[] {
+  return no.filhos?.length ? no.filhos.flatMap(folhasDe) : [no];
+}
+
+// Só o ramo de um nó: os ancestrais (para a cor e o contexto) e tudo o que
+// está debaixo dele.
+export function ramo(nos: NoContagem[], id: string): NoContagem[] {
+  const podar = (no: NoContagem): NoContagem | null => {
+    if (no.id === id) return no;
+    const filhos = (no.filhos ?? []).map(podar).filter((f): f is NoContagem => f !== null);
+    return filhos.length ? { ...no, filhos } : null;
+  };
+  return nos.map(podar).filter((n): n is NoContagem => n !== null);
+}
+
+export function Realce({ texto, busca }: { texto: string; busca: string }) {
   const termo = normalizar(busca.trim());
   const i = termo ? normalizar(texto).indexOf(termo) : -1;
   if (i < 0) return <>{texto}</>;

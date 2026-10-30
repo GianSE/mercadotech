@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { ArvoreContagem, contarItens, filtrarArvore, type NoContagem } from "../componentes/ArvoreContagem";
+import { acharNo, ArvoreContagem, caminhoAte, folhasDe, ramo, type NoContagem } from "../componentes/ArvoreContagem";
+import { SeletorArvore } from "../componentes/SeletorArvore";
 import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CampoBusca, Grade, Kpi, Seletor } from "../componentes/ui";
+import { AvisoNacional, Bloco, Grade, Kpi, LinhaFiltros, Seletor } from "../componentes/ui";
 import { UFS } from "../lib/filtro";
 import { fmtCompacto, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
-import { opcaoHierarquia, opcaoLinhas, type NoHierarquia } from "../lib/graficos";
+import { opcaoHierarquia, opcaoLinhas, type NoHierarquia, type SerieLinha } from "../lib/graficos";
 import type { Linha } from "../lib/db";
 import { literal, num, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
@@ -97,11 +98,27 @@ function paraHierarquia(nos: NoContagem[], cor?: (codigo: string) => string): No
 // Do rótulo de uma fatia do gráfico de sol de volta ao item (para a ficha).
 function itensPorRotulo(nos: NoContagem[], mapa = new Map<string, NoContagem>()): Map<string, NoContagem> {
   for (const n of nos) {
-    if (n.filhos?.length) itensPorRotulo(n.filhos, mapa);
-    else mapa.set(`${n.codigo} ${n.nome}`.trim(), n);
+    if (n.filhos?.length) {
+      mapa.set(`${n.codigo} · ${n.nome}`, n);
+      itensPorRotulo(n.filhos, mapa);
+    } else mapa.set(`${n.codigo} ${n.nome}`.trim(), n);
   }
   return mapa;
 }
+
+// O nível abaixo de cada escolha, no plural do título do gráfico.
+const NIVEL_ABAIXO: Record<string, string> = {
+  "cbo:todas": "grande grupo", grupo: "família", familia: "ocupação",
+  "cnae:todas": "divisão", divisao: "atividade",
+};
+const soDigitos = (s: string) => s.replace(/\D/g, "");
+// Rótulo curto de uma linha: código e nome, sem estourar a legenda.
+const rotuloLinha = (n: NoContagem) => `${n.codigo} ${n.nome.length > 34 ? `${n.nome.slice(0, 33)}…` : n.nome}`;
+
+// O que está escolhido: o total de uma lente, um grupo, uma família ou um item.
+const TODAS_CBO = "cbo:todas";
+const TODAS_CNAE = "cnae:todas";
+const ehDaCbo = (id: string) => /^(cbo|grupo|familia):/.test(id);
 
 // As duas bases, em uma frase cada, para quem nunca ouviu falar delas.
 const FONTES = [
@@ -124,11 +141,10 @@ export type PartePesquisa = "apresentacao" | "recorte";
 export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesquisa }) {
   const recorte = parte === "recorte";
   const { cores: c } = useTema();
-  // A busca filtra as duas listas; o item escolhido (ocupação ou atividade)
-  // abre a ficha e vai para o link.
-  const [busca, setBusca] = useParametro("busca", "", texto, texto);
-  const [item, setItem] = useParametro("item", "", texto, texto);
-  // Círculo (o padrão) ou lista: a busca vale para os dois.
+  // O que os menus escolhem: todas as ocupações (o padrão), um grupo, uma
+  // família ou uma ocupação da CBO, ou o mesmo na CNAE. Vai para o link.
+  const [item, setItem] = useParametro("item", TODAS_CBO, texto, texto);
+  // Círculo (o padrão) ou lista.
   const [ver, setVer] = useParametro<"circulo" | "lista">("ver", "circulo", (v) => (v === "lista" ? "lista" : "circulo"), texto);
 
   const estoque = useConsulta(`SELECT ano, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_anual WHERE ${TI} AND ano = ${ULTIMO_RAIS} GROUP BY 1`);
@@ -163,68 +179,164 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   const anoRais = num(cob, "ate_rais");
   const ocupacoes = lista.linhas.length;
   const familias = new Set(lista.linhas.map((l) => String(l.cbo).slice(0, 4))).size;
-  const nAtividades = atividades.linhas.length;
 
   const arvores = useMemo(() => ({ cbo: arvoreCbo(lista.linhas), cnae: arvoreCnae(atividades.linhas) }), [lista.linhas, atividades.linhas]);
-  const encontrados = busca.trim() ? contarItens(arvores.cbo, busca) + contarItens(arvores.cnae, busca) : undefined;
-  const circulos = useMemo(() => {
-    const cbo = filtrarArvore(arvores.cbo, busca);
-    const cnae = filtrarArvore(arvores.cnae, busca);
-    return {
-      cbo: cbo.length ? opcaoHierarquia(c, paraHierarquia(cbo, (g) => c.series[Number(g) - 1] ?? c.series[0]), { formato: fmtNum, unidade: "vínculos" }) : null,
-      cnae: cnae.length ? opcaoHierarquia(c, paraHierarquia(cnae, (d) => c.series[d === "63" ? 1 : 0]), { formato: fmtNum, unidade: "vínculos" }) : null,
-      itens: itensPorRotulo([...arvores.cbo, ...arvores.cnae]),
-    };
-  }, [arvores, busca, c]);
 
-  // A ficha: o item do link ou, sem escolha, a ocupação com mais vínculos
-  // (o slide da ficha nunca abre vazio).
-  const maior = [...lista.linhas].sort((a, b) => num(b, "vinculos") - num(a, "vinculos"))[0];
-  const escolhido = item || (maior ? `cbo:${maior.cbo}` : "");
-  const [lenteFicha, chaveFicha] = [escolhido.split(":")[0], escolhido.slice(escolhido.indexOf(":") + 1)];
-  const ehCbo = lenteFicha === "cbo";
-  const nomeFicha = ehCbo
-    ? String(lista.linhas.find((l) => String(l.cbo) === chaveFicha)?.ocupacao ?? "")
-    : chaveFicha;
-  const infoCbo = ehCbo ? lista.linhas.find((l) => String(l.cbo) === chaveFicha) : undefined;
-  const serieRais = useConsulta(!recorte || !escolhido ? null : ehCbo
-    ? `SELECT ano, estoque_3112::DOUBLE AS vinculos FROM rais_recorte_cbo WHERE cbo = ${literal(chaveFicha)} ORDER BY ano`
-    : `SELECT ano, sum(estoque_3112)::DOUBLE AS vinculos FROM rais_setor_vs_ocupacao
-       WHERE setor_ti AND coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') = ${literal(chaveFicha)} GROUP BY 1 ORDER BY 1`);
-  // O CAGED da ocupação: as duas lentes em que ela é ocupação de TI (dentro
-  // e fora das empresas de TI), pelo nome, que é o mesmo nas duas bases.
-  const serieCaged = useConsulta(!recorte || !ehCbo || !nomeFicha ? null : `
-    SELECT ano, sum(admissoes)::DOUBLE AS admissoes, sum(desligamentos)::DOUBLE AS desligamentos, sum(saldo)::DOUBLE AS saldo,
-           sum(soma_salario_adm) / nullif(sum(n_salario_adm), 0) AS salario
+  const escolhido = item || TODAS_CBO;
+  const ehCbo = ehDaCbo(escolhido);
+  const todas = escolhido === TODAS_CBO || escolhido === TODAS_CNAE;
+  const noFicha = todas ? undefined : acharNo(ehCbo ? arvores.cbo : arvores.cnae, escolhido);
+  const nivelFicha = escolhido.split(":")[0];
+  // Cada menu mostra a escolha da sua lente; o outro fica no total.
+  const selCbo = ehCbo ? escolhido : TODAS_CBO;
+  const selCnae = ehCbo ? TODAS_CNAE : escolhido;
+  // Grupo, família ou divisão escolhidos: os gráficos mostram só aquele ramo.
+  const podar = (nos: NoContagem[], id: string) => (id.endsWith(":todas") || !acharNo(nos, id)?.filhos?.length ? nos : ramo(nos, id));
+  const visCbo = podar(arvores.cbo, selCbo);
+  const visCnae = podar(arvores.cnae, selCnae);
+  // Os títulos acompanham o ramo mostrado.
+  const nVisCbo = visCbo.flatMap(folhasDe).length;
+  const nVisCnae = visCnae.flatMap(folhasDe).length;
+  const nomeSelCbo = selCbo === TODAS_CBO ? "" : acharNo(arvores.cbo, selCbo)?.nome ?? "";
+  const nomeSelCnae = selCnae === TODAS_CNAE ? "" : acharNo(arvores.cnae, selCnae)?.nome ?? "";
+  const circulos = useMemo(() => ({
+    cbo: visCbo.length ? opcaoHierarquia(c, paraHierarquia(visCbo, (g) => c.series[Number(g) - 1] ?? c.series[0]), { formato: fmtNum, unidade: "vínculos" }) : null,
+    cnae: visCnae.length ? opcaoHierarquia(c, paraHierarquia(visCnae, (d) => c.series[d === "63" ? 1 : 0]), { formato: fmtNum, unidade: "vínculos" }) : null,
+    itens: itensPorRotulo([...arvores.cbo, ...arvores.cnae]),
+  }), [visCbo, visCnae, arvores, c]);
+
+  // As consultas da ficha valem para qualquer nível: o total, um grupo, uma
+  // família ou um item. Na CBO, pelo prefixo do código; na CNAE, pelos nomes
+  // das atividades debaixo do nó.
+  const prefixo = !ehCbo || todas ? "" : nivelFicha === "cbo" ? escolhido.slice(4) : noFicha?.codigo ?? "";
+  const folhasFicha = noFicha ? folhasDe(noFicha) : [];
+  const nomesCbo = lista.linhas.filter((l) => String(l.cbo).startsWith(prefixo)).map((l) => String(l.ocupacao));
+  // Drill down: a ficha desenha uma linha por filho do nível escolhido
+  // (todas -> grande grupo -> família -> ocupação; na CNAE, todas -> divisão
+  // -> atividade). No item, uma linha só, e não há mais o que abrir.
+  const ehFolha = !todas && !noFicha?.filhos?.length;
+  // Sem escolha, uma linha só (a soma da lente); a quebra por filho começa
+  // no primeiro nível escolhido. Os botões de abrir aparecem desde o topo.
+  const linhaUnica = ehFolha || todas;
+  const filhosFicha: NoContagem[] = todas ? (ehCbo ? arvores.cbo : arvores.cnae) : ehFolha ? (noFicha ? [noFicha] : []) : noFicha!.filhos!;
+  const nivelAbaixo = NIVEL_ABAIXO[todas ? escolhido : nivelFicha] ?? "";
+  const cboDoNome = new Map(lista.linhas.map((l) => [String(l.ocupacao).toLowerCase(), String(l.cbo)]));
+  const filhoDe = (chave: string): NoContagem | undefined => ehCbo
+    ? filhosFicha.find((f) => chave.startsWith(soDigitos(f.codigo)))
+    : filhosFicha.find((f) => folhasDe(f).some((x) => x.nome === chave));
+  const serieRais = useConsulta(!recorte ? null : ehCbo
+    ? `SELECT ano, cbo::VARCHAR AS chave, sum(estoque_3112)::DOUBLE AS vinculos FROM rais_recorte_cbo
+       ${prefixo ? `WHERE cbo LIKE ${literal(prefixo + "%")}` : ""} GROUP BY 1, 2 ORDER BY 1`
+    : `SELECT ano, coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') AS chave, sum(estoque_3112)::DOUBLE AS vinculos
+       FROM rais_setor_vs_ocupacao
+       WHERE setor_ti ${todas ? "" : `AND coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') IN (${folhasFicha.flatMap(folhasDe).map((f) => literal(f.nome)).join(", ") || "''"})`}
+       GROUP BY 1, 2 ORDER BY 1`);
+  // O CAGED das ocupações escolhidas: as duas lentes em que elas são
+  // ocupação de TI (dentro e fora das empresas de TI), pelo nome, que é o
+  // mesmo nas duas bases. Na CNAE, a ficha fica só com a RAIS.
+  const serieCaged = useConsulta(!recorte || !ehCbo || (!todas && !nomesCbo.length) ? null : `
+    SELECT ano, ocupacao AS chave, sum(admissoes)::DOUBLE AS admissoes, sum(desligamentos)::DOUBLE AS desligamentos,
+           sum(saldo)::DOUBLE AS saldo, sum(soma_salario_adm)::DOUBLE AS soma_salario, sum(n_salario_adm)::DOUBLE AS n_salario
     FROM caged_ocupacao
-    WHERE lower(ocupacao) = lower(${literal(nomeFicha)}) AND lente <> 'Outra ocupação em empresa de TI'
-    GROUP BY 1 ORDER BY 1`);
+    WHERE lente <> 'Outra ocupação em empresa de TI'
+      ${todas ? "" : `AND lower(ocupacao) IN (${nomesCbo.map((n) => `lower(${literal(n)})`).join(", ")})`}
+    GROUP BY 1, 2 ORDER BY 1`);
+  const nOcupacoesFicha = todas ? ocupacoes : folhasFicha.length;
+  const tituloFicha = todas ? (ehCbo ? "Todas as ocupações de TI" : "Todas as atividades de empresas de TI") : noFicha?.nome ?? "Ficha";
+  const descricaoFicha = ehCbo
+    ? todas
+      ? `As ${ocupacoes} ocupações de TI da CBO, somadas. Escolha um grupo, uma família ou uma ocupação no menu acima.`
+      : nivelFicha === "grupo"
+        ? `Grande grupo ${noFicha?.codigo} da CBO · ${nOcupacoesFicha} ocupações de TI somadas`
+        : nivelFicha === "familia"
+          ? `Família ${noFicha?.codigo} da CBO · ${nOcupacoesFicha} ocupações de TI somadas`
+          : `Ocupação ${noFicha?.codigo ?? ""} · família ${prefixo.slice(0, 4)} · área ${String(lista.linhas.find((l) => String(l.cbo) === prefixo)?.area ?? "—")}`
+    : todas
+      ? "As atividades das divisões 62 e 63 da CNAE, somadas: todos os vínculos nas empresas de TI, de qualquer ocupação."
+      : nivelFicha === "divisao"
+        ? `Divisão ${noFicha?.codigo} da CNAE · ${nOcupacoesFicha} atividades somadas: todos os vínculos nas empresas, de qualquer ocupação.`
+        : "Atividade de empresa de TI (CNAE): todos os vínculos nas empresas desta atividade, de qualquer ocupação."
   const ultimoCaged = String(cob?.ate_caged ?? "");
   const anoCompleto = ultimoCaged.startsWith("12/") ? Number(ultimoCaged.slice(-4)) : Number(ultimoCaged.slice(-4)) - 1;
 
-  const sr = serieRais.linhas;
+  // Os totais do nível (para os indicadores) e uma série por filho (para as linhas).
+  const somarPorAno = <T extends Record<string, number>>(linhas: Linha[], campos: (keyof T & string)[]) => {
+    const anos = new Map<number, Record<string, number>>();
+    for (const l of linhas) {
+      const a = anos.get(num(l, "ano")) ?? Object.fromEntries(campos.map((k) => [k, 0]));
+      for (const k of campos) a[k] += num(l, k);
+      anos.set(num(l, "ano"), a);
+    }
+    return [...anos.entries()].sort(([x], [y]) => x - y).map(([ano, v]) => ({ ano, ...v }) as Linha);
+  };
+  const sr = somarPorAno(serieRais.linhas, ["vinculos"]);
+  const cagedTotal = somarPorAno(serieCaged.linhas, ["admissoes", "desligamentos", "saldo", "soma_salario", "n_salario"])
+    .map((l) => ({ ...l, salario: num(l, "n_salario") ? num(l, "soma_salario") / num(l, "n_salario") : null }) as Linha);
   const ultimo = sr.at(-1);
   const dezAntes = sr.find((l) => num(l, "ano") === num(ultimo, "ano") - 10) ?? sr[0];
-  const cagedAno = serieCaged.linhas.find((l) => num(l, "ano") === anoCompleto);
+  const cagedAno = cagedTotal.find((l) => num(l, "ano") === anoCompleto);
   // Só anos completos no gráfico: o ano corrente, parcial, despencaria a linha no fim.
-  const cagedCompletos = serieCaged.linhas.filter((l) => num(l, "ano") <= anoCompleto);
+  const cagedCompletos = cagedTotal.filter((l) => num(l, "ano") <= anoCompleto);
+  // Uma série por filho, na ordem da árvore (do maior para o menor). Mais de
+  // oito viram sete e "Outras": cor nova não se inventa.
+  const porFilho = (linhas: Linha[], campo: string, chaveDe: (l: Linha) => string, anos: number[]) => {
+    const visiveis = filhosFicha.length > 8 ? filhosFicha.slice(0, 7) : filhosFicha;
+    const series: SerieLinha[] = visiveis.map((f, i) => ({ nome: rotuloLinha(f), cor: c.series[i], dados: anos.map(() => 0) }));
+    const outras: SerieLinha = { nome: "Outras", cor: c.tinta3, dados: anos.map(() => 0) };
+    for (const l of linhas) {
+      const f = filhoDe(chaveDe(l));
+      const i = anos.indexOf(num(l, "ano"));
+      if (!f || i < 0) continue;
+      const k = visiveis.indexOf(f);
+      const alvo = k >= 0 ? series[k] : outras;
+      alvo.dados[i] = (alvo.dados[i] ?? 0) + num(l, campo);
+    }
+    return filhosFicha.length > 8 ? [...series, outras] : series;
+  };
+  const tabelaFilhos = (linhas: Linha[], campo: string, chaveDe: (l: Linha) => string) =>
+    linhas.flatMap((l) => {
+      const f = filhoDe(chaveDe(l));
+      return f ? [{ ano: num(l, "ano"), nivel: rotuloLinha(f), valor: num(l, campo) } as Linha] : [];
+    });
+  const chaveCaged = (l: Linha) => cboDoNome.get(String(l.chave).toLowerCase()) ?? "";
+  // A linha clicável: o clique numa linha (e não só num ponto) abre o nível.
+  // Os botões de abrir, acima, têm as mesmas cores e fazem de legenda: a do
+  // gráfico quebraria em duas linhas com nomes longos e cobriria o eixo.
+  const clicavel = (op: ReturnType<typeof opcaoLinhas>) => ({
+    ...op,
+    legend: { show: false },
+    grid: { ...(op.grid as object), top: 24 },
+    series: (op.series as object[]).map((x) => ({ ...x, triggerLineEvent: true })),
+  });
+  const abrir = ({ serie }: { serie?: string }) => {
+    const f = filhosFicha.find((x) => rotuloLinha(x) === serie);
+    if (f && !linhaUnica) setItem(f.id);
+  };
+  const trilha = todas ? [] : caminhoAte(ehCbo ? arvores.cbo : arvores.cnae, escolhido);
+  // Escolher num gráfico leva à ficha; nos menus, a página fica onde está.
   const escolher = (no: NoContagem) => {
     setItem(no.id);
     requestAnimationFrame(() => document.getElementById("ficha")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
   const totalLente = ehCbo ? arvores.cbo.reduce((t, n) => t + n.valor, 0) : arvores.cnae.reduce((t, n) => t + n.valor, 0);
 
-  const op = useMemo(() => ({
-    rais: sr.length
-      ? opcaoLinhas(c, sr.map((l) => num(l, "ano")), [{ nome: "Vínculos em 31/12", cor: c.series[0], dados: sr.map((l) => num(l, "vinculos")), rotuloFinal: true }], { formato: fmtNum })
-      : null,
-    caged: cagedCompletos.length
-      ? opcaoLinhas(c, cagedCompletos.map((l) => num(l, "ano")), [
-          { nome: "Admissões", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "admissoes")) },
-          { nome: "Desligamentos", cor: c.series[1], dados: cagedCompletos.map((l) => num(l, "desligamentos")) },
-        ], { formato: fmtNum })
-      : null,
-  }), [sr, cagedCompletos, c]);
+  const anosRais = sr.map((l) => num(l, "ano"));
+  const anosCaged = cagedCompletos.map((l) => num(l, "ano"));
+  const op = {
+    rais: !sr.length
+      ? null
+      : linhaUnica
+        ? opcaoLinhas(c, anosRais, [{ nome: "Vínculos em 31/12", cor: c.series[0], dados: sr.map((l) => num(l, "vinculos")), rotuloFinal: true }], { formato: fmtNum })
+        : clicavel(opcaoLinhas(c, anosRais, porFilho(serieRais.linhas, "vinculos", (l) => String(l.chave), anosRais), { formato: fmtNum })),
+    caged: !cagedCompletos.length
+      ? null
+      : linhaUnica
+        ? opcaoLinhas(c, anosCaged, [
+            { nome: "Admissões", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "admissoes")) },
+            { nome: "Desligamentos", cor: c.series[1], dados: cagedCompletos.map((l) => num(l, "desligamentos")) },
+          ], { formato: fmtNum })
+        : clicavel(opcaoLinhas(c, anosCaged, porFilho(serieCaged.linhas.filter((l) => num(l, "ano") <= anoCompleto), "saldo", chaveCaged, anosCaged), { formato: fmtSinal })),
+  };
 
   return (
     <>
@@ -268,28 +380,43 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
 
       {recorte && (
       <>
+      <LinhaFiltros territorio={false} resumo={[selCbo === TODAS_CBO ? "Todas as ocupações" : acharNo(arvores.cbo, selCbo)?.nome, selCnae === TODAS_CNAE ? "Todas as atividades" : acharNo(arvores.cnae, selCnae)?.nome].join(" · ")}>
+        <SeletorArvore
+          rotulo="Ocupação · CBO"
+          valor={selCbo}
+          nos={arvores.cbo}
+          todos={{ id: TODAS_CBO, nome: "Todas as ocupações de TI" }}
+          aoMudar={setItem}
+          placeholder="Buscar: analista, 2124, programador…"
+        />
+        <SeletorArvore
+          rotulo="Atividade da empresa · CNAE"
+          valor={selCnae}
+          nos={arvores.cnae}
+          todos={{ id: TODAS_CNAE, nome: "Todas as atividades de TI" }}
+          aoMudar={setItem}
+          placeholder="Buscar: software, 6201, consultoria…"
+        />
+        <Seletor<"circulo" | "lista">
+          rotulo="Ver como"
+          valor={ver}
+          opcoes={[{ valor: "circulo", rotulo: "Círculo" }, { valor: "lista", rotulo: "Lista" }]}
+          aoMudar={setVer}
+        />
+      </LinhaFiltros>
       <Bloco
         titulo="As duas lentes do recorte"
-        descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE). Clique num item para ver a ficha dele."
+        descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE). Escolha nos menus acima, ou clique num gráfico, para ver a ficha de um grupo, família ou item."
       >
-        <div className="flex flex-wrap items-end gap-4">
-          <CampoBusca rotulo="Buscar ocupação ou atividade" valor={busca} aoMudar={setBusca} placeholder="Ex.: analista, programador, 2124, 6201" largura="sm:w-80" encontrados={encontrados} />
-          <Seletor<"circulo" | "lista">
-            rotulo="Ver como"
-            valor={ver}
-            opcoes={[{ valor: "circulo", rotulo: "Círculo" }, { valor: "lista", rotulo: "Lista" }]}
-            aoMudar={setVer}
-          />
-        </div>
         <Grade>
           {ver === "lista" ? (
             <>
           <ArvoreContagem
-            titulo={ocupacoes ? `${ocupacoes} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
-            subtitulo={`${familias ? `${familias} famílias · ` : ""}vínculos em 31/12/${anoRais || "—"}`}
+            titulo={nVisCbo ? `${nVisCbo} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
+            subtitulo={`${nomeSelCbo || (familias ? `${familias} famílias` : "")} · vínculos em 31/12/${anoRais || "—"}`}
             ajuda="lentes"
-            nos={arvores.cbo}
-            busca={busca}
+            nos={visCbo}
+            busca=""
             selecionado={escolhido}
             aoSelecionar={escolher}
             carregando={lista.carregando}
@@ -304,11 +431,11 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
             }}
           />
           <ArvoreContagem
-            titulo={nAtividades ? `${nAtividades} atividades de empresas de TI · CNAE` : "Atividades de empresas de TI · CNAE"}
-            subtitulo={`divisões 62 e 63 · vínculos em 31/12/${anoRais || "—"}`}
+            titulo={nVisCnae ? `${nVisCnae} atividades de empresas de TI · CNAE` : "Atividades de empresas de TI · CNAE"}
+            subtitulo={`${nomeSelCnae || "divisões 62 e 63"} · vínculos em 31/12/${anoRais || "—"}`}
             ajuda="lentes"
-            nos={arvores.cnae}
-            busca={busca}
+            nos={visCnae}
+            busca=""
             selecionado={escolhido}
             aoSelecionar={escolher}
             carregando={atividades.carregando}
@@ -325,14 +452,13 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
           ) : (
             <>
           <CartaoGrafico
-            titulo={ocupacoes ? `${ocupacoes} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
-            subtitulo={`${familias ? `${familias} famílias · ` : ""}vínculos em 31/12/${anoRais || "—"}`}
+            titulo={nVisCbo ? `${nVisCbo} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
+            subtitulo={`${nomeSelCbo || (familias ? `${familias} famílias` : "")} · vínculos em 31/12/${anoRais || "—"}`}
             ajuda="lentes"
             opcao={circulos.cbo}
             altura={420}
             erro={lista.erro}
             dicaClique="Clique num grupo para abrir; num item, para ver a ficha"
-            vazio={`Nada com “${busca.trim()}” nesta lente.`}
             aoClicar={({ nome }) => { const no = circulos.itens.get(nome); if (no) escolher(no); }}
             carregando={lista.carregando}
             tabela={{
@@ -346,14 +472,13 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
             }}
           />
           <CartaoGrafico
-            titulo={nAtividades ? `${nAtividades} atividades de empresas de TI · CNAE` : "Atividades de empresas de TI · CNAE"}
-            subtitulo={`divisões 62 e 63 · vínculos em 31/12/${anoRais || "—"}`}
+            titulo={nVisCnae ? `${nVisCnae} atividades de empresas de TI · CNAE` : "Atividades de empresas de TI · CNAE"}
+            subtitulo={`${nomeSelCnae || "divisões 62 e 63"} · vínculos em 31/12/${anoRais || "—"}`}
             ajuda="lentes"
             opcao={circulos.cnae}
             altura={420}
             erro={atividades.erro}
             dicaClique="Clique num grupo para abrir; num item, para ver a ficha"
-            vazio={`Nada com “${busca.trim()}” nesta lente.`}
             aoClicar={({ nome }) => { const no = circulos.itens.get(nome); if (no) escolher(no); }}
             carregando={atividades.carregando}
             tabela={{
@@ -373,13 +498,41 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
       {escolhido && (
         <div id="ficha" className="mt-12 scroll-mt-24">
         <Bloco
-          titulo={nomeFicha || "Ficha"}
-          descricao={ehCbo
-            ? `Ocupação ${infoCbo ? `${String(infoCbo.cbo).slice(0, 4)}-${String(infoCbo.cbo).slice(4)} · família ${String(infoCbo.cbo).slice(0, 4)} · área ${String(infoCbo.area ?? "—")}` : ""}`
-            : "Atividade de empresa de TI (CNAE): todos os vínculos nas empresas desta atividade, de qualquer ocupação."}
+          titulo={tituloFicha}
+          descricao={descricaoFicha}
         >
+          <nav aria-label="Nível da ficha" className="-mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px]">
+            <button type="button" onClick={() => setItem(ehCbo ? TODAS_CBO : TODAS_CNAE)} className={todas ? "font-semibold text-tinta" : "text-serie-1 hover:underline"} aria-current={todas ? "page" : undefined}>
+              {ehCbo ? "Todas as ocupações" : "Todas as atividades"}
+            </button>
+            {trilha.map((n) => (
+              <span key={n.id} className="flex items-center gap-1.5">
+                <span aria-hidden className="text-tinta-3">›</span>
+                <button type="button" onClick={() => setItem(n.id)} className={n.id === escolhido ? "font-semibold text-tinta" : "text-serie-1 hover:underline"} aria-current={n.id === escolhido ? "page" : undefined}>
+                  <span className="font-mono text-[11px] text-tinta-3">{n.codigo}</span> {n.nome}
+                </button>
+              </span>
+            ))}
+          </nav>
+          {!ehFolha && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="sobrelinha">Abrir {nivelAbaixo}</span>
+              {filhosFicha.map((f, i) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setItem(f.id)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-borda px-2.5 py-1 text-[12px] text-tinta-2 transition-colors hover:border-serie-1/60 hover:text-tinta"
+                >
+                  {!linhaUnica && <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: i < 7 || filhosFicha.length <= 8 ? c.series[i] : c.tinta3 }} />}
+                  <span className="font-mono text-[11px] text-tinta-3">{f.codigo}</span>
+                  {f.nome}
+                </button>
+              ))}
+            </div>
+          )}
           <Grade colunas={ehCbo ? 4 : 3}>
-            <Kpi destaque rotulo={`Vínculos em ${num(ultimo, "ano") || "—"}`} valor={ultimo ? fmtNum(num(ultimo, "vinculos")) : "—"} detalhe={totalLente && ultimo ? `${fmtPct((num(ultimo, "vinculos") / totalLente) * 100, 1)} da lente` : undefined} />
+            <Kpi destaque rotulo={`Vínculos em ${num(ultimo, "ano") || "—"}`} valor={ultimo ? fmtNum(num(ultimo, "vinculos")) : "—"} detalhe={!todas && totalLente && ultimo ? `${fmtPct((num(ultimo, "vinculos") / totalLente) * 100, 1)} da lente` : todas ? "o total da lente" : undefined} />
             <Kpi
               rotulo={dezAntes && ultimo ? `Desde ${num(dezAntes, "ano")}` : "Crescimento"}
               valor={dezAntes && ultimo && num(dezAntes, "vinculos") ? `${num(ultimo, "vinculos") >= num(dezAntes, "vinculos") ? "+" : ""}${fmtPct((num(ultimo, "vinculos") / num(dezAntes, "vinculos") - 1) * 100, 0)}` : "—"}
@@ -391,29 +544,36 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
                 <Kpi rotulo={`Salário de admissão em ${anoCompleto}`} valor={cagedAno?.salario != null ? fmtReais(num(cagedAno, "salario")) : "—"} detalhe="média no CAGED" />
               </>
             ) : (
-              <Kpi rotulo="Lente" valor="Setor de TI" detalhe="pela atividade da empresa" />
+              <Kpi rotulo="Lente" valor="Setor de TI" detalhe={nOcupacoesFicha > 1 ? `${nOcupacoesFicha} atividades somadas` : "pela atividade da empresa"} />
             )}
           </Grade>
           {/* Ocupação: a RAIS e o CAGED lado a lado; atividade: só a RAIS, na largura toda. */}
           <div className={`grid gap-4 [&>*]:min-w-0 ${ehCbo ? "lg:grid-cols-2" : ""}`}>
             <CartaoGrafico
-              titulo="Vínculos ano a ano"
+              titulo={linhaUnica ? "Vínculos ano a ano" : `Vínculos ano a ano, por ${nivelAbaixo}`}
               subtitulo="RAIS · ativos em 31/12"
               opcao={op.rais}
               carregando={serieRais.carregando}
               erro={serieRais.erro}
-              altura={260}
-              tabela={{ colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: sr }}
+              altura={linhaUnica ? 260 : 320}
+              dicaClique={linhaUnica ? undefined : `Clique numa linha para abrir ${nivelAbaixo === "grande grupo" ? "o" : "a"} ${nivelAbaixo}`}
+              aoClicar={linhaUnica ? undefined : abrir}
+              tabela={linhaUnica
+                ? { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: sr }
+                : { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "nivel", rotulo: nivelAbaixo[0]?.toUpperCase() + nivelAbaixo.slice(1) }, { chave: "valor", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: tabelaFilhos(serieRais.linhas, "vinculos", (l) => String(l.chave)) }}
             />
             {ehCbo && (
               <CartaoGrafico
-                titulo="Admissões e desligamentos"
+                titulo={linhaUnica ? "Admissões e desligamentos" : `Saldo no CAGED, por ${nivelAbaixo}`}
                 subtitulo={`CAGED · anos completos, até ${anoCompleto || "—"}`}
                 opcao={op.caged}
                 carregando={serieCaged.carregando}
                 erro={serieCaged.erro}
-                altura={260}
-                tabela={{
+                altura={linhaUnica ? 260 : 320}
+                aoClicar={linhaUnica ? undefined : abrir}
+                tabela={!linhaUnica
+                  ? { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "nivel", rotulo: nivelAbaixo[0]?.toUpperCase() + nivelAbaixo.slice(1) }, { chave: "valor", rotulo: "Saldo", formato: fmtSinal, numero: true }], linhas: tabelaFilhos(serieCaged.linhas, "saldo", chaveCaged) }
+                  : {
                   colunas: [
                     { chave: "ano", rotulo: "Ano" },
                     { chave: "admissoes", rotulo: "Admissões", formato: fmtNum, numero: true },
@@ -421,7 +581,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
                     { chave: "saldo", rotulo: "Saldo", formato: fmtSinal, numero: true },
                     { chave: "salario", rotulo: "Salário de admissão", formato: fmtReais, numero: true },
                   ],
-                  linhas: serieCaged.linhas,
+                  linhas: cagedTotal,
                 }}
               />
             )}

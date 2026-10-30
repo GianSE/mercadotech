@@ -31,7 +31,8 @@ echarts.use([
 export type Coluna = { chave: string; rotulo: string; formato?: (v: unknown) => string; numero?: boolean };
 export type Tabela = { colunas: Coluna[]; linhas: Linha[] };
 // O que o clique numa marca entrega: o nome da categoria (UF, setor, fatia).
-export type Clique = { nome: string; indice: number };
+// Num gráfico de linhas, `serie` é o nome da linha clicada.
+export type Clique = { nome: string; indice: number; serie?: string };
 
 let mapaBR: Promise<void> | null = null;
 export function registrarMapaBR(): Promise<void> {
@@ -58,9 +59,9 @@ function Grafico({ opcao, altura, aoClicar, registrar }: { opcao: EChartsOption;
     registrar?.(grafico);
     grafico.on("click", (p) => {
       // Marca de dado traz `name`; rótulo de eixo (triggerEvent) traz `value`.
-      const e = p as { name?: unknown; value?: unknown; componentType?: string };
+      const e = p as { name?: unknown; value?: unknown; componentType?: string; seriesName?: string };
       const nome = String((e.componentType?.endsWith("Axis") ? e.value : e.name) ?? "");
-      if (nome && !nome.startsWith("_")) clique.current?.({ nome, indice: p.dataIndex });
+      if ((nome && !nome.startsWith("_")) || e.seriesName) clique.current?.({ nome, indice: p.dataIndex, serie: e.seriesName });
     });
     const observador = new ResizeObserver(() => grafico.resize());
     observador.observe(el);
