@@ -10,7 +10,7 @@ on:
   schedule:
     - cron: "0 6 1 * *" # todo dia 1 do mês, 06:00 UTC — alerta independente, muda raro
   workflow_dispatch:
-  workflow_call: # também chamado pelo pipeline.yml antes de cada silver
+  workflow_call: # também chamado pelo pipeline-ti.yml antes de cada silver
 
 env:
   HF_TOKEN: ${{ secrets.HF_TOKEN }}

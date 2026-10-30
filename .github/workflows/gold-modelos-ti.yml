@@ -1,8 +1,8 @@
-name: Gold território
+name: Gold modelos TI
 
-# Mapa (RAIS + CAGED) e perfis de município (clusters), a partir das
-# silvers já publicadas. Independente de gold-rais: lê a silver direto,
-# não o agregado da RAIS.
+# Previsão, nowcast, hiato salarial e sobrevivência de vínculo,
+# materializados na gold. Depende de gold-rais: nowcast lê
+# rais_estoque_anual, que é construído lá.
 
 on:
   workflow_dispatch:
@@ -27,6 +27,6 @@ jobs:
           cache-dependency-path: requirements-*.txt
       - run: pip install -r requirements-modelos.txt
 
-      - name: Reconstrói mapa e clusters de município
+      - name: Materializa os modelos (previsão, nowcast, hiato, sobrevivência)
         working-directory: tasks-python/3-gold
-        run: python gold-territorio.py
+        run: python gold-modelos.py

@@ -116,7 +116,7 @@ Um diagrama navegável da estrutura do código está no
 
 ## Pipeline
 
-O [orquestrador](.github/workflows/pipeline.yml) roda **toda segunda-feira**
+O [orquestrador](.github/workflows/pipeline-ti.yml) roda **toda segunda-feira**
 e encadeia as etapas por dependência real de dados, não por horário:
 
 ```mermaid

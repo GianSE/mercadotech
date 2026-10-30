@@ -1,7 +1,8 @@
-name: Gold RAIS
+name: Gold território TI
 
-# Estoque de emprego em tecnologia, a partir da silver-rais-ti já publicada.
-# Independente das outras partes da gold (mapa, modelos, CAGED consolidado).
+# Mapa (RAIS + CAGED) e perfis de município (clusters), a partir das
+# silvers já publicadas. Independente de gold-rais: lê a silver direto,
+# não o agregado da RAIS.
 
 on:
   workflow_dispatch:
@@ -24,8 +25,8 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-*.txt
-      - run: pip install -r requirements-actions.txt
+      - run: pip install -r requirements-modelos.txt
 
-      - name: Reconstrói o estoque de emprego (RAIS)
+      - name: Reconstrói mapa e clusters de município
         working-directory: tasks-python/3-gold
-        run: python gold-rais.py
+        run: python gold-territorio.py

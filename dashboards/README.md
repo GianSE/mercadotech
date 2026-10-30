@@ -33,7 +33,7 @@ O projeto no Cloudflare Pages é ligado ao repositório e faz o build sozinho:
 
 Um push que mexe no site dispara o build. Dado novo não gera commit, então o
 pipeline chama o **Deploy Hook** do projeto no fim (job `site` do
-`pipeline.yml`, segredo `CLOUDFLARE_DEPLOY_HOOK`). Se o Hugging Face estiver
+`pipeline-ti.yml`, segredo `CLOUDFLARE_DEPLOY_HOOK`). Se o Hugging Face estiver
 fora do ar na hora, o build falha e a versão anterior continua no ar.
 
 `npm run dados` precisa de Python com `duckdb`. Se a Gold publicada ainda não tiver

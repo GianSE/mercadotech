@@ -8,7 +8,7 @@ name: Bronze CAGED
 # mais antigo, dispare manualmente com --ano-inicio mais pra trás.
 
 on:
-  # Sem schedule próprio — quem agenda é o pipeline.yml orquestrador.
+  # Sem schedule próprio — quem agenda é o pipeline-ti.yml orquestrador.
   workflow_dispatch:
     inputs:
       ano_inicio:

@@ -1,10 +1,7 @@
-name: Gold CAGED consolidado
+name: Gold RAIS TI
 
-# Um parquet por tabela e por ano (pra servir por HTTPS) mais o arquivo
-# unificado das duas gerações, a partir da silver-caged-ti já publicada.
-# Publica no mesmo repositório da silver, como espelho pronto pra consulta
-# direta. Totalmente independente do resto da gold (RAIS, território,
-# modelos) — só depende de silver-caged-ti.
+# Estoque de emprego em tecnologia, a partir da silver-rais-ti já publicada.
+# Independente das outras partes da gold (mapa, modelos, CAGED consolidado).
 
 on:
   workflow_dispatch:
@@ -29,6 +26,6 @@ jobs:
           cache-dependency-path: requirements-*.txt
       - run: pip install -r requirements-actions.txt
 
-      - name: Consolida e unifica o CAGED, publica o espelho
+      - name: Reconstrói o estoque de emprego (RAIS)
         working-directory: tasks-python/3-gold
-        run: python gold-caged-consolidado.py
+        run: python gold-rais.py

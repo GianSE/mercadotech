@@ -1,4 +1,4 @@
-name: Pipeline (orquestrador)
+name: Pipeline TI (orquestrador)
 
 # Chama os workflows na ordem certa, como uma fila de dependência real
 # (não só horário escalonado):
@@ -112,25 +112,25 @@ jobs:
   gold-rais:
     needs: [decidir, silver-rais-ti]
     if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
-    uses: ./.github/workflows/gold-rais.yml
+    uses: ./.github/workflows/gold-rais-ti.yml
     secrets: inherit
 
   gold-territorio:
     needs: [decidir, silver-caged-ti, silver-rais-ti]
     if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
-    uses: ./.github/workflows/gold-territorio.yml
+    uses: ./.github/workflows/gold-territorio-ti.yml
     secrets: inherit
 
   gold-caged-consolidado:
     needs: [decidir, silver-caged-ti]
     if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
-    uses: ./.github/workflows/gold-caged-consolidado.yml
+    uses: ./.github/workflows/gold-caged-consolidado-ti.yml
     secrets: inherit
 
   gold-modelos:
     needs: [decidir, silver-caged-ti, silver-rais-ti, gold-rais]
     if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
-    uses: ./.github/workflows/gold-modelos.yml
+    uses: ./.github/workflows/gold-modelos-ti.yml
     secrets: inherit
 
   # O site embarca uma cópia da Gold no build (segurança: abre mesmo com o

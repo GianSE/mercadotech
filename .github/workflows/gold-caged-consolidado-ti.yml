@@ -1,8 +1,10 @@
-name: Gold modelos
+name: Gold CAGED consolidado TI
 
-# Previsão, nowcast, hiato salarial e sobrevivência de vínculo,
-# materializados na gold. Depende de gold-rais: nowcast lê
-# rais_estoque_anual, que é construído lá.
+# Um parquet por tabela e por ano (pra servir por HTTPS) mais o arquivo
+# unificado das duas gerações, a partir da silver-caged-ti já publicada.
+# Publica no mesmo repositório da silver, como espelho pronto pra consulta
+# direta. Totalmente independente do resto da gold (RAIS, território,
+# modelos) — só depende de silver-caged-ti.
 
 on:
   workflow_dispatch:
@@ -25,8 +27,8 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-*.txt
-      - run: pip install -r requirements-modelos.txt
+      - run: pip install -r requirements-actions.txt
 
-      - name: Materializa os modelos (previsão, nowcast, hiato, sobrevivência)
+      - name: Consolida e unifica o CAGED, publica o espelho
         working-directory: tasks-python/3-gold
-        run: python gold-modelos.py
+        run: python gold-caged-consolidado.py
