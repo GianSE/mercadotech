@@ -1,5 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { REGIOES, UFS, useFiltro, type Regiao } from "../lib/filtro";
+import { Flutuante } from "./Flutuante";
+
+// No celular o painel abre no fluxo (dentro da gaveta de filtros); no largo,
+// flutua sob o botão, desenhado fora da página para nada cobri-lo.
+const LARGO = "(min-width: 640px)";
+function PainelUF({ ancora, painel, children }: { ancora: RefObject<HTMLButtonElement | null>; painel: RefObject<HTMLDivElement | null>; children: ReactNode }) {
+  const [largo] = useState(() => window.matchMedia(LARGO).matches);
+  const caixa = "rounded-2xl border border-borda bg-superficie p-3 shadow-xl";
+  return largo
+    ? <Flutuante ancora={ancora} painel={painel} className={`${caixa} w-[22rem]`}>{children}</Flutuante>
+    : <div ref={painel} className={`${caixa} z-30 mt-1 w-full`}>{children}</div>;
+}
 
 // Menu suspenso com caixas de seleção: o atalho "Brasil" (limpa a seleção),
 // regiões inteiras e estado a estado. Vale para o site todo. Para tirar um
@@ -8,11 +20,14 @@ export function SeletorUF() {
   const f = useFiltro();
   const [aberto, setAberto] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  const painel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: PointerEvent) => {
-      if (raiz.current && !raiz.current.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      if (raiz.current && !raiz.current.contains(alvo) && !painel.current?.contains(alvo)) setAberto(false);
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
     document.addEventListener("pointerdown", fora);
@@ -42,6 +57,7 @@ export function SeletorUF() {
     <div ref={raiz} className="relative flex min-w-0 flex-col gap-1">
       <span className="sobrelinha">Território</span>
       <button
+        ref={botao}
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-expanded={aberto}
@@ -60,9 +76,7 @@ export function SeletorUF() {
       </button>
 
       {aberto && (
-        // No celular o painel abre no fluxo (dentro da gaveta de filtros); no
-        // largo, flutua sob o botão.
-        <div className="z-30 mt-1 w-full rounded-2xl border border-borda bg-superficie p-3 shadow-xl sm:absolute sm:left-0 sm:top-full sm:w-[22rem]">
+        <PainelUF ancora={botao} painel={painel}>
           <div className="flex flex-wrap gap-1.5">
             {atalhos.map((a) => {
               const ativo = a.ufs.length === f.ufs.length && a.ufs.every((u) => f.ufs.includes(u));
@@ -121,7 +135,7 @@ export function SeletorUF() {
               Pronto
             </button>
           </div>
-        </div>
+        </PainelUF>
       )}
     </div>
   );
@@ -138,10 +152,13 @@ export function SeletorEstados({ rotulo, valor, aoMudar, extras = [] }: {
 }) {
   const [aberto, setAberto] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  const painel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!aberto) return;
     const fora = (e: PointerEvent) => {
-      if (raiz.current && !raiz.current.contains(e.target as Node)) setAberto(false);
+      const alvo = e.target as Node;
+      if (raiz.current && !raiz.current.contains(alvo) && !painel.current?.contains(alvo)) setAberto(false);
     };
     const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
     document.addEventListener("pointerdown", fora);
@@ -167,6 +184,7 @@ export function SeletorEstados({ rotulo, valor, aoMudar, extras = [] }: {
     <div ref={raiz} className="relative flex min-w-0 flex-col gap-1">
       <span className="sobrelinha">{rotulo}</span>
       <button
+        ref={botao}
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-expanded={aberto}
@@ -179,7 +197,7 @@ export function SeletorEstados({ rotulo, valor, aoMudar, extras = [] }: {
         </svg>
       </button>
       {aberto && (
-        <div className="z-30 mt-1 w-full rounded-2xl border border-borda bg-superficie p-3 shadow-xl sm:absolute sm:left-0 sm:top-full sm:w-[22rem]">
+        <PainelUF ancora={botao} painel={painel}>
           <div className="flex flex-wrap gap-1.5">
             {extras.map((e) => (
               <label key={e.valor} className={`flex h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-[13px] ${marcada(e.valor) ? "border-serie-1/50 bg-serie-1/15 text-tinta" : "border-borda text-tinta-2"}`}>
@@ -234,7 +252,7 @@ export function SeletorEstados({ rotulo, valor, aoMudar, extras = [] }: {
               Pronto
             </button>
           </div>
-        </div>
+        </PainelUF>
       )}
     </div>
   );

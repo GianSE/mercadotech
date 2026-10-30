@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fmtNum } from "../lib/formato";
 import { acharNo, filtrarArvore, Realce, type NoContagem } from "./ArvoreContagem";
+import { Flutuante } from "./Flutuante";
 
 // Menu suspenso de uma hierarquia (grupo → família → item), com busca dentro:
 // escolhe qualquer nível, e não só a folha. Fecha ao escolher, com Esc ou
@@ -18,14 +19,19 @@ export function SeletorArvore({ rotulo, valor, nos, todos, aoMudar, placeholder 
   const [busca, setBusca] = useState("");
   const caixa = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLInputElement>(null);
+  const botao = useRef<HTMLButtonElement>(null);
+  const painel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!aberto) return;
-    const fora = (e: PointerEvent) => !caixa.current?.contains(e.target as Node) && setAberto(false);
+    const fora = (e: PointerEvent) => {
+      const alvo = e.target as Node;
+      if (!caixa.current?.contains(alvo) && !painel.current?.contains(alvo)) setAberto(false);
+    };
     const tecla = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
     document.addEventListener("pointerdown", fora);
     document.addEventListener("keydown", tecla);
-    campo.current?.focus();
+    requestAnimationFrame(() => campo.current?.focus());
     return () => {
       document.removeEventListener("pointerdown", fora);
       document.removeEventListener("keydown", tecla);
@@ -68,6 +74,7 @@ export function SeletorArvore({ rotulo, valor, nos, todos, aoMudar, placeholder 
     <div ref={caixa} className="relative flex min-w-0 flex-col gap-1">
       <span className="sobrelinha">{rotulo}</span>
       <button
+        ref={botao}
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-haspopup="listbox"
@@ -81,7 +88,7 @@ export function SeletorArvore({ rotulo, valor, nos, todos, aoMudar, placeholder 
         </svg>
       </button>
       {aberto && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-borda bg-superficie p-2 shadow-xl">
+        <Flutuante ancora={botao} painel={painel} className="w-[min(30rem,calc(100vw-2rem))] rounded-xl border border-borda bg-superficie p-2 shadow-xl">
           <input
             ref={campo}
             type="search"
@@ -107,7 +114,7 @@ export function SeletorArvore({ rotulo, valor, nos, todos, aoMudar, placeholder 
             )}
             {visiveis.length ? visiveis.map((n) => linha(n, 0)) : <li className="px-3 py-4 text-sm text-tinta-3">Nada com “{busca.trim()}”.</li>}
           </ul>
-        </div>
+        </Flutuante>
       )}
     </div>
   );

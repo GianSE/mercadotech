@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { acharNo, ArvoreContagem, caminhoAte, folhasDe, ramo, type NoContagem } from "../componentes/ArvoreContagem";
 import { SeletorArvore } from "../componentes/SeletorArvore";
 import { CartaoGrafico } from "../componentes/Grafico";
@@ -217,7 +217,10 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   const ehFolha = !todas && !noFicha?.filhos?.length;
   // Sem escolha, uma linha só (a soma da lente); a quebra por filho começa
   // no primeiro nível escolhido. Os botões de abrir aparecem desde o topo.
-  const linhaUnica = ehFolha || todas;
+  // No topo, a linha única abre num clique (os grandes grupos ou as divisões,
+  // separados, sem escolher nenhum); "voltar um nível" a fecha de novo.
+  const [topoAberto, setTopoAberto] = useState(false);
+  const linhaUnica = ehFolha || (todas && !topoAberto);
   const filhosFicha: NoContagem[] = todas ? (ehCbo ? arvores.cbo : arvores.cnae) : ehFolha ? (noFicha ? [noFicha] : []) : noFicha!.filhos!;
   const nivelAbaixo = NIVEL_ABAIXO[todas ? escolhido : nivelFicha] ?? "";
   const cboDoNome = new Map(lista.linhas.map((l) => [String(l.ocupacao).toLowerCase(), String(l.cbo)]));
@@ -308,8 +311,11 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
     grid: { ...(op.grid as object), top: 24 },
     series: (op.series as object[]).map((x) => ({ ...x, triggerLineEvent: true })),
   });
+  const clicavelSe = (sim: boolean, op: ReturnType<typeof opcaoLinhas>) =>
+    sim ? { ...op, series: (op.series as object[]).map((x) => ({ ...x, triggerLineEvent: true })) } : op;
   const abrir = ({ serie }: { serie?: string }) => {
     const f = filhosFicha.find((x) => rotuloLinha(x) === serie);
+    if (todas && linhaUnica) return setTopoAberto(true);
     if (f && !linhaUnica) setItem(f.id);
   };
   const trilha = todas ? [] : caminhoAte(ehCbo ? arvores.cbo : arvores.cnae, escolhido);
@@ -330,12 +336,12 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
     rais: !sr.length
       ? null
       : linhaUnica
-        ? opcaoLinhas(c, anosRais, [{ nome: "Vínculos em 31/12", cor: c.series[0], dados: sr.map((l) => num(l, "vinculos")), rotuloFinal: true }], { formato: fmtNum })
+        ? clicavelSe(todas, opcaoLinhas(c, anosRais, [{ nome: "Vínculos em 31/12", cor: c.series[0], dados: sr.map((l) => num(l, "vinculos")), rotuloFinal: true }], { formato: fmtNum }))
         : clicavel(opcaoLinhas(c, anosRais, porFilho(serieRais.linhas, "vinculos", (l) => String(l.chave), anosRais), { formato: fmtNum })),
     caged: !cagedCompletos.length
       ? null
       : linhaUnica
-        ? opcaoLinhas(c, anosCaged, [{ nome: "Saldo", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "saldo")), rotuloFinal: true }], { formato: fmtSinal, extraTooltip: movimentos })
+        ? clicavelSe(todas, opcaoLinhas(c, anosCaged, [{ nome: "Saldo", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "saldo")), rotuloFinal: true }], { formato: fmtSinal, extraTooltip: movimentos }))
         : clicavel(opcaoLinhas(c, anosCaged, porFilho(serieCaged.linhas.filter((l) => num(l, "ano") <= anoCompleto), "saldo", chaveCaged, anosCaged), { formato: fmtSinal, extraTooltip: movimentos })),
   };
 
@@ -557,12 +563,20 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
               carregando={serieRais.carregando}
               erro={serieRais.erro}
               altura={linhaUnica ? 260 : 320}
-              dicaClique={linhaUnica ? undefined : `Clique numa linha para abrir ${nivelAbaixo === "grande grupo" ? "o" : "a"} ${nivelAbaixo}`}
-              aoClicar={linhaUnica ? undefined : abrir}
-              acao={todas ? undefined : (
+              dicaClique={todas && linhaUnica
+                ? `Clique na linha para separar por ${nivelAbaixo}`
+                : linhaUnica ? undefined : `Clique numa linha para abrir ${nivelAbaixo === "grande grupo" ? "o" : "a"} ${nivelAbaixo}`}
+              aoClicar={ehFolha ? undefined : abrir}
+              acao={todas && !topoAberto ? undefined : (
                 <button
                   type="button"
-                  onClick={() => setItem(acima.id)}
+                  onClick={() => {
+                    // Do topo aberto, fecha; de um grupo, volta ao topo já aberto,
+                    // com o grupo de onde se veio entre as linhas.
+                    if (todas) return setTopoAberto(false);
+                    if (acima.id.endsWith(":todas")) setTopoAberto(true);
+                    setItem(acima.id);
+                  }}
                   title={`Voltar a ${acima.nome}`}
                   className="inline-flex h-8 items-center gap-1 rounded-full border border-borda px-3 text-[12px] font-medium text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta"
                 >
@@ -582,7 +596,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
                 carregando={serieCaged.carregando}
                 erro={serieCaged.erro}
                 altura={linhaUnica ? 260 : 320}
-                aoClicar={linhaUnica ? undefined : abrir}
+                aoClicar={ehFolha ? undefined : abrir}
                 tabela={!linhaUnica
                   ? { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "nivel", rotulo: nivelAbaixo[0]?.toUpperCase() + nivelAbaixo.slice(1) }, { chave: "valor", rotulo: "Saldo", formato: fmtSinal, numero: true }], linhas: tabelaFilhos(serieCaged.linhas, "saldo", chaveCaged) }
                   : {
