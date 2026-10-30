@@ -212,7 +212,7 @@ export function CartaoGrafico(props: {
 
 // Ícones do menu, no grid de 20×20.
 const ICONE_TABELA = "M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v2.5h10V5H5Zm10 4.5H11v2h4v-2Zm0 4H11V15h4v-1.5ZM9 15v-1.5H5V15h4Zm-4-3.5h4v-2H5v2Z";
-const ICONE_CSV = "M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z";
+export const ICONE_CSV = "M10 3a1 1 0 0 1 1 1v6.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L9 10.6V4a1 1 0 0 1 1-1ZM4 15a1 1 0 0 1 1 1h10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2 1 1 0 0 1 1-1Z";
 const ICONE_PNG = "M3 4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4Zm2 1v8.6l3.3-3.3a1 1 0 0 1 1.4 0l1.8 1.8 1.3-1.3a1 1 0 0 1 1.4 0L15 12.6V5H5Zm7.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z";
 
 type ItemMenu = { rotulo: string; icone: string; aoEscolher: () => void };
@@ -220,7 +220,7 @@ type ItemMenu = { rotulo: string; icone: string; aoEscolher: () => void };
 // As ações de um cartão (tabela, CSV, PNG) num menu só, atrás dos três
 // pontos: o título fica com a largura toda, e todo gráfico tem as ações no
 // mesmo lugar. Fecha ao escolher, com Esc ou com um clique fora.
-function MenuGrafico({ titulo, itens }: { titulo: string; itens: (ItemMenu | null)[] }) {
+export function MenuGrafico({ titulo, itens }: { titulo: string; itens: (ItemMenu | null)[] }) {
   const [aberto, setAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
   const visiveis = itens.filter((i): i is ItemMenu => i !== null);
