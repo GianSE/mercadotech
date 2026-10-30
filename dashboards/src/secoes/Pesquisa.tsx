@@ -313,11 +313,15 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
     if (f && !linhaUnica) setItem(f.id);
   };
   const trilha = todas ? [] : caminhoAte(ehCbo ? arvores.cbo : arvores.cnae, escolhido);
-  // Escolher num gráfico leva à ficha; nos menus, a página fica onde está.
-  const escolher = (no: NoContagem) => {
-    setItem(no.id);
-    requestAnimationFrame(() => document.getElementById("ficha")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  // Um nível acima: o pai na trilha, ou o total da lente.
+  const acima = trilha.length > 1 ? { id: trilha[trilha.length - 2].id, nome: trilha[trilha.length - 2].nome } : { id: ehCbo ? TODAS_CBO : TODAS_CNAE, nome: ehCbo ? "todas as ocupações" : "todas as atividades" };
+  // O CAGED desenha só o saldo; admissões e desligamentos do nível vão no tooltip.
+  const movimentos = (i: number) => {
+    const l = cagedCompletos[i];
+    return l ? `<div style="margin-top:4px;font-size:11px;opacity:.75">${fmtNum(num(l, "admissoes"))} admissões · ${fmtNum(num(l, "desligamentos"))} desligamentos${linhaUnica ? "" : " no nível"}</div>` : "";
   };
+  // Escolher num gráfico ou nos menus muda a ficha sem rolar a página.
+  const escolher = (no: NoContagem) => setItem(no.id);
   const totalLente = ehCbo ? arvores.cbo.reduce((t, n) => t + n.valor, 0) : arvores.cnae.reduce((t, n) => t + n.valor, 0);
 
   const anosRais = sr.map((l) => num(l, "ano"));
@@ -331,11 +335,8 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
     caged: !cagedCompletos.length
       ? null
       : linhaUnica
-        ? opcaoLinhas(c, anosCaged, [
-            { nome: "Admissões", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "admissoes")) },
-            { nome: "Desligamentos", cor: c.series[1], dados: cagedCompletos.map((l) => num(l, "desligamentos")) },
-          ], { formato: fmtNum })
-        : clicavel(opcaoLinhas(c, anosCaged, porFilho(serieCaged.linhas.filter((l) => num(l, "ano") <= anoCompleto), "saldo", chaveCaged, anosCaged), { formato: fmtSinal })),
+        ? opcaoLinhas(c, anosCaged, [{ nome: "Saldo", cor: c.series[0], dados: cagedCompletos.map((l) => num(l, "saldo")), rotuloFinal: true }], { formato: fmtSinal, extraTooltip: movimentos })
+        : clicavel(opcaoLinhas(c, anosCaged, porFilho(serieCaged.linhas.filter((l) => num(l, "ano") <= anoCompleto), "saldo", chaveCaged, anosCaged), { formato: fmtSinal, extraTooltip: movimentos })),
   };
 
   return (
@@ -558,14 +559,25 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
               altura={linhaUnica ? 260 : 320}
               dicaClique={linhaUnica ? undefined : `Clique numa linha para abrir ${nivelAbaixo === "grande grupo" ? "o" : "a"} ${nivelAbaixo}`}
               aoClicar={linhaUnica ? undefined : abrir}
+              acao={todas ? undefined : (
+                <button
+                  type="button"
+                  onClick={() => setItem(acima.id)}
+                  title={`Voltar a ${acima.nome}`}
+                  className="inline-flex h-8 items-center gap-1 rounded-full border border-borda px-3 text-[12px] font-medium text-tinta-2 transition-colors hover:border-serie-1 hover:text-tinta"
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden className="h-3.5 w-3.5 fill-current"><path d="M9.3 4.3a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L11 7.4V15a1 1 0 1 1-2 0V7.4L6.7 9.7a1 1 0 0 1-1.4-1.4l4-4Z" /></svg>
+                  Voltar um nível
+                </button>
+              )}
               tabela={linhaUnica
                 ? { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: sr }
                 : { colunas: [{ chave: "ano", rotulo: "Ano" }, { chave: "nivel", rotulo: nivelAbaixo[0]?.toUpperCase() + nivelAbaixo.slice(1) }, { chave: "valor", rotulo: "Vínculos", formato: fmtNum, numero: true }], linhas: tabelaFilhos(serieRais.linhas, "vinculos", (l) => String(l.chave)) }}
             />
             {ehCbo && (
               <CartaoGrafico
-                titulo={linhaUnica ? "Admissões e desligamentos" : `Saldo no CAGED, por ${nivelAbaixo}`}
-                subtitulo={`CAGED · anos completos, até ${anoCompleto || "—"}`}
+                titulo={linhaUnica ? "Saldo no CAGED" : `Saldo no CAGED, por ${nivelAbaixo}`}
+                subtitulo={`CAGED · anos completos, até ${anoCompleto || "—"} · passe o mouse para ver admissões e desligamentos`}
                 opcao={op.caged}
                 carregando={serieCaged.carregando}
                 erro={serieCaged.erro}

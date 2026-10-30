@@ -174,10 +174,15 @@
 }
 
 /* Modo apresentação: um bloco por vez (o resto da página fica escondido pelo
-   App), filtros sem a posição presa ao cabeçalho, que some nesse modo. */
+   App), filtros sem a posição presa ao cabeçalho, que some nesse modo.
+   Relativa e não estática: o desfoque de fundo faz da barra um contexto de
+   empilhamento, e sem posição ela perde o z-index; os cartões que vêm depois
+   (os gráficos são position: relative) cobririam os menus suspensos dela. */
 .apresentando [data-oculto] {
   display: none !important;
 }
 .apresentando [data-filtros] {
-  position: static;
+  position: relative;
+  top: auto;
+  z-index: 20;
 }

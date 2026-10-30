@@ -139,6 +139,8 @@ export function CartaoGrafico(props: {
   recolhido?: boolean;
   // O que dizer quando não há o que desenhar (o padrão fala do recorte).
   vazio?: string;
+  // Um botão a mais no cabeçalho, antes do menu (ex.: voltar um nível).
+  acao?: ReactNode;
 }) {
   const [verTabela, setVerTabela] = useState(false);
   const [fechado, setFechado] = useState(!!props.recolhido);
@@ -168,6 +170,7 @@ export function CartaoGrafico(props: {
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {props.recolhido && <BotaoExpandir aberto={!fechado} aoAlternar={() => setFechado((v) => !v)} rotulo="Mostrar gráfico" />}
+          {!fechado && props.acao}
           {!fechado && verTabela && (
             <button
               type="button"
