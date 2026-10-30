@@ -19,7 +19,7 @@ const SERIES_FLUXO: { chave: SerieFluxo; rotulo: string }[] = [
 ];
 
 // A pergunta 1 (quanto o mercado cresceu?) em três páginas: 1a, o estoque
-// (RAIS); 1b, o fluxo de admissões e desligamentos (CAGED); 1c, os estados
+// (RAIS); 1b, o fluxo de admissões e desligamentos (CAGED); 1d, os estados
 // lado a lado. Cada uma só consulta o que mostra.
 export type ParteCrescimento = "estoque" | "fluxo" | "estados";
 
@@ -66,7 +66,7 @@ export default function Crescimento({ parte = "estoque" }: { parte?: ParteCresci
   const ritmo = raisL.length > 1
     ? ((num(raisL.at(-1), "estoque") / num(raisL[0], "estoque")) ** (1 / (num(raisL.at(-1), "ano") - num(raisL[0], "ano"))) - 1) * 100
     : NaN;
-  // 1c: o crescimento de cada estado no período, para a frase do topo.
+  // 1d: o crescimento de cada estado no período, para a frase do topo.
   const fimRais = Math.min(periodo[1], 2025);
   const porEstado = useConsulta(parte !== "estados" ? null : `
     SELECT uf, sum(estoque_3112) FILTER (WHERE ano = ${periodo[0]})::DOUBLE AS inicio, sum(estoque_3112) FILTER (WHERE ano = ${fimRais})::DOUBLE AS fim
@@ -106,7 +106,7 @@ export default function Crescimento({ parte = "estoque" }: { parte?: ParteCresci
     const onde = f.ativo ? ` em ${f.rotulo}` : "";
     return `De ${periodo[0]} a ${periodo[1]}, o mercado de TI${onde} contratou ${fmtCompacto(admissoesTotal)} e desligou ${fmtCompacto(desligamentosTotal)}, um saldo de ${fmtSinal(saldoTotal)} vagas; o melhor ano foi ${num(melhor, "ano")} (${fmtSinal(num(melhor, "saldo"))}) e o pior, ${num(pior, "ano")} (${fmtSinal(num(pior, "saldo"))}).`;
   })();
-  // 1c: quem mais e quem menos cresceu entre os 27 estados.
+  // 1d: quem mais e quem menos cresceu entre os 27 estados.
   const respostaEstados = (() => {
     const taxas = porEstado.linhas
       .filter((l) => num(l, "inicio") > 0 && num(l, "fim") > 0)
@@ -132,7 +132,7 @@ export default function Crescimento({ parte = "estoque" }: { parte?: ParteCresci
   return (
     <>
       <CabecalhoPergunta
-        numero={parte === "estoque" ? "1a" : parte === "fluxo" ? "1b" : "1c"}
+        numero={parte === "estoque" ? "1a" : parte === "fluxo" ? "1b" : "1d"}
         pergunta={
           parte === "estoque" ? "Quanto o mercado cresceu: quantos empregos de TI há?"
           : parte === "fluxo" ? "Quanto o mercado cresceu: quem entra e quem sai?"

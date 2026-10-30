@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { acharNo, ArvoreContagem, caminhoAte, folhasDe, ramo, type NoContagem } from "../componentes/ArvoreContagem";
 import { SeletorArvore } from "../componentes/SeletorArvore";
 import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, Grade, Kpi, LinhaFiltros, Seletor } from "../componentes/ui";
+import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi, LinhaFiltros, Seletor } from "../componentes/ui";
 import { UFS } from "../lib/filtro";
 import { fmtCompacto, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
 import { opcaoHierarquia, opcaoLinhas, type NoHierarquia, type SerieLinha } from "../lib/graficos";
@@ -136,10 +136,14 @@ const FONTES = [
 
 // A visão geral em duas páginas: a apresentação (o painel, as bases e os
 // números) e o recorte (o que conta como TI, pela CBO e pela CNAE).
-export type PartePesquisa = "apresentacao" | "recorte";
+// A ficha com o drill down fica em "ocupacoes" (pergunta 1c): o recorte diz
+// o que conta como TI; a 1c, como cada parte dele cresceu.
+export type PartePesquisa = "apresentacao" | "recorte" | "ocupacoes";
 
 export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesquisa }) {
   const recorte = parte === "recorte";
+  const porOcupacao = parte === "ocupacoes";
+  const comArvores = recorte || porOcupacao;
   const { cores: c } = useTema();
   // O que os menus escolhem: todas as ocupações (o padrão), um grupo, uma
   // família ou uma ocupação da CBO, ou o mesmo na CNAE. Vai para o link.
@@ -159,7 +163,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   const cobertura = useConsulta(`
     SELECT (SELECT min(ano) FROM rais_estoque_anual) AS de, (SELECT max(ano) FROM rais_estoque_anual) AS ate_rais,
            (SELECT strftime(max(mes), '%m/%Y') FROM serie_mensal) AS ate_caged`);
-  const lista = useConsulta(!recorte ? null : `
+  const lista = useConsulta(!comArvores ? null : `
     SELECT cbo, ocupacao, area, estoque_3112::DOUBLE AS vinculos FROM rais_recorte_cbo
     WHERE ano = ${ULTIMO_RAIS} AND estoque_3112 > 0 ORDER BY cbo`);
   // A coluna do código CNAE só existe nas Golds mais novas; sem ela, a
@@ -168,8 +172,8 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
     SELECT coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') AS atividade, ${comCodigo ? "any_value(cnae) AS cnae," : ""}
            sum(estoque_3112)::DOUBLE AS vinculos
     FROM rais_setor_vs_ocupacao WHERE setor_ti AND ano = ${ULTIMO_RAIS} AND estoque_3112 > 0 GROUP BY 1 ORDER BY 2 DESC`;
-  const atividadesCod = useConsulta(!recorte ? null : sqlAtividades(true));
-  const atividadesNome = useConsulta(recorte && atividadesCod.erro ? sqlAtividades(false) : null);
+  const atividadesCod = useConsulta(!comArvores ? null : sqlAtividades(true));
+  const atividadesNome = useConsulta(comArvores && atividadesCod.erro ? sqlAtividades(false) : null);
   const atividades = atividadesCod.erro ? atividadesNome : atividadesCod;
 
   const est = estoque.linhas[0];
@@ -227,7 +231,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   const filhoDe = (chave: string): NoContagem | undefined => ehCbo
     ? filhosFicha.find((f) => chave.startsWith(soDigitos(f.codigo)))
     : filhosFicha.find((f) => folhasDe(f).some((x) => x.nome === chave));
-  const serieRais = useConsulta(!recorte ? null : ehCbo
+  const serieRais = useConsulta(!porOcupacao ? null : ehCbo
     ? `SELECT ano, cbo::VARCHAR AS chave, sum(estoque_3112)::DOUBLE AS vinculos FROM rais_recorte_cbo
        ${prefixo ? `WHERE cbo LIKE ${literal(prefixo + "%")}` : ""} GROUP BY 1, 2 ORDER BY 1`
     : `SELECT ano, coalesce(setor_empresa, 'Subclasse sem descrição no dicionário') AS chave, sum(estoque_3112)::DOUBLE AS vinculos
@@ -237,7 +241,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   // O CAGED das ocupações escolhidas: as duas lentes em que elas são
   // ocupação de TI (dentro e fora das empresas de TI), pelo nome, que é o
   // mesmo nas duas bases. Na CNAE, a ficha fica só com a RAIS.
-  const serieCaged = useConsulta(!recorte || !ehCbo || (!todas && !nomesCbo.length) ? null : `
+  const serieCaged = useConsulta(!porOcupacao || !ehCbo || (!todas && !nomesCbo.length) ? null : `
     SELECT ano, ocupacao AS chave, sum(admissoes)::DOUBLE AS admissoes, sum(desligamentos)::DOUBLE AS desligamentos,
            sum(saldo)::DOUBLE AS saldo, sum(soma_salario_adm)::DOUBLE AS soma_salario, sum(n_salario_adm)::DOUBLE AS n_salario
     FROM caged_ocupacao
@@ -259,6 +263,23 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
       : nivelFicha === "divisao"
         ? `Divisão ${noFicha?.codigo} da CNAE · ${nOcupacoesFicha} atividades somadas: todos os vínculos nas empresas, de qualquer ocupação.`
         : "Atividade de empresa de TI (CNAE): todos os vínculos nas empresas desta atividade, de qualquer ocupação."
+  const familias1c = useConsulta(!porOcupacao ? null : `
+    SELECT substr(cbo::VARCHAR, 1, 4) AS familia,
+           sum(estoque_3112) FILTER (WHERE ano = (SELECT max(ano) FROM rais_recorte_cbo))::DOUBLE AS fim,
+           sum(estoque_3112) FILTER (WHERE ano = (SELECT max(ano) FROM rais_recorte_cbo) - 10)::DOUBLE AS inicio,
+           (SELECT max(ano) FROM rais_recorte_cbo) AS ano
+    FROM rais_recorte_cbo GROUP BY 1`);
+  const resposta1c = (() => {
+    const fs = familias1c.linhas;
+    if (!fs.length) return undefined;
+    const total = fs.reduce((t, l) => t + num(l, "fim"), 0);
+    const maior = [...fs].sort((a, b) => num(b, "fim") - num(a, "fim"))[0];
+    // Só famílias com base razoável: crescer de 100 para 400 não diz nada.
+    const cresceu = fs.filter((l) => num(l, "inicio") >= 1000).sort((a, b) => num(b, "fim") / num(b, "inicio") - num(a, "fim") / num(a, "inicio"))[0];
+    const nome = (l: Linha) => FAMILIAS_CBO[String(l.familia)] ?? `família ${l.familia}`;
+    const ano = num(maior, "ano");
+    return `${nome(maior)} são ${fmtPct((num(maior, "fim") / total) * 100, 0)} dos vínculos das ocupações de TI em ${ano}; desde ${ano - 10}, a família que mais cresceu foi ${nome(cresceu)} (+${fmtPct((num(cresceu, "fim") / num(cresceu, "inicio") - 1) * 100, 0)}).`;
+  })();
   const ultimoCaged = String(cob?.ate_caged ?? "");
   const anoCompleto = ultimoCaged.startsWith("12/") ? Number(ultimoCaged.slice(-4)) : Number(ultimoCaged.slice(-4)) - 1;
 
@@ -348,6 +369,9 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   return (
     <>
       <AvisoNacional />
+      {porOcupacao ? (
+        <CabecalhoPergunta numero="1c" pergunta="Quanto o mercado cresceu: em quais ocupações?" resposta={resposta1c} />
+      ) : (
       <header className="mb-6">
         <p className="sobrelinha">
           <span className="mr-2 inline-block h-2 w-2 rounded-[2px] bg-acento align-middle" />
@@ -355,7 +379,8 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
         </p>
         <h1 className="mt-2 text-[1.6rem] font-semibold leading-tight tracking-tight text-tinta sm:text-3xl">{recorte ? "O que conta como emprego de TI" : "Emprego formal em tecnologia no Brasil"}</h1>
       </header>
-      {!recorte && (
+      )}
+      {parte === "apresentacao" && (
         <>
       <header className="-mt-4 mb-6">
         <p className="max-w-3xl text-[15px] leading-relaxed text-tinta-2">
@@ -374,7 +399,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
 
         </>
       )}
-      {!recorte && (
+      {parte === "apresentacao" && (
       <Bloco titulo="Os dados em números">
       <Grade colunas={4}>
         <Kpi destaque ajuda="estoque" rotulo={`Empregos de TI em ${num(est, "ano") || "—"}`} valor={est ? fmtCompacto(num(est, "estoque")) : "—"} detalhe="vínculos formais ativos em 31/12" />
@@ -385,7 +410,7 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
       </Bloco>
       )}
 
-      {recorte && (
+      {comArvores && (
       <>
       <LinhaFiltros territorio={false} resumo={[selCbo === TODAS_CBO ? "Todas as ocupações" : acharNo(arvores.cbo, selCbo)?.nome, selCnae === TODAS_CNAE ? "Todas as atividades" : acharNo(arvores.cnae, selCnae)?.nome].join(" · ")}>
         <SeletorArvore
@@ -404,16 +429,19 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
           aoMudar={setItem}
           placeholder="Buscar: software, 6201, consultoria…"
         />
-        <Seletor<"circulo" | "lista">
-          rotulo="Ver como"
-          valor={ver}
-          opcoes={[{ valor: "circulo", rotulo: "Círculo" }, { valor: "lista", rotulo: "Lista" }]}
-          aoMudar={setVer}
-        />
+        {recorte && (
+          <Seletor<"circulo" | "lista">
+            rotulo="Ver como"
+            valor={ver}
+            opcoes={[{ valor: "circulo", rotulo: "Círculo" }, { valor: "lista", rotulo: "Lista" }]}
+            aoMudar={setVer}
+          />
+        )}
       </LinhaFiltros>
+      {recorte && (
       <Bloco
         titulo="As duas lentes do recorte"
-        descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE). Escolha nos menus acima, ou clique num gráfico, para ver a ficha de um grupo, família ou item."
+        descricao="Um emprego entra no recorte pela ocupação da pessoa (CBO) ou pela atividade da empresa em que ela trabalha (CNAE). Escolha nos menus acima, ou clique num gráfico, para ver só um grupo, família ou item."
       >
         <Grade>
           {ver === "lista" ? (
@@ -500,10 +528,17 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
             </>
           )}
         </Grade>
+        <a
+          href={`#/ocupacoes${escolhido === TODAS_CBO ? "" : `?item=${encodeURIComponent(escolhido)}`}`}
+          className="inline-flex items-center gap-1 self-start text-[14px] font-medium text-serie-1 hover:underline"
+        >
+          Ver a evolução de {todas ? (ehCbo ? "todas as ocupações de TI" : "todas as atividades de TI") : noFicha?.nome} ano a ano →
+        </a>
       </Bloco>
+      )}
 
-      {escolhido && (
-        <div id="ficha" className="mt-12 scroll-mt-24">
+      {porOcupacao && escolhido && (
+        <div id="ficha" className="scroll-mt-24">
         <Bloco
           titulo={tituloFicha}
           descricao={descricaoFicha}
