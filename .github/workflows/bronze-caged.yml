@@ -53,8 +53,8 @@ jobs:
           echo "--- RAM ---"; free -h
           echo "--- Disco ---"; df -h /
 
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -79,8 +79,8 @@ jobs:
       matrix:
         item: ${{ fromJson(needs.verificar.outputs.anos) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
