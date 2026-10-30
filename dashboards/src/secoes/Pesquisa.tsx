@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { ArvoreContagem, contarItens, type NoContagem } from "../componentes/ArvoreContagem";
+import { ArvoreContagem, contarItens, filtrarArvore, type NoContagem } from "../componentes/ArvoreContagem";
 import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CampoBusca, Grade, Kpi } from "../componentes/ui";
+import { AvisoNacional, Bloco, CampoBusca, Grade, Kpi, Seletor } from "../componentes/ui";
 import { UFS } from "../lib/filtro";
 import { fmtCompacto, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
-import { opcaoLinhas } from "../lib/graficos";
+import { opcaoHierarquia, opcaoLinhas, type NoHierarquia } from "../lib/graficos";
 import type { Linha } from "../lib/db";
 import { literal, num, TI } from "../lib/sql";
 import { useTema } from "../lib/tema";
@@ -83,6 +83,26 @@ function arvoreCnae(linhas: Linha[]): NoContagem[] {
   }));
 }
 
+// A lista no formato do gráfico de sol, com os rótulos de antes (grupo e
+// família "código · nome", item "código nome") e a cor fixa de cada grupo.
+function paraHierarquia(nos: NoContagem[], cor?: (codigo: string) => string): NoHierarquia[] {
+  return nos.map((n) => ({
+    nome: n.filhos?.length ? `${n.codigo} · ${n.nome}` : `${n.codigo} ${n.nome}`.trim(),
+    valor: n.filhos?.length ? undefined : n.valor,
+    filhos: n.filhos?.length ? paraHierarquia(n.filhos) : undefined,
+    cor: cor?.(n.codigo),
+  }));
+}
+
+// Do rótulo de uma fatia do gráfico de sol de volta ao item (para a ficha).
+function itensPorRotulo(nos: NoContagem[], mapa = new Map<string, NoContagem>()): Map<string, NoContagem> {
+  for (const n of nos) {
+    if (n.filhos?.length) itensPorRotulo(n.filhos, mapa);
+    else mapa.set(`${n.codigo} ${n.nome}`.trim(), n);
+  }
+  return mapa;
+}
+
 // As duas bases, em uma frase cada, para quem nunca ouviu falar delas.
 const FONTES = [
   {
@@ -108,6 +128,8 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
   // abre a ficha e vai para o link.
   const [busca, setBusca] = useParametro("busca", "", texto, texto);
   const [item, setItem] = useParametro("item", "", texto, texto);
+  // Círculo (o padrão) ou lista: a busca vale para os dois.
+  const [ver, setVer] = useParametro<"circulo" | "lista">("ver", "circulo", (v) => (v === "lista" ? "lista" : "circulo"), texto);
 
   const estoque = useConsulta(`SELECT ano, sum(estoque_3112)::DOUBLE AS estoque FROM rais_estoque_anual WHERE ${TI} AND ano = ${ULTIMO_RAIS} GROUP BY 1`);
   // Os registros brutos do recorte (Silver de TI), contados no rodapé dos Parquet.
@@ -145,6 +167,15 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
 
   const arvores = useMemo(() => ({ cbo: arvoreCbo(lista.linhas), cnae: arvoreCnae(atividades.linhas) }), [lista.linhas, atividades.linhas]);
   const encontrados = busca.trim() ? contarItens(arvores.cbo, busca) + contarItens(arvores.cnae, busca) : undefined;
+  const circulos = useMemo(() => {
+    const cbo = filtrarArvore(arvores.cbo, busca);
+    const cnae = filtrarArvore(arvores.cnae, busca);
+    return {
+      cbo: cbo.length ? opcaoHierarquia(c, paraHierarquia(cbo, (g) => c.series[Number(g) - 1] ?? c.series[0]), { formato: fmtNum, unidade: "vínculos" }) : null,
+      cnae: cnae.length ? opcaoHierarquia(c, paraHierarquia(cnae, (d) => c.series[d === "63" ? 1 : 0]), { formato: fmtNum, unidade: "vínculos" }) : null,
+      itens: itensPorRotulo([...arvores.cbo, ...arvores.cnae]),
+    };
+  }, [arvores, busca, c]);
 
   // A ficha: o item do link ou, sem escolha, a ocupação com mais vínculos
   // (o slide da ficha nunca abre vazio).
@@ -243,8 +274,16 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
       >
         <div className="flex flex-wrap items-end gap-4">
           <CampoBusca rotulo="Buscar ocupação ou atividade" valor={busca} aoMudar={setBusca} placeholder="Ex.: analista, programador, 2124, 6201" largura="sm:w-80" encontrados={encontrados} />
+          <Seletor<"circulo" | "lista">
+            rotulo="Ver como"
+            valor={ver}
+            opcoes={[{ valor: "circulo", rotulo: "Círculo" }, { valor: "lista", rotulo: "Lista" }]}
+            aoMudar={setVer}
+          />
         </div>
         <Grade>
+          {ver === "lista" ? (
+            <>
           <ArvoreContagem
             titulo={ocupacoes ? `${ocupacoes} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
             subtitulo={`${familias ? `${familias} famílias · ` : ""}vínculos em 31/12/${anoRais || "—"}`}
@@ -282,11 +321,57 @@ export default function Pesquisa({ parte = "apresentacao" }: { parte?: PartePesq
               linhas: atividades.linhas,
             }}
           />
+            </>
+          ) : (
+            <>
+          <CartaoGrafico
+            titulo={ocupacoes ? `${ocupacoes} ocupações de TI · CBO` : "Ocupações de TI · CBO"}
+            subtitulo={`${familias ? `${familias} famílias · ` : ""}vínculos em 31/12/${anoRais || "—"}`}
+            ajuda="lentes"
+            opcao={circulos.cbo}
+            altura={420}
+            erro={lista.erro}
+            dicaClique="Clique num grupo para abrir; num item, para ver a ficha"
+            vazio={`Nada com “${busca.trim()}” nesta lente.`}
+            aoClicar={({ nome }) => { const no = circulos.itens.get(nome); if (no) escolher(no); }}
+            carregando={lista.carregando}
+            tabela={{
+              colunas: [
+                { chave: "cbo", rotulo: "CBO" },
+                { chave: "ocupacao", rotulo: "Ocupação" },
+                { chave: "area", rotulo: "Área" },
+                { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true },
+              ],
+              linhas: lista.linhas,
+            }}
+          />
+          <CartaoGrafico
+            titulo={nAtividades ? `${nAtividades} atividades de empresas de TI · CNAE` : "Atividades de empresas de TI · CNAE"}
+            subtitulo={`divisões 62 e 63 · vínculos em 31/12/${anoRais || "—"}`}
+            ajuda="lentes"
+            opcao={circulos.cnae}
+            altura={420}
+            erro={atividades.erro}
+            dicaClique="Clique num grupo para abrir; num item, para ver a ficha"
+            vazio={`Nada com “${busca.trim()}” nesta lente.`}
+            aoClicar={({ nome }) => { const no = circulos.itens.get(nome); if (no) escolher(no); }}
+            carregando={atividades.carregando}
+            tabela={{
+              colunas: [
+                ...(atividades.linhas.some((l) => l.cnae) ? [{ chave: "cnae", rotulo: "CNAE", formato: (v: unknown) => fmtCnae(String(v ?? "")) }] : []),
+                { chave: "atividade", rotulo: "Atividade da empresa" },
+                { chave: "vinculos", rotulo: "Vínculos", formato: fmtNum, numero: true },
+              ],
+              linhas: atividades.linhas,
+            }}
+          />
+            </>
+          )}
         </Grade>
       </Bloco>
 
       {escolhido && (
-        <div id="ficha" className="scroll-mt-24">
+        <div id="ficha" className="mt-12 scroll-mt-24">
         <Bloco
           titulo={nomeFicha || "Ficha"}
           descricao={ehCbo

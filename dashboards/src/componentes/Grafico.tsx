@@ -136,6 +136,8 @@ export function CartaoGrafico(props: {
   ajuda?: Termo;
   // Começa fechado: só o título e o subtítulo, e o gráfico abre no clique.
   recolhido?: boolean;
+  // O que dizer quando não há o que desenhar (o padrão fala do recorte).
+  vazio?: string;
 }) {
   const [verTabela, setVerTabela] = useState(false);
   const [fechado, setFechado] = useState(!!props.recolhido);
@@ -201,7 +203,7 @@ export function CartaoGrafico(props: {
         ) : props.carregando ? (
           <div className="animate-pulse rounded-xl bg-gradient-to-br from-superficie-2 to-serie-1/10" style={{ height: altura }} />
         ) : (
-          <p className="grid place-items-center text-sm text-tinta-3" style={{ height: altura }}>Sem dados para este recorte.</p>
+          <p className="grid place-items-center text-sm text-tinta-3" style={{ height: altura }}>{props.vazio ?? "Sem dados para este recorte."}</p>
         )}
       </div>
       )}

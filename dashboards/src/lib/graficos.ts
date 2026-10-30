@@ -1109,7 +1109,7 @@ export function opcaoPrevisao(
 // Clicar num pedaço o leva para o centro e mostra só os filhos dele (clicar
 // no centro volta). Cada ramo do primeiro nível tem uma cor; os filhos ficam
 // em tons mais claros da mesma cor, para a hierarquia ler pela cor também.
-export type NoHierarquia = { nome: string; valor?: number; filhos?: NoHierarquia[] };
+export type NoHierarquia = { nome: string; valor?: number; filhos?: NoHierarquia[]; cor?: string };
 
 export function opcaoHierarquia(c: Cores, raiz: NoHierarquia[], o: { formato: Formato; unidade: string }): EChartsOption {
   const soma = (n: NoHierarquia): number => n.valor ?? (n.filhos ?? []).reduce((s, f) => s + soma(f), 0);
@@ -1140,7 +1140,7 @@ export function opcaoHierarquia(c: Cores, raiz: NoHierarquia[], o: { formato: Fo
     series: [
       {
         type: "sunburst",
-        data: raiz.map((n, i) => converter(n, c.series[i], 1)),
+        data: raiz.map((n, i) => converter(n, n.cor ?? c.series[i], 1)),
         radius: ["12%", "96%"],
         sort: undefined,
         nodeClick: "rootToNode",

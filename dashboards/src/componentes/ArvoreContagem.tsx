@@ -28,6 +28,11 @@ function filtrar(no: NoContagem, busca: string): NoContagem | null {
   return filhos.length ? { ...no, filhos } : null;
 }
 
+// A árvore só com o que casa com a busca (para o gráfico de sol também).
+export function filtrarArvore(nos: NoContagem[], busca: string): NoContagem[] {
+  return nos.map((n) => filtrar(n, busca)).filter((n): n is NoContagem => n !== null);
+}
+
 export function contarItens(nos: NoContagem[], busca: string): number {
   return nos
     .map((n) => filtrar(n, busca))
