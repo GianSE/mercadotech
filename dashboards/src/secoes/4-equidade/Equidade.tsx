@@ -1,13 +1,13 @@
 import { useMemo } from "react";
-import { CartaoGrafico } from "../componentes/Grafico";
-import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
-import { escapar, fmtDec, fmtNum, fmtPct, fmtReais } from "../lib/formato";
-import { opcaoLinhas, opcaoRosca } from "../lib/graficos";
-import { useFiltro } from "../lib/filtro";
-import { coluna, entre, intervalo, num, rotulos, TI } from "../lib/sql";
-import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
-import { useTema } from "../lib/tema";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoGrafico } from "../../componentes/Grafico";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../../componentes/ui";
+import { escapar, fmtDec, fmtNum, fmtPct, fmtReais } from "../../lib/formato";
+import { opcaoLinhas, opcaoRosca } from "../../lib/graficos";
+import { useFiltro } from "../../lib/filtro";
+import { coluna, entre, intervalo, num, rotulos, TI } from "../../lib/sql";
+import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../../lib/url";
+import { useTema } from "../../lib/tema";
+import { useConsulta } from "../../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
 const COMPARACOES = ["Homem vs Mulher", "Branca vs Preta", "Branca vs Parda"];

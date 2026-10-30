@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import { CartaoGrafico } from "../componentes/Grafico";
-import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
-import { useFiltro } from "../lib/filtro";
-import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtReais, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoLinhas, opcaoRazaoChances } from "../lib/graficos";
-import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../lib/sql";
-import { useTema } from "../lib/tema";
-import { escreverPeriodo, lerPeriodo, useParametro } from "../lib/url";
-import type { Linha } from "../lib/db";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoGrafico } from "../../componentes/Grafico";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, LinhaFiltros, Seletor, type Periodo } from "../../componentes/ui";
+import { useFiltro } from "../../lib/filtro";
+import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtReais, fmtSM } from "../../lib/formato";
+import { opcaoBarras, opcaoLinhas, opcaoRazaoChances } from "../../lib/graficos";
+import { coluna, entre, intervalo, medianaExata, medianaHist, num, ponderada, rotulos, tabelaRais, TI } from "../../lib/sql";
+import { useTema } from "../../lib/tema";
+import { escreverPeriodo, lerPeriodo, useParametro } from "../../lib/url";
+import type { Linha } from "../../lib/db";
+import { useConsulta } from "../../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2025);
 const FAIXAS = ["0-6m", "6-12m", "1-2a", "2-3a", "3-5a", "5-10a", "10-20a"];

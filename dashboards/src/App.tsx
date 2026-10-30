@@ -9,24 +9,24 @@ import { EVENTO_LIMPAR, partesHash } from "./lib/url";
 type Rota = { id: string; rotulo: string; curto: string; componente: ComponentType; grupo?: string };
 
 const ROTAS: Rota[] = [
-  { id: "pesquisa", rotulo: "Apresentação", curto: "Início", grupo: "Visão geral", componente: lazy(() => import("./secoes/Pesquisa")) },
-  { id: "recorte", rotulo: "O que é TI", curto: "TI", grupo: "Visão geral", componente: lazy(() => import("./secoes/Recorte")) },
-  { id: "estoque", rotulo: "1a · Estoque", curto: "1a", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estoque")) },
-  { id: "fluxo", rotulo: "1b · Fluxo", curto: "1b", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Fluxo")) },
-  { id: "ocupacoes", rotulo: "1c · Por ocupação", curto: "1c", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Ocupacoes")) },
-  { id: "comparar-estados", rotulo: "1d · Estados", curto: "1d", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/Estados")) },
-  { id: "setor", rotulo: "2a · Setor", curto: "2a", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Setor")) },
-  { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Lugares")) },
-  { id: "trajetoria", rotulo: "2c · Trajetória", curto: "2c", grupo: "2 · Onde", componente: lazy(() => import("./secoes/Trajetoria")) },
-  { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Salario")) },
-  { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/Permanencia")) },
-  { id: "perfil", rotulo: "4a · Perfil", curto: "4a", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/Perfil")) },
-  { id: "hiato-salarial", rotulo: "4b · Hiato salarial", curto: "4b", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/HiatoSalarial")) },
-  { id: "previsao", rotulo: "5a · Previsão", curto: "5a", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/Previsao")) },
-  { id: "estoque-atual", rotulo: "5b · Estoque atual", curto: "5b", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/EstoqueAtual")) },
+  { id: "pesquisa", rotulo: "Apresentação", curto: "Início", grupo: "Visão geral", componente: lazy(() => import("./secoes/visao-geral/Pesquisa")) },
+  { id: "recorte", rotulo: "O que é TI", curto: "TI", grupo: "Visão geral", componente: lazy(() => import("./secoes/visao-geral/Recorte")) },
+  { id: "estoque", rotulo: "1a · Estoque", curto: "1a", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/1-crescimento/Estoque")) },
+  { id: "fluxo", rotulo: "1b · Fluxo", curto: "1b", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/1-crescimento/Fluxo")) },
+  { id: "ocupacoes", rotulo: "1c · Por ocupação", curto: "1c", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/1-crescimento/Ocupacoes")) },
+  { id: "comparar-estados", rotulo: "1d · Estados", curto: "1d", grupo: "1 · Crescimento", componente: lazy(() => import("./secoes/1-crescimento/Estados")) },
+  { id: "setor", rotulo: "2a · Setor", curto: "2a", grupo: "2 · Onde", componente: lazy(() => import("./secoes/2-onde/Setor")) },
+  { id: "mapa", rotulo: "2b · Mapa", curto: "2b", grupo: "2 · Onde", componente: lazy(() => import("./secoes/2-onde/Lugares")) },
+  { id: "trajetoria", rotulo: "2c · Trajetória", curto: "2c", grupo: "2 · Onde", componente: lazy(() => import("./secoes/2-onde/Trajetoria")) },
+  { id: "salario", rotulo: "3a · Salário", curto: "3a", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/3-qualidade/Salario")) },
+  { id: "permanencia", rotulo: "3b · Permanência", curto: "3b", grupo: "3 · Qualidade", componente: lazy(() => import("./secoes/3-qualidade/Permanencia")) },
+  { id: "perfil", rotulo: "4a · Perfil", curto: "4a", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/4-equidade/Perfil")) },
+  { id: "hiato-salarial", rotulo: "4b · Hiato salarial", curto: "4b", grupo: "4 · Equidade", componente: lazy(() => import("./secoes/4-equidade/HiatoSalarial")) },
+  { id: "previsao", rotulo: "5a · Previsão", curto: "5a", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/5-futuro/Previsao")) },
+  { id: "estoque-atual", rotulo: "5b · Estoque atual", curto: "5b", grupo: "5 · Futuro", componente: lazy(() => import("./secoes/5-futuro/EstoqueAtual")) },
   // A única página com texto: respostas, leitura dos números, ressalvas e método.
-  { id: "respostas", rotulo: "Respostas", curto: "Respostas", grupo: "Análise", componente: lazy(() => import("./secoes/Respostas")) },
-  { id: "metodo-dados", rotulo: "Método e dados", curto: "Método", grupo: "Análise", componente: lazy(() => import("./secoes/MetodoDados")) },
+  { id: "respostas", rotulo: "Respostas", curto: "Respostas", grupo: "Análise", componente: lazy(() => import("./secoes/analise/Respostas")) },
+  { id: "metodo-dados", rotulo: "Método e dados", curto: "Método", grupo: "Análise", componente: lazy(() => import("./secoes/analise/MetodoDados")) },
 ];
 
 type ItemMenu = { rota: Rota } | { grupo: string; rotas: Rota[] };

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../componentes/Grafico";
-import { Bloco, CabecalhoPergunta, CampoBusca, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Modal, Seletor, type Periodo } from "../componentes/ui";
-import { REGIOES, rotuloTerritorio, UFS, useFiltro, type Regiao } from "../lib/filtro";
-import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../lib/formato";
-import { opcaoBarras, opcaoDispersao, opcaoMapa, opcaoRosca } from "../lib/graficos";
-import { entre, intervalo, literal, medianaExata, medianaHist, num } from "../lib/sql";
-import { useTema } from "../lib/tema";
-import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../lib/url";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoGrafico, CartaoTabela, registrarMapaBR, type Clique } from "../../componentes/Grafico";
+import { Bloco, CabecalhoPergunta, CampoBusca, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Modal, Seletor, type Periodo } from "../../componentes/ui";
+import { REGIOES, rotuloTerritorio, UFS, useFiltro, type Regiao } from "../../lib/filtro";
+import { escapar, fmtCompacto, fmtDec, fmtMunicipio, fmtNum, fmtPct, fmtReais, fmtSinal, fmtSM } from "../../lib/formato";
+import { opcaoBarras, opcaoDispersao, opcaoMapa, opcaoRosca } from "../../lib/graficos";
+import { entre, intervalo, literal, medianaExata, medianaHist, num } from "../../lib/sql";
+import { useTema } from "../../lib/tema";
+import { escreverPeriodo, lerPeriodo, texto, useParametro } from "../../lib/url";
+import { useConsulta } from "../../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
 // Nomes curtos para as seções da CNAE, que no CAGED vêm por extenso ("Atividades

@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import { CartaoGrafico } from "../componentes/Grafico";
-import { SeletorEstados } from "../componentes/SeletorUF";
-import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../componentes/ui";
-import { useFiltro } from "../lib/filtro";
-import { fmtCompacto, fmtDec, fmtNum, fmtSinal, fmtSM } from "../lib/formato";
-import { opcaoFluxo, opcaoLinhas, type SerieFluxo } from "../lib/graficos";
-import { coluna, entre, intervalo, literal, num, rotulos, tabelaRais, TI } from "../lib/sql";
-import { escreverPeriodo, lerPeriodo, useParametro } from "../lib/url";
-import { useTema } from "../lib/tema";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoGrafico } from "../../componentes/Grafico";
+import { SeletorEstados } from "../../componentes/SeletorUF";
+import { Bloco, CabecalhoPergunta, FiltroPeriodo, Grade, Kpi, LinhaFiltros, Seletor, type Periodo } from "../../componentes/ui";
+import { useFiltro } from "../../lib/filtro";
+import { fmtCompacto, fmtDec, fmtNum, fmtSinal, fmtSM } from "../../lib/formato";
+import { opcaoFluxo, opcaoLinhas, type SerieFluxo } from "../../lib/graficos";
+import { coluna, entre, intervalo, literal, num, rotulos, tabelaRais, TI } from "../../lib/sql";
+import { escreverPeriodo, lerPeriodo, useParametro } from "../../lib/url";
+import { useTema } from "../../lib/tema";
+import { useConsulta } from "../../lib/useConsulta";
 
 const ANOS = intervalo(2007, 2026);
 type Grao = "ano" | "mes";

@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
-import { acharNo, ArvoreContagem, caminhoAte, folhasDe, ramo, type NoContagem } from "../componentes/ArvoreContagem";
-import { SeletorArvore } from "../componentes/SeletorArvore";
-import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi, LinhaFiltros, Seletor } from "../componentes/ui";
-import { UFS } from "../lib/filtro";
-import { fmtCompacto, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
-import { opcaoHierarquia, opcaoLinhas, type NoHierarquia, type SerieLinha } from "../lib/graficos";
-import type { Linha } from "../lib/db";
-import { literal, num, TI } from "../lib/sql";
-import { useTema } from "../lib/tema";
-import { texto, useParametro } from "../lib/url";
-import { useConsulta } from "../lib/useConsulta";
+import { acharNo, ArvoreContagem, caminhoAte, folhasDe, ramo, type NoContagem } from "../../componentes/ArvoreContagem";
+import { SeletorArvore } from "../../componentes/SeletorArvore";
+import { CartaoGrafico } from "../../componentes/Grafico";
+import { AvisoNacional, Bloco, CabecalhoPergunta, Grade, Kpi, LinhaFiltros, Seletor } from "../../componentes/ui";
+import { UFS } from "../../lib/filtro";
+import { fmtCompacto, fmtNum, fmtPct, fmtReais, fmtSinal } from "../../lib/formato";
+import { opcaoHierarquia, opcaoLinhas, type NoHierarquia, type SerieLinha } from "../../lib/graficos";
+import type { Linha } from "../../lib/db";
+import { literal, num, TI } from "../../lib/sql";
+import { useTema } from "../../lib/tema";
+import { texto, useParametro } from "../../lib/url";
+import { useConsulta } from "../../lib/useConsulta";
 
 // A visão geral só situa quem chega, nesta ordem: o que é o painel e as duas
 // bases (RAIS e CAGED), os números do recorte e o que

@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
-import { CartaoGrafico } from "../componentes/Grafico";
-import { AvisoNacional, Bloco, CabecalhoPergunta, CampoBusca, Grade, Kpi } from "../componentes/ui";
-import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtSinal } from "../lib/formato";
-import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoPrevisao } from "../lib/graficos";
-import { num } from "../lib/sql";
-import { useTema } from "../lib/tema";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoGrafico } from "../../componentes/Grafico";
+import { AvisoNacional, Bloco, CabecalhoPergunta, CampoBusca, Grade, Kpi } from "../../componentes/ui";
+import { fmtCompacto, fmtDec, fmtNum, fmtPct, fmtSinal } from "../../lib/formato";
+import { opcaoBarras, opcaoDispersao, opcaoLinhas, opcaoPrevisao } from "../../lib/graficos";
+import { num } from "../../lib/sql";
+import { useTema } from "../../lib/tema";
+import { useConsulta } from "../../lib/useConsulta";
 
 
 // Nomes que se leem sem o TCC ao lado. A ordem é a das cores: o estimador

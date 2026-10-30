@@ -1,4 +1,4 @@
-import Pesquisa from "./Pesquisa";
+import Pesquisa from "../visao-geral/Pesquisa";
 
 // Pergunta 1c: o crescimento por ocupação (CBO) e por atividade da empresa
 // (CNAE), com o drill down do total de TI até o cargo. Usa os mesmos menus e

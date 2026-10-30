@@ -3,13 +3,13 @@
 // Tudo aqui é do Brasil inteiro e calculado na hora, como nas páginas: quando
 // a série atualiza, o texto acompanha.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { CartaoTabela } from "../componentes/Grafico";
-import { AvisoNacional, BotaoExpandir, Bloco } from "../componentes/ui";
-import { obterManifesto } from "../lib/db";
-import { fmtDec, fmtNum, fmtPct, fmtReais, fmtSinal } from "../lib/formato";
-import { arcoSaldo, TextoEstoque, TextoLentesEstoque, TextoRemuneracao, TextoSaldo } from "../lib/narrativa";
-import { medianaExata, num, ponderada, TI } from "../lib/sql";
-import { useConsulta } from "../lib/useConsulta";
+import { CartaoTabela } from "../../componentes/Grafico";
+import { AvisoNacional, BotaoExpandir, Bloco } from "../../componentes/ui";
+import { obterManifesto } from "../../lib/db";
+import { fmtDec, fmtNum, fmtPct, fmtReais, fmtSinal } from "../../lib/formato";
+import { arcoSaldo, TextoEstoque, TextoLentesEstoque, TextoRemuneracao, TextoSaldo } from "../../lib/narrativa";
+import { medianaExata, num, ponderada, TI } from "../../lib/sql";
+import { useConsulta } from "../../lib/useConsulta";
 
 const FORA = "Profissional de TI fora do setor de TI";
 const DENTRO = "Profissional de TI em empresa de TI";
