@@ -65,7 +65,7 @@ A comparação serviu também como verificação de qualidade. Antes da reingest
 
 A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e um erro de método próprio. Documentá-los é contribuição do trabalho: são obstáculos que qualquer pesquisa sobre as mesmas bases encontrará, e nenhum deles produz mensagem de erro. Cada um foi também um retorno no ciclo do CRISP-DM: detectado na Avaliação ou no Entendimento dos Dados, levou de volta à Preparação ou à Modelagem.
 
-O \autoref{quadro:achados} relaciona os achados. Três merecem discussão mais longa pela natureza do problema.
+O \autoref{quadro:achados} relaciona os achados. Alguns merecem discussão mais longa pela natureza do problema, e a última subseção mede quanto dado o conjunto deles custou.
 
 \begin{quadro}[htbp]
     \centering
@@ -127,6 +127,36 @@ A primeira tentativa de medir permanência aplicou o estimador de Kaplan-Meier a
 Cada tabela da Gold guarda a mediana da remuneração de cada grupo, por exemplo, de cada combinação entre setor e ocupação de TI. Para obter a mediana de um conjunto maior, como o total de TI, a primeira versão do trabalho fez a média das medianas dos grupos, ponderada pelo estoque. O atalho parece razoável e está errado: mediana não se soma, e a média de medianas não é a mediana de nada. O erro só apareceu porque o mesmo número, calculado a partir de duas tabelas com grupos diferentes, não coincidia: para 2025, a tabela nacional dava 3,55 salários mínimos, e a tabela por unidade federativa, 3,75. A mediana exata, calculada sobre os vínculos, é 3,41.
 
 O maior efeito foi sobre uma comparação. Pela média das medianas por setor da empresa, os profissionais de TI que trabalham fora das empresas de TI pareciam ganhar mais que os de dentro; pela mediana exata, ganham menos: 4,13 contra 4,31 salários mínimos em 2025. A Gold passou a guardar a mediana exata dos recortes usados neste texto e a distribuição da remuneração em faixas, da qual o \textit{dashboard} calcula a mediana de qualquer combinação de estados (\autoref{sec:apresentacao}). Todas as medianas deste capítulo vêm dessa versão.
+
+\subsection{Quanto dado se perdeu}
+\label{subsec:perdas}
+
+Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa ser medido, e não presumido. Neste trabalho, ela tem uma única origem. A recontagem a partir do dado bruto (\autoref{sec:reprodutibilidade}) mostrou diferença zero entre o texto publicado pelo MTE e a camada tratada, em todos os anos das duas bases: a extração, a tradução e o recorte não descartam registros. O que se perdeu foi o que a própria fonte não entrega, nos dois arquivos corrompidos do \autoref{quadro:achados}. O pacote compactado declara o tamanho original de cada arquivo, e a extração mede a parte legível; da proporção entre as duas sai a estimativa do que falta (\autoref{tab:perdas}).
+
+\begin{table}[htbp]
+    \centering
+    \caption{Linhas perdidas nos arquivos corrompidos na fonte}
+    \label{tab:perdas}
+    \footnotesize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{lrrrl}
+        \toprule
+        \rowcolor{black!8}
+        \textbf{Arquivo} & \textbf{Lidas} & \textbf{No arquivo} & \textbf{Perdidas} & \textbf{Uso nas análises} \\
+        \midrule
+        CAGED antigo, março de 2011 & 1.880.719 & 3.439.129 & 45,3\% & série mensal, cubos e modelos \\
+        Ajustes do CAGED, outubro de 2010 & 1.942 & 192.815 & 99,0\% & nenhum \\
+        \midrule
+        \textbf{Total, CAGED bruto} & & & \textbf{0,23\%} & 1.749.283 de 769,6 milhões de linhas \\
+        \bottomrule
+    \end{tabular}
+    \\[4pt]
+    No arquivo: linhas estimadas pela proporção entre os bytes legíveis e o tamanho original declarado no pacote. Todas as ocupações e setores. Fonte: Elaborado pelo autor com dados do CAGED \cite{CAGED2024}.
+\end{table}
+
+Na base inteira, a perda é de cerca de 1,75 milhão de linhas, 0,23\% do CAGED bruto; na RAIS, é nula. No recorte de tecnologia, só o arquivo de março de 2011 importa, porque os ajustes não entram na série nem nos modelos. Como esse arquivo é ordenado por unidade federativa, a perda não é uma amostra: faltam por inteiro Paraná, Santa Catarina, Rio Grande do Sul, Mato Grosso do Sul, Mato Grosso, Goiás e o Distrito Federal, e cerca de metade de São Paulo. Estimando cada estado pela média de fevereiro e abril, corrigida pela sazonalidade de março medida nos estados completos, faltam cerca de 12,1 mil admissões e 8,6 mil desligamentos de TI: 43\% das movimentações do mês, 3,6\% das de 2011 e 0,17\% da série inteira. O saldo de 2011 fica subestimado em cerca de 3,4 mil vagas (40,9 mil observados, contra 44,3 mil estimados), e o saldo acumulado da série, em 0,5\%. A comparação com a RAIS confirma a ordem de grandeza: em 2011, a RAIS registra 12\% mais admissões que o CAGED, contra cerca de 8\% nos anos vizinhos (\autoref{sec:coerencia-bases}).
+
+A série mantém o dado observado, sem imputação. O efeito é pequeno diante das conclusões, que se apoiam em tendências de vários anos, e uma estimativa misturada ao dado observado ficaria indistinguível dele. A lacuna fica declarada aqui e na documentação dos dados publicados.
 
 \section{Pergunta 1: quanto o mercado cresceu}
 \label{sec:resultado-q1}
