@@ -27,6 +27,14 @@ from _utils import log, nuvem, telegram  # noqa: E402
 log.ativar_horario()
 
 
+def _preparar_completa(args) -> None:
+    """Na silver completa, cria o repositório na primeira vez e mantém o cartão em dia."""
+    if args.completa:
+        repo = nuvem.repo_silver("caged_mov", completa=True)
+        if nuvem.publicar_cartao(repo, _AQUI / "cartoes" / "silver-caged.md"):
+            print(f"   📝 cartão de {repo} atualizado")
+
+
 def _argumentos():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--modo", choices=("verificar", "processar"), required=True)
@@ -36,7 +44,12 @@ def _argumentos():
     # Reprocessa os anos do intervalo mesmo que já estejam na silver — para
     # correções de conteúdo, que a comparação por listagem não enxerga.
     p.add_argument("--forcar", action="store_true")
-    return p.parse_args()
+    # A base inteira traduzida, sem o recorte de TI, em repositório próprio
+    # (ver silver-caged-completa.py).
+    p.add_argument("--completa", action="store_true")
+    args = p.parse_args()
+    args.rotulo = "Silver CAGED completa" if args.completa else "Silver CAGED TI"
+    return args
 
 
 def _meses_no_repo(repo: str, tabela: str, chave_ano: str, chave_mes: str) -> set[tuple[int, int]]:
@@ -58,7 +71,7 @@ def modo_verificar(args) -> int:
     pares = []
     for tabela in mp.TODAS_TABELAS:
         bronze = nuvem.anos_no_repo(nuvem.repo_bronze(tabela), tabela, "ano")
-        silver = nuvem.anos_no_repo(nuvem.repo_silver_ti(tabela), tabela, "ano_particao")
+        silver = nuvem.anos_no_repo(nuvem.repo_silver(tabela, args.completa), tabela, "ano_particao")
         # Comparar só o ano deixava o CAGED parado: depois que o primeiro mês de
         # um ano entra na silver, o ano "existe" e os meses seguintes nunca eram
         # traduzidos. Um mês da bronze sem o mesmo mês na silver também deixa o
@@ -66,7 +79,7 @@ def modo_verificar(args) -> int:
         # registros (exclusões, fora do prazo), isso pode reprocessar um ano à
         # toa — custo pequeno; deixar de traduzir um mês é erro silencioso.
         meses_bronze = _meses_no_repo(nuvem.repo_bronze(tabela), tabela, "ano", "mes")
-        meses_silver = _meses_no_repo(nuvem.repo_silver_ti(tabela), tabela, "ano_particao", "mes_particao")
+        meses_silver = _meses_no_repo(nuvem.repo_silver(tabela, args.completa), tabela, "ano_particao", "mes_particao")
         com_mes_faltando = {a for a, _ in meses_bronze - meses_silver} if meses_silver else set()
         candidatos = bronze if args.forcar else (bronze - silver) | com_mes_faltando
         faltam = sorted(a for a in candidatos if ano_inicio <= a <= ano_fim)
@@ -84,9 +97,9 @@ def modo_verificar(args) -> int:
             f.write(f"anos={json.dumps(saida['anos'])}\n")
 
     if saida["tem_novidade"]:
-        telegram.notificar("🔎 *Silver CAGED TI*: tem ano pendente de tradução, processando.")
+        telegram.notificar(f"🔎 *{args.rotulo}*: tem ano pendente de tradução, processando.")
     else:
-        telegram.notificar("🔎 *Silver CAGED TI*: verificado, já em dia.")
+        telegram.notificar(f"🔎 *{args.rotulo}*: verificado, já em dia.")
     return 0
 
 
@@ -94,17 +107,18 @@ def modo_processar(args) -> int:
     con = nuvem.conectar_duckdb()
     sucesso = 0
     for tabela in args.tabela:
-        if construir(con, tabela, args.ano_inicio, args.ano_fim):
+        if construir(con, tabela, args.ano_inicio, args.ano_fim, completa=args.completa):
             sucesso += 1
 
     icone = "🏁" if sucesso == len(args.tabela) else "⚠️"
-    telegram.notificar(f"{icone} *Silver CAGED TI*: {sucesso}/{len(args.tabela)} tabela(s) "
+    telegram.notificar(f"{icone} *{args.rotulo}*: {sucesso}/{len(args.tabela)} tabela(s) "
                        f"({', '.join(args.tabela)} {args.ano_inicio})")
     return 0 if sucesso == len(args.tabela) else 2
 
 
 def main() -> int:
     args = _argumentos()
+    _preparar_completa(args)
     if args.modo == "verificar":
         return modo_verificar(args)
     return modo_processar(args)

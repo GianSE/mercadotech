@@ -24,6 +24,14 @@ from _utils import log, nuvem, telegram  # noqa: E402
 log.ativar_horario()
 
 
+def _preparar_completa(args) -> None:
+    """Na silver completa, cria o repositório na primeira vez e mantém o cartão em dia."""
+    if args.completa:
+        repo = nuvem.repo_silver("rais_vinc", completa=True)
+        if nuvem.publicar_cartao(repo, _AQUI / "cartoes" / "silver-rais.md"):
+            print(f"   📝 cartão de {repo} atualizado")
+
+
 def _argumentos():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--modo", choices=("verificar", "processar"), required=True)
@@ -33,7 +41,12 @@ def _argumentos():
     # Reprocessa os anos do intervalo mesmo que já estejam na silver — para
     # correções de conteúdo, que a comparação por listagem não enxerga.
     p.add_argument("--forcar", action="store_true")
-    return p.parse_args()
+    # A base inteira traduzida, sem o recorte de TI, em repositório próprio
+    # (ver silver-rais-completa.py).
+    p.add_argument("--completa", action="store_true")
+    args = p.parse_args()
+    args.rotulo = "Silver RAIS completa" if args.completa else "Silver RAIS TI"
+    return args
 
 
 def modo_verificar(args) -> int:
@@ -43,7 +56,7 @@ def modo_verificar(args) -> int:
     pares = []
     for tabela in mp.TABELAS_RAIS:
         bronze = nuvem.anos_no_repo(nuvem.repo_bronze(tabela), tabela, "ano")
-        silver = nuvem.anos_no_repo(nuvem.repo_silver_ti(tabela), tabela, "ano_particao")
+        silver = nuvem.anos_no_repo(nuvem.repo_silver(tabela, args.completa), tabela, "ano_particao")
         candidatos = bronze if args.forcar else bronze - silver
         faltam = sorted(a for a in candidatos if ano_inicio <= a <= ano_fim)
         print(f"   {tabela}: {len(bronze)} ano(s) na bronze, {len(silver)} já na silver, "
@@ -60,9 +73,9 @@ def modo_verificar(args) -> int:
             f.write(f"anos={json.dumps(saida['anos'])}\n")
 
     if saida["tem_novidade"]:
-        telegram.notificar("🔎 *Silver RAIS TI*: tem ano pendente de tradução, processando.")
+        telegram.notificar(f"🔎 *{args.rotulo}*: tem ano pendente de tradução, processando.")
     else:
-        telegram.notificar("🔎 *Silver RAIS TI*: verificado, já em dia.")
+        telegram.notificar(f"🔎 *{args.rotulo}*: verificado, já em dia.")
     return 0
 
 
@@ -70,17 +83,18 @@ def modo_processar(args) -> int:
     con = nuvem.conectar_duckdb()
     sucesso = 0
     for tabela in args.tabela:
-        if construir(con, tabela, args.ano_inicio, args.ano_fim):
+        if construir(con, tabela, args.ano_inicio, args.ano_fim, completa=args.completa):
             sucesso += 1
 
     icone = "🏁" if sucesso == len(args.tabela) else "⚠️"
-    telegram.notificar(f"{icone} *Silver RAIS TI*: {sucesso}/{len(args.tabela)} tabela(s) "
+    telegram.notificar(f"{icone} *{args.rotulo}*: {sucesso}/{len(args.tabela)} tabela(s) "
                        f"({', '.join(args.tabela)} {args.ano_inicio})")
     return 0 if sucesso == len(args.tabela) else 2
 
 
 def main() -> int:
     args = _argumentos()
+    _preparar_completa(args)
     if args.modo == "verificar":
         return modo_verificar(args)
     return modo_processar(args)

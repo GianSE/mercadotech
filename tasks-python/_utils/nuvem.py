@@ -17,6 +17,10 @@ REPO_BRONZE_CAGED = os.getenv("REPO_BRONZE_CAGED", "Gianpedro/bronze-caged")
 REPO_BRONZE_RAIS = os.getenv("REPO_BRONZE_RAIS", "Gianpedro/bronze-rais")
 REPO_SILVER_TI_CAGED = os.getenv("REPO_SILVER_TI_CAGED", "Gianpedro/silver-caged-ti")
 REPO_SILVER_TI_RAIS = os.getenv("REPO_SILVER_TI_RAIS", "Gianpedro/silver-rais-ti")
+# A silver completa: a mesma tradução, sem o recorte de TI (todas as
+# ocupações e setores), para quem quiser consumir as bases inteiras.
+REPO_SILVER_CAGED = os.getenv("REPO_SILVER_CAGED", "Gianpedro/silver-caged")
+REPO_SILVER_RAIS = os.getenv("REPO_SILVER_RAIS", "Gianpedro/silver-rais")
 REPO_GOLD = os.getenv("REPO_GOLD", "Gianpedro/gold-analise-mercado-ti")
 REPO_DICIONARIOS = os.getenv("REPO_DICIONARIOS", "Gianpedro/mte-dicionarios")
 
@@ -33,6 +37,13 @@ def repo_bronze(tabela: str) -> str:
 
 def repo_silver_ti(tabela: str) -> str:
     return REPO_SILVER_TI_RAIS if tabela.startswith("rais") else REPO_SILVER_TI_CAGED
+
+
+def repo_silver(tabela: str, completa: bool = False) -> str:
+    """Repositório da silver: o recorte de TI (padrão) ou a base inteira."""
+    if not completa:
+        return repo_silver_ti(tabela)
+    return REPO_SILVER_RAIS if tabela.startswith("rais") else REPO_SILVER_CAGED
 
 
 def fonte_leitura(repo: str, prefixo: str = "") -> str:
@@ -367,7 +378,7 @@ def publicar_diretorio(local_dir: Path, repo: str, prefixo_repo: str = "") -> in
     return len(arquivos)
 
 
-def publicar_particoes(con, local_dir: Path, repo: str, tabela: str) -> int:
+def publicar_particoes(con, local_dir: Path, repo: str, tabela: str, consolidar: bool = True) -> int:
     """
     Publica a reconstrução de uma tabela da silver SUBSTITUINDO os anos
     reconstruídos, em vez de acrescentar arquivos a eles.
@@ -388,6 +399,10 @@ def publicar_particoes(con, local_dir: Path, repo: str, tabela: str) -> int:
     - também saem os arquivos que as primeiras execuções em nuvem gravaram
       na RAIZ do repositório (`ano_particao=<ano>/...`, sem a pasta da
       tabela), que nenhuma consulta lia.
+
+    `consolidar=False` publica os pedaços como saíram (um por arquivo de
+    origem): na RAIS completa, um ano inteiro num arquivo só passaria de
+    alguns GB, e consolidar copiaria o ano de novo no disco do runner.
     """
     import re
 
@@ -406,6 +421,11 @@ def publicar_particoes(con, local_dir: Path, repo: str, tabela: str) -> int:
         valores = dict(re.findall(r"(\w+_particao)=([^/]+)", rel))
         ano, mes = valores["ano_particao"], valores.get("mes_particao", "")
         anos.add(ano)
+        if not consolidar:
+            for arq in sorted(folha.glob("*.parquet")):
+                adicionar.append(CommitOperationAdd(path_in_repo=f"{tabela}/{rel}/{arq.name}",
+                                                    path_or_fileobj=str(arq)))
+            continue
         nome = f"{tabela}_{ano}" + (f"_{mes}" if mes.isdigit() else "") + ".parquet"
         saida = consolidado_dir / rel / nome
         saida.parent.mkdir(parents=True, exist_ok=True)
@@ -432,13 +452,35 @@ def publicar_particoes(con, local_dir: Path, repo: str, tabela: str) -> int:
         commit_message=f"{tabela}: ano(s) {', '.join(sorted(anos))} substituído(s) "
                        f"({len(adicionar)} arquivo(s), {len(apagar)} removido(s))"), tabela)
     _cache_listagem.pop(repo, None)
-    print(f"   ☁️  {tabela}: {len(adicionar)} partição(ões) publicada(s), {len(apagar)} arquivo(s) antigo(s) removido(s)")
+    print(f"   ☁️  {tabela}: {len(adicionar)} arquivo(s) publicado(s), {len(apagar)} arquivo(s) antigo(s) removido(s)")
 
     import shutil
     shutil.rmtree(consolidado_dir, ignore_errors=True)
     for arq in local_dir.rglob("*.parquet"):
         arq.unlink()
     return len(adicionar)
+
+
+def publicar_cartao(repo: str, local: Path) -> bool:
+    """
+    Sobe o README (o cartão do conjunto no Hub) quando ele muda, e cria o
+    repositório na primeira vez. Devolve se publicou.
+    """
+    from huggingface_hub import HfApi, hf_hub_download
+
+    api = HfApi()
+    api.create_repo(repo_id=repo, repo_type="dataset", exist_ok=True)
+    novo = local.read_text(encoding="utf-8")
+    try:
+        atual = Path(hf_hub_download(repo, "README.md", repo_type="dataset")).read_text(encoding="utf-8")
+    except Exception:
+        atual = None
+    if atual == novo:
+        return False
+    com_espera_no_limite(lambda: api.upload_file(
+        path_or_fileobj=novo.encode("utf-8"), path_in_repo="README.md", repo_id=repo,
+        repo_type="dataset", commit_message="cartão do conjunto"), "README.md")
+    return True
 
 
 def preparar_staging() -> None:

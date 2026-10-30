@@ -64,7 +64,8 @@ def preparar_dicionarios(con, tabela: str, colunas: list[str]) -> dict[str, str]
 
 
 def _select_silver(con, tabela: str, colunas: list[str], dicionarios: dict[str, str],
-                   caminho_bronze: str, faixa: tuple[int, int] | None = None) -> str:
+                   caminho_bronze: str, faixa: tuple[int, int] | None = None,
+                   completa: bool = False) -> str:
     # Resolve os nomes: em 2023+ a remuneração virou "vl_rem_*". Sem isso a
     # coluna saía VARCHAR nos anos novos e DOUBLE nos antigos, e a mesma
     # coluna com dois tipos entre partições quebra a leitura da série.
@@ -121,12 +122,13 @@ def _select_silver(con, tabela: str, colunas: list[str], dicionarios: dict[str, 
     col_cnae, col_cbo = esc.colunas_da_tabela(tabela, colunas)
     col_cnae = mp.resolver(col_cnae, colunas) if col_cnae else mp.resolver("cnae_20_subclasse", colunas)
     col_cbo = mp.resolver(col_cbo, colunas) if col_cbo else mp.resolver("cbo_ocupacao_2002", colunas)
-    predicado = esc.sql_filtro_tecnologia(
+    # A silver completa traduz tudo, sem recorte.
+    predicado = None if completa else esc.sql_filtro_tecnologia(
         f'b."{col_cnae}"' if col_cnae else None,
         f'b."{col_cbo}"' if col_cbo else None,
     )
     where = f"WHERE {predicado}" if predicado else ""
-    if not predicado:
+    if not predicado and not completa:
         print(f"      ⚠️  {tabela}: sem coluna de CNAE/CBO — gravando sem recorte")
 
     # Leitura em FAIXA DE LINHAS quando o arquivo é grande demais pra uma
@@ -234,7 +236,7 @@ def _copy_particionado(destino: str, stem: str, query: str) -> str:
     """
 
 
-def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
+def construir(con, tabela: str, ano_inicio: int, ano_fim: int, completa: bool = False) -> bool:
     """
     Constrói a silver de uma tabela, UM ARQUIVO BRONZE POR VEZ (o
     rais_vinc_sp sozinho tem mais linhas que o CAGED inteiro de um ano —
@@ -243,7 +245,7 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
     A decisão de QUAL ANO reprocessar já foi feita na orquestração do CI;
     aqui sempre reconstrói o que foi pedido.
     """
-    print(f"\n{'=' * 70}\n  🔨 SILVER: {tabela}\n{'=' * 70}")
+    print(f"\n{'=' * 70}\n  🔨 SILVER{' COMPLETA' if completa else ''}: {tabela}\n{'=' * 70}")
     inicio = time.time()
 
     todos = sorted(f"{tabela}/{a}" for a in nuvem.arquivos_remotos(nuvem.repo_bronze(tabela))
@@ -272,7 +274,7 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
             continue
 
         for rotulo, faixa in _pedacos(con, origem_hf, stem):
-            query = _select_silver(con, tabela, colunas, dicionarios, origem_hf, faixa=faixa)
+            query = _select_silver(con, tabela, colunas, dicionarios, origem_hf, faixa=faixa, completa=completa)
             try:
                 con.execute(_copy_particionado(str(destino_local), rotulo, query))
                 leitura = f"{destino_local}/**/{rotulo}_*.parquet"
@@ -295,7 +297,10 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
         print(f"   ⛔ {falhas} falha(s): nada publicado, o ano no Hub fica como estava")
         n_publicados = 0
     else:
-        n_publicados = nuvem.publicar_particoes(con, destino_local, nuvem.repo_silver_ti(tabela), tabela)
+        # Na completa, um arquivo por pedaço de origem: o ano inteiro num
+        # arquivo só passaria de alguns GB.
+        n_publicados = nuvem.publicar_particoes(con, destino_local, nuvem.repo_silver(tabela, completa),
+                                                tabela, consolidar=not completa)
 
     print(f"   📊 {feitos} gravado(s), {falhas} falha(s) "
           f"| {total_linhas:,} linhas em {(time.time() - inicio) / 60:.1f} min")

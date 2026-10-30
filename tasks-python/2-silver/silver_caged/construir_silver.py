@@ -108,7 +108,7 @@ def preparar_dicionarios(con, tabela: str, colunas: list[str]) -> dict[str, str]
 
 
 def _select_silver(con, tabela: str, colunas: list[str], caminho_bronze: str,
-                   dicionarios: dict[str, str]) -> str:
+                   dicionarios: dict[str, str], completa: bool = False) -> str:
     geracao = mp.geracao(tabela)
     numericos = mp.NUMERICOS_NOVO_CAGED if geracao == "novo" else mp.NUMERICOS_CAGED_ANTIGO
     datas_aaaamm = mp.DATAS_AAAAMM_NOVO_CAGED if geracao == "novo" else mp.DATAS_AAAAMM_CAGED_ANTIGO
@@ -148,14 +148,15 @@ def _select_silver(con, tabela: str, colunas: list[str], caminho_bronze: str,
     join_sql = "\n            ".join(joins)
 
     # Recorte de tecnologia já na leitura do bronze: o DuckDB descarta ~99%
-    # das linhas antes de traduzir qualquer coisa.
+    # das linhas antes de traduzir qualquer coisa. A silver completa traduz
+    # tudo, sem recorte.
     col_cnae, col_cbo = esc.colunas_da_tabela(tabela, colunas)
-    predicado = esc.sql_filtro_tecnologia(
+    predicado = None if completa else esc.sql_filtro_tecnologia(
         f'b."{col_cnae}"' if col_cnae else None,
         f'b."{col_cbo}"' if col_cbo else None,
     )
     where = f"WHERE {predicado}" if predicado else ""
-    if not predicado:
+    if not predicado and not completa:
         print(f"      ⚠️  {tabela}: sem coluna de CNAE/CBO neste arquivo — "
               f"gravando sem recorte de tecnologia")
 
@@ -201,7 +202,7 @@ def _copy_particionado(destino: str, stem: str, query: str) -> str:
     """
 
 
-def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
+def construir(con, tabela: str, ano_inicio: int, ano_fim: int, completa: bool = False) -> bool:
     """
     Constrói a silver de uma tabela, UM ARQUIVO BRONZE POR VEZ.
 
@@ -215,7 +216,7 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
     (ver verificar_pendencias_silver): aqui sempre reconstrói o que foi
     pedido, sem checar arquivo a arquivo o que já existe.
     """
-    print(f"\n{'=' * 70}\n  🔨 SILVER: {tabela}\n{'=' * 70}")
+    print(f"\n{'=' * 70}\n  🔨 SILVER{' COMPLETA' if completa else ''}: {tabela}\n{'=' * 70}")
     inicio = time.time()
 
     todos = sorted(f"{tabela}/{a}" for a in nuvem.arquivos_remotos(nuvem.repo_bronze(tabela))
@@ -248,7 +249,7 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
             falhas += 1
             continue
 
-        query = _select_silver(con, tabela, colunas, origem_hf, dicionarios)
+        query = _select_silver(con, tabela, colunas, origem_hf, dicionarios, completa)
 
         try:
             con.execute(_copy_particionado(str(destino_local), stem, query))
@@ -276,7 +277,7 @@ def construir(con, tabela: str, ano_inicio: int, ano_fim: int) -> bool:
         print(f"   ⛔ {falhas} falha(s): nada publicado, o ano no Hub fica como estava")
         n_publicados = 0
     else:
-        n_publicados = nuvem.publicar_particoes(con, destino_local, nuvem.repo_silver_ti(tabela), tabela)
+        n_publicados = nuvem.publicar_particoes(con, destino_local, nuvem.repo_silver(tabela, completa), tabela)
 
     decorrido = time.time() - inicio
     print(f"   📊 {feitos} gravado(s), {falhas} falha(s) "

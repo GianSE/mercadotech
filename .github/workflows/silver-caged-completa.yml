@@ -1,0 +1,82 @@
+name: Silver CAGED completa
+
+# A base inteira do CAGED traduzida pelos dicionários do MTE, SEM o recorte de
+# TI, publicada em Gianpedro/silver-caged para quem quiser consumir. Mesmo
+# código da silver de TI (silver-caged-completa.py liga o --completa).
+#
+# Só manual: não entra no pipeline semanal. Vazio em "Ano inicial" = desde o
+# primeiro ano da bronze. O staging vai para /mnt, o disco grande do runner
+# (~70 GB): um ano inteiro da RAIS traduzida passa de alguns GB e não cabe
+# com folga nos ~14 GB do disco do sistema.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ano_inicio:
+        description: "Ano inicial (vazio = desde o primeiro ano da bronze)"
+      ano_fim:
+        description: "Ano final (vazio = ano atual)"
+      forcar:
+        description: "Reprocessar os anos do intervalo mesmo que já estejam na silver"
+        type: boolean
+        default: false
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    outputs:
+      tem_novidade: ${{ steps.chk.outputs.tem_novidade }}
+      anos: ${{ steps.chk.outputs.anos }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-actions.txt
+
+      - id: chk
+        working-directory: tasks-python/2-silver
+        run: |
+          ANO_INICIO="${{ inputs.ano_inicio }}"
+          ANO_INICIO="${ANO_INICIO:-1990}"
+          ANO_FIM="${{ inputs.ano_fim }}"
+          python silver-caged-completa.py --modo verificar --ano-inicio "${ANO_INICIO:-0}" --ano-fim "${ANO_FIM:-9999}" ${{ inputs.forcar && '--forcar' || '' }}
+
+  traduzir:
+    needs: verificar
+    if: needs.verificar.outputs.tem_novidade == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      STAGING_DIR: /mnt/staging
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        item: ${{ fromJson(needs.verificar.outputs.anos) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-actions.txt
+
+      - name: Staging no disco grande do runner
+        run: sudo mkdir -p /mnt/staging && sudo chown -R "$USER" /mnt/staging && df -h / /mnt
+
+      - name: Traduz ${{ matrix.item.tabela }} ${{ matrix.item.ano }}
+        working-directory: tasks-python/2-silver
+        run: |
+          python silver-caged-completa.py --modo processar --tabela ${{ matrix.item.tabela }} \
+            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }}
