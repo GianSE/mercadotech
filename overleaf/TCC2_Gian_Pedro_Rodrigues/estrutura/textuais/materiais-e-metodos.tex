@@ -3,12 +3,12 @@
 \chapter{Materiais e Métodos}
 \label{cap:metodologia}
 
-Este capítulo descreve o método de pesquisa, as fontes de dados, o recorte adotado, a arquitetura efetivamente implementada, as ferramentas utilizadas e os modelos aplicados. A \autoref{sec:revisoes} declara, de forma explícita, as revisões feitas em relação à proposta apresentada no TCC~1.
+Este capítulo descreve o método de pesquisa, as fontes de dados, o recorte adotado, a arquitetura implementada, as ferramentas e os modelos aplicados, e declara, na \autoref{sec:revisoes}, as revisões feitas em relação à proposta apresentada no TCC~1.
 
 \section{Método}
 \label{sec:metodo}
 
-O trabalho seguiu o CRISP-DM (\textit{Cross-Industry Standard Process for Data Mining}), proposto por \citeonline{Chapman2000} como processo padrão para projetos de mineração e análise de dados. As seis fases do método são organizadas em um ciclo iterativo, em que é possível voltar para etapas anteriores sempre que novas descobertas justifiquem revisão. A \autoref{fig:crispdm-ciclo} ilustra esse fluxo.
+O trabalho seguiu o \textit{Cross-Industry Standard Process for Data Mining} (CRISP-DM), proposto por \citeonline{Chapman2000} como processo padrão para projetos de mineração e análise de dados. As seis fases do método são organizadas em um ciclo iterativo, em que é possível voltar para etapas anteriores sempre que novas descobertas justifiquem revisão. A \autoref{fig:crispdm-ciclo} ilustra esse fluxo.
 
 \begin{figure}[htbp]
     \centering
@@ -52,19 +52,19 @@ O trabalho seguiu o CRISP-DM (\textit{Cross-Industry Standard Process for Data M
     Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
 \end{figure}
 
-A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM e as etapas efetivamente executadas.
+A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executadas.
 
 \begin{table}[htbp]
     \centering
     \caption{Mapeamento entre as fases do CRISP-DM e as etapas executadas}
     \label{tab:crispdm-fases}
     \renewcommand{\arraystretch}{1.35}
-    \begin{tabular}{p{4.2cm}p{9.8cm}}
+    \begin{tabular}{>{\raggedright\arraybackslash}p{3.0cm}p{11.0cm}}
         \toprule
         \rowcolor{black!8}
         \textbf{Fase CRISP-DM} & \textbf{Execução no trabalho} \\
         \midrule
-        \textbf{Entendimento do Negócio}  & Caracterização do mercado de TI brasileiro e formulação das cinco perguntas de pesquisa da \autoref{quadro:perguntas}, que passaram a organizar tanto os resultados quanto a interface. \\
+        \textbf{Entendimento do Negócio}  & Caracterização do mercado de TI brasileiro e formulação das cinco perguntas de pesquisa do \autoref{quadro:perguntas}, que passaram a organizar tanto os resultados quanto a interface. \\
         \textbf{Entendimento dos Dados}   & Levantamento dos \textit{layouts} de cada ano, extração dos dicionários oficiais a partir das planilhas de \textit{layout} do servidor público e auditoria da tradução dos códigos; identificação dos defeitos de fonte relatados na \autoref{sec:achados-qualidade}. \\
         \textbf{Preparação dos Dados}     & Construção das camadas Bronze, Silver (restrita ao recorte de TI) e Gold; definição e posterior revisão do recorte de tecnologia; harmonização de nomes de coluna, tipagem de campos numéricos e agrupamento dos arquivos por partição. \\
         \textbf{Modelagem}                & Modelos SARIMA sobre o saldo mensal; estimador de \textit{nowcast} do estoque; tábua de vida e modelo de risco em tempo discreto para a permanência no vínculo; decomposição de Oaxaca-Blinder do hiato salarial; agrupamento de municípios por $k$-médias. \\
@@ -76,7 +76,7 @@ A \autoref{tab:crispdm-fases} sintetiza o mapeamento entre as fases do CRISP-DM 
     Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
 \end{table}
 
-O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes, o recorte e as perguntas iniciais, e a execução mostrou várias vezes que algo precisava mudar: a cada descoberta, voltou-se a uma fase anterior para buscar dados não previstos, corrigir a preparação, trocar um modelo ou reformular uma pergunta. O \autoref{quadro:crispdm-retornos} relaciona os principais retornos; quase todos partiram da Avaliação, isto é, do confronto de um resultado com o que era plausível ou com uma segunda conta do mesmo número.
+O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes, o recorte e as perguntas iniciais, e a execução mostrou várias vezes que algo precisava mudar: a cada descoberta, voltou-se a uma fase anterior para buscar dados não previstos, corrigir a preparação, trocar um modelo ou reformular uma pergunta. O \autoref{quadro:crispdm-retornos} relaciona os principais retornos; quase todos partiram da Avaliação, isto é, do confronto de um resultado com o que era plausível ou com o resultado de cálculos independentes, a fim de identificar possíveis inconsistências.
 
 \begin{quadro}[htbp]
     \centering
@@ -112,12 +112,12 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
 
 \section{Fontes de dados}
 
-A base do trabalho é formada pelos microdados da RAIS e do CAGED, divulgados pelo MTE, obtidos diretamente do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET), em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem nenhuma alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor público distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A camada Bronze guarda esse mesmo conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,7~GB, 11,7 vezes menos que o texto e quase o tamanho dos pacotes compactados de origem, com a diferença de que o Parquet é lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os arquivos: o formato 7z registra o tamanho original de cada arquivo no cabeçalho, ao fim do pacote, e basta ler esse trecho. A \autoref{fig:fluxo-dado}, na \autoref{sec:arquitetura}, mostra o volume em cada etapa, do servidor público ao navegador.
+A base do trabalho são os microdados da RAIS e do CAGED, obtidos do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET) do MTE, em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a agosto de 2026. Nesse período, o servidor distribui 880 arquivos compactados, que somam 53,4~GB; descompactados, são 661~GB de texto, em largura fixa ou CSV. A Bronze guarda esse conteúdo em Apache Parquet com compressão ZSTD de nível 3, em 56,7~GB: 11,7 vezes menos que o texto e quase o tamanho dos pacotes de origem, com a vantagem de ser lido coluna a coluna, sem descompactar o arquivo inteiro. O tamanho descompactado foi medido sem baixar os pacotes, pelo cabeçalho do formato 7z, que registra o tamanho original de cada arquivo. A \autoref{fig:fluxo-dado}, na \autoref{sec:arquitetura}, mostra o volume em cada etapa.
 
 
 \subsection{Desafios de engenharia da RAIS}
 
-A RAIS muda de esquema com frequência. No intervalo processado, o número de colunas varia de 47 a 67, refletindo portarias que introduziram novas variáveis ao longo do tempo: indicadores de trabalho intermitente e parcial (a partir de 2017), tipo de salário contratual (em 2018) e o sufixo \textit{``-- código''} nas colunas codificadas (a partir de 2023). No nível do arquivo, as bases chegam compactadas em \texttt{.7z}, com um \texttt{.txt} de largura fixa em seu interior; as edições de 2023 a 2025 trazem o arquivo de dados com a extensão \texttt{.COMT}, renomeada antes da ingestão.
+A RAIS muda de esquema com frequência. No intervalo processado, o número de colunas varia de 47 a 67, refletindo portarias que introduziram novas variáveis ao longo do tempo: indicadores de trabalho intermitente e parcial (a partir de 2017), tipo de salário contratual (em 2018) e o sufixo \textit{``-- código''} nas colunas codificadas (a partir de 2023). No nível do arquivo, as bases chegam compactadas em \texttt{.7z}, com um \texttt{.txt} de largura fixa em seu interior; as edições de 2023 a 2025 trazem o arquivo de dados com a extensão \texttt{.COMT}, e não \texttt{.txt}. O conteúdo continua sendo texto, e o arquivo não é renomeado: a ingestão, que identifica o arquivo de dados dentro do pacote pela extensão, passou a reconhecer também a \texttt{.COMT}; sem isso, esses três anos seriam descartados como pacotes sem dados.
 
 Um ponto não previsto na proposta apareceu aqui: a partir de 2023 os nomes de coluna deixam de ser estáveis mesmo dentro de um mesmo ano, e um arquivo de uma região pode nomear o mesmo campo de forma diferente de outro. Foi necessário construir uma rotina de harmonização de nomes, com tabela de equivalências explícita, aplicada sobre a camada já construída.
 
@@ -125,7 +125,7 @@ Um ponto não previsto na proposta apareceu aqui: a partir de 2023 os nomes de c
 
 Entre os dois formatos do CAGED, descritos na \autoref{subsec:caged}, mudam também o vocabulário dos códigos e a própria data de referência da movimentação, o que impede tratar a série como uma só sem harmonização explícita.
 
-Há ainda três tabelas auxiliares do CAGED que a proposta não previa e que se mostraram necessárias para fechar a série: as movimentações fora do prazo (\textit{caged\_for}), as excluídas (\textit{caged\_exc}) e os ajustes (\textit{caged\_ajustes}). Esta última tem uma particularidade relevante: a competência da movimentação vem declarada na linha, e não no nome do arquivo, de modo que um arquivo de 2010 contém correções referentes a meses de anos anteriores.
+Três tabelas auxiliares do CAGED, não previstas na proposta, se mostraram necessárias para fechar a série: as movimentações fora do prazo (\textit{caged\_for}), as excluídas (\textit{caged\_exc}) e os ajustes (\textit{caged\_ajustes}). Nos ajustes, a competência vem declarada na linha, e não no nome do arquivo, de modo que um arquivo de 2010 contém correções de meses de anos anteriores.
 
 \subsection{Dicionários oficiais e a tradução dos códigos}
 \label{subsec:dicionarios}
@@ -136,7 +136,7 @@ Em vez de transcrever essas correspondências para o código-fonte, o trabalho e
 
 Duas decisões dessa etapa evitam falhas que o código não acusa. A primeira é que o dicionário é indexado por tabela: o mesmo código significa coisas diferentes em gerações diferentes do CAGED, e um \textit{join} sem essa restrição duplica linhas e infla as contagens. A segunda é que a comparação de chaves é numérica, e não textual: o microdado da RAIS traz códigos com zero à esquerda (\texttt{'01'}) e a planilha de \textit{layout} traz o mesmo código sem ele (\texttt{'1'}). Comparados como texto, apenas os códigos de dois dígitos casam, e a tradução dos demais sai vazia, sem que nada acuse falha.
 
-Na arquitetura em nuvem, as planilhas convertidas ficam em um repositório próprio, separado dos microdados. O \textit{pipeline} verifica todo mês se o servidor público passou a ter planilhas de \textit{layout} ainda não extraídas e avisa quando isso ocorre, mas não as incorpora sozinho: a extração é executada manualmente, com conferência do resultado. A diferença é intencional. Um mês de microdados que deixe de ser processado é uma ausência visível; um dicionário substituído sem conferência produz traduções erradas que ninguém percebe, o modo de falha mais perigoso do projeto.
+As planilhas convertidas ficam em um repositório próprio, separado dos microdados. O \textit{pipeline} verifica todo mês se o servidor passou a ter planilhas de \textit{layout} ainda não extraídas e avisa quando isso ocorre, mas não as incorpora sozinho: a extração é manual, com conferência do resultado. A diferença é intencional: um mês de microdados não processado é uma ausência visível, enquanto um dicionário substituído sem conferência produz traduções erradas que ninguém percebe, o modo de falha mais perigoso do projeto.
 
 \section{O recorte de tecnologia}
 \label{sec:recorte}
@@ -157,11 +157,11 @@ A seleção por família, e não por código individual, tem uma razão prática
 
 O TCC~1 previa que a relação definitiva de códigos seria produzida na fase de Entendimento dos Dados e consolidada no TCC~2. Foi o que ocorreu, em duas direções.
 
-Entraram os quatro códigos da família 2112 (estatísticos). A inclusão foi discutida com a orientação e se sustenta no dado: no CAGED de 2025, 72\% das admissões nesses códigos ocorreram fora de empresas de TI, e são códigos sob os quais analistas e cientistas de dados são efetivamente registrados no mercado brasileiro. Deixá-los fora significaria excluir do recorte justamente a ocupação que mais se aproxima do trabalho com dados.
+Entraram os quatro códigos da família 2112 (estatísticos). A inclusão foi discutida com a orientação e se sustenta no dado: no CAGED de 2025, 72\% das admissões nesses códigos ocorreram fora de empresas de TI, e é sob eles que analistas e cientistas de dados são registrados no mercado brasileiro. Deixá-los fora excluiria do recorte justamente a ocupação mais próxima do trabalho com dados.
 
 Saíram cinco códigos que a seleção por família trazia sem aderência ao escopo: os pesquisadores em física, química, matemática e ciências da terra (família 2031) e o programador de máquinas-ferramenta com comando numérico (3171-15), que é da indústria. A exclusão incide apenas sobre a lente de ocupação: um pesquisador em física empregado em uma empresa de TI continua no recorte pela lente de setor, que é a informação correta.
 
-A família 2031 permaneceu representada por um único código, 203105 (pesquisador em ciências da computação e informática), que é a razão de ela estar na lista desde o início. A relação completa dos códigos, com a descrição oficial e o estoque de cada um, é apresentada no \autoref{apend:cbos} e foi gerada a partir do próprio dado, e não digitada: a tabela do apêndice é um agregado da camada Gold, de modo que qualquer revisão futura do recorte se reflete nela automaticamente.
+A família 2031 permaneceu representada por um único código, 203105 (pesquisador em ciências da computação e informática), a razão de ela estar na lista desde o início. A relação completa dos códigos, com a descrição oficial e o estoque de cada um, está no \autoref{apend:cbos}. Ela é um agregado da camada Gold, e não uma lista digitada, de modo que qualquer revisão futura do recorte se reflete nela automaticamente.
 
 \section{Arquitetura implementada}
 \label{sec:arquitetura}
@@ -200,7 +200,7 @@ A plataforma foi construída primeiro sobre infraestrutura local (um \textit{dat
     \node[etapa, fill=red!6] (dash) at (8.6, -3.4)
         {\textit{Dashboard}\\{\footnotesize React + DuckDB-Wasm, Cloudflare Pages}};
     \node[etapa, fill=yellow!25, publicado] (gold) at (12.9, -3.4)
-        {Gold\\{\footnotesize 30 agregados e modelos}\\[2pt]{\bfseries< 10~MB}};
+        {Gold\\{\footnotesize 32 tabelas de agregados e modelos}\\[2pt]{\bfseries< 10~MB}};
 
     \node[etapa, fill=white, draw=black!50, dashed, minimum height=12mm] (mod) at (12.9, -6.2)
         {{\footnotesize SARIMA, \textit{nowcast}, Oaxaca-Blinder, $k$-médias}};
@@ -223,7 +223,7 @@ A plataforma foi construída primeiro sobre infraestrutura local (um \textit{dat
 
 Duas diferenças estruturais separam esta arquitetura da implementação local que a precedeu.
 
-A primeira é que armazenamento e publicação deixaram de ser etapas distintas. Na versão local, o \textit{data lake} ficava em MinIO e uma rotina copiava as camadas tratadas para um repositório público de dados; na versão final, o repositório público é o \textit{data lake}. Cada camada da arquitetura Medalhão é um conjunto de dados no Hugging Face Hub (seis ao todo, relacionados no \autoref{quadro:repositorios}), e cada etapa lê a camada anterior e grava a seguinte diretamente nele.
+A primeira é que armazenamento e publicação deixaram de ser etapas distintas. Na versão local, o \textit{data lake} ficava em MinIO e uma rotina copiava as camadas tratadas para um repositório público; na versão final, o repositório público é o \textit{data lake}. Cada camada é um conjunto de dados no Hugging Face Hub (seis ao todo, relacionados no \autoref{quadro:repositorios}), e cada etapa lê a camada anterior e grava a seguinte nele.
 
 \begin{quadro}[htbp]
     \centering
@@ -251,16 +251,16 @@ A primeira é que armazenamento e publicação deixaram de ser etapas distintas.
     Fonte: Elaborado pelo autor.
 \end{quadro}
 
-A segunda é que o processamento não tem mais máquina fixa. Cada etapa roda em um executor efêmero do GitHub Actions, que é criado para a execução, instala as dependências, processa e é descartado. Nada persiste entre execuções além do que foi gravado no repositório de dados, o que, como se verá na \autoref{subsec:orquestracao-pipeline}, determinou a forma de dividir o trabalho.
+A segunda é que o processamento não tem mais máquina fixa. Cada etapa roda em um executor efêmero do GitHub Actions, criado para a execução e descartado ao final, e nada persiste entre execuções além do que foi gravado no repositório de dados, o que determinou a forma de dividir o trabalho (\autoref{subsec:orquestracao-pipeline}).
 
-A cadeia de camadas é Bronze, Silver de TI e Gold. A Silver não traduz o mercado inteiro para depois recortá-lo: como o recorte é definido de antemão pelos códigos de CBO e de CNAE, a tradução é aplicada só às linhas que pertencem a ele, diretamente a partir da Bronze. A alternativa (uma Silver de mercado completo, da qual se extrairia a área de interesse) teria volume da mesma ordem da Bronze, ou maior, já que a tradução acrescenta uma coluna de descrição ao lado de cada código, para servir a uma análise que consome 1,3~GB. Analisar outra área não exige essa camada intermediária: basta construir outra Silver a partir da mesma Bronze, com outro recorte.
+A Silver não traduz o mercado inteiro para depois recortá-lo: como o recorte é definido de antemão pelos códigos de CBO e de CNAE, a tradução é aplicada só às linhas que pertencem a ele. Uma Silver de mercado completo teria volume da ordem da Bronze, ou maior, já que a tradução acrescenta uma descrição ao lado de cada código, para servir a uma análise que consome 1,3~GB. Analisar outra área não exige essa camada intermediária: basta construir outra Silver a partir da mesma Bronze, com outro recorte.
 
 \subsection{Orquestração do \textit{pipeline}}
 \label{subsec:orquestracao-pipeline}
 
 O \textit{pipeline} é dividido em nove etapas, cada uma um \textit{workflow} próprio do GitHub Actions, com uma única responsabilidade. Um décimo \textit{workflow}, o orquestrador, encadeia as nove pela dependência real entre elas, e não por horários escalonados: uma etapa só começa quando as etapas de que depende terminaram. A \autoref{fig:actions}, adiante, mostra esse grafo em uma execução real.
 
-O orquestrador roda toda semana e também pode ser disparado manualmente a partir de qualquer camada: só a Silver e a Gold, quando a Bronze já está em dia, ou só a Gold, quando se quer apenas reagregar. Cada etapa, por sua vez, continua podendo ser executada isoladamente, o que permite testar ou repetir uma peça sem disparar as demais.
+O orquestrador roda toda semana e também pode ser disparado manualmente a partir de qualquer camada: só a Silver e a Gold, quando a Bronze já está em dia, ou só a Gold, para reagregar. Cada etapa também pode ser executada isoladamente, para testar ou repetir uma peça sem disparar as demais.
 
 \paragraph{Processamento incremental.} As etapas de Bronze e de Silver têm duas fases. A primeira, de verificação, compara o que existe na origem com o que já está publicado e produz a lista de pares (tabela, ano) pendentes; na Silver, essa comparação é feita só pela listagem dos arquivos, sem ler nenhum dado. A segunda fase processa cada par pendente em um \textit{job} próprio, até quatro em paralelo. Por padrão, a verificação olha o ano corrente e o anterior, que concentram a publicação de dado novo pelo MTE; anos mais antigos são reprocessados sob demanda, informando o intervalo na execução manual. O particionamento por ano, descrito adiante, é o que torna essa unidade de trabalho possível: reprocessar um ano não toca nos demais.
 
@@ -268,7 +268,7 @@ O orquestrador roda toda semana e também pode ser disparado manualmente a parti
 
 \paragraph{Gold dividida por dependência.} A Gold é reconstruída inteira a cada execução, porque é pequena e barata de agregar: o custo do \textit{pipeline} está na tradução. Ela foi dividida em quatro etapas pela dependência real de dados (agregados da RAIS, território, consolidados do CAGED e modelos), e cada etapa publica a própria parte ao terminar. A divisão veio de uma falha real: com a Gold em etapa única, uma falha nos consolidados do CAGED obrigava a refazer todas as outras partes.
 
-\paragraph{Acompanhamento.} As leituras do repositório são autenticadas e repetidas com espera crescente, porque o serviço recusa requisições acima de uma taxa máxima, e cada etapa envia por um \textit{bot} de mensagens o resultado da execução. Na execução da \autoref{fig:actions}, disparada a partir da Silver, as etapas de Bronze aparecem sem execução; a verificação da Silver do CAGED encontrou três pares pendentes (as movimentações, as declarações fora do prazo e as exclusões do mês recém-publicado de 2026), traduzidos em paralelo; a da RAIS não encontrou nada, e a tradução foi pulada. A Gold e o site foram reconstruídos em seguida, e a execução inteira levou 22 minutos.
+\paragraph{Acompanhamento.} As leituras do repositório são autenticadas e repetidas com espera crescente, porque o serviço recusa requisições acima de uma taxa máxima, e cada etapa envia o resultado por um \textit{bot} de mensagens. Na execução da \autoref{fig:actions}, disparada a partir da Silver, a verificação do CAGED encontrou três pares pendentes do mês recém-publicado de 2026 (movimentações, declarações fora do prazo e exclusões), traduzidos em paralelo, e a da RAIS não encontrou nada. A Gold e o site foram reconstruídos em seguida, e a execução inteira levou 22 minutos.
 
 \begin{figure}[htbp]
     \centering
@@ -362,7 +362,7 @@ O orquestrador roda toda semana e também pode ser disparado manualmente a parti
 
 Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o ano (e o mês, quando a tabela é mensal) expresso no caminho: \nolinkurl{caged_mov/ano_particao=2025/mes_particao=6/}. Essa convenção permite ao DuckDB descartar partições inteiras pela leitura do caminho, antes de abrir qualquer arquivo.
 
-A camada nasceu com um arquivo de saída por arquivo de entrada, o que é natural quando a ingestão é feita arquivo a arquivo, mas produziu 2.111 arquivos de menos de 2~MB cada, 35 por ano apenas na tabela de vínculos da RAIS. O custo está menos no espaço do que no número de objetos: cada arquivo é uma conexão, um rodapé de metadados e um plano de execução à parte; sobre HTTP, é uma requisição por arquivo. Uma rotina de consolidação reduziu a camada a 628 arquivos, um por partição, preservando a procedência de cada linha em colunas de linhagem (\texttt{arquivo\_fonte}, \texttt{caminho\_fonte}, \texttt{data\_ingestao} e \texttt{arquivo\_bronze}) em vez de no nome do arquivo.
+A camada nasceu com uma saída para cada entrada, natural quando a ingestão é feita arquivo a arquivo, mas que produziu 2.111 objetos de menos de 2~MB, 35 por ano só na tabela de vínculos da RAIS. O custo está menos no espaço que na quantidade: cada objeto é uma conexão, um rodapé de metadados e um plano de execução à parte e, sobre HTTP, uma requisição. Uma rotina de consolidação reduziu a camada a um arquivo por partição (a contagem atual está na \autoref{tab:volumes}), com a procedência de cada linha guardada em colunas de linhagem (\texttt{arquivo\_fonte}, \texttt{caminho\_fonte}, \texttt{data\_ingestao} e \texttt{arquivo\_bronze}), e não no nome.
 
 \section{Auditoria e garantia de qualidade}
 \label{sec:auditoria}
@@ -375,11 +375,9 @@ A validação prevista na proposta (confrontar os agregados com os painéis ofic
     \item \textbf{tradução vazia}: nenhuma coluna traduzida tem apenas valores de ``não informado'' ou apenas nulos quando a origem tem códigos distintos, sintoma de chave incompatível no \textit{join} com o dicionário.
 \end{itemize}
 
-As três verificações passaram sem apontamentos na camada final. Mais relevante que isso, porém, é o que elas encontraram durante a construção, relatado na \autoref{sec:achados-qualidade}.
+As três passaram sem apontamentos na camada final; o que encontraram durante a construção está na \autoref{sec:achados-qualidade}. Uma quarta verificação foi acrescentada na Gold, depois que um único órgão público apareceu como o maior empregador de programadores do país (\autoref{subsec:artefato-ro}): a cada execução, ela lista toda ocupação de TI que mude dez vezes de tamanho em um município de um ano para o outro, com o tempo médio de casa do grupo. Um salto com tempo de casa alto indica pessoas que já estavam no emprego e mudaram de código, e não contratação.
 
-Uma quarta verificação foi acrescentada na Gold, depois que um único órgão público apareceu como o maior empregador de programadores do país (\autoref{subsec:artefato-ro}): a cada execução, ela lista toda ocupação de TI que mude dez vezes de tamanho em um município de um ano para o outro, com o tempo médio de casa do grupo. Um salto com tempo de casa alto indica pessoas que já estavam no emprego e mudaram de código, e não contratação.
-
-Os defeitos apontados durante a construção foram corrigidos por rotinas idempotentes (harmonização de nomes, tipagem de colunas numéricas, consolidação de arquivos e aplicação da revisão do recorte), o que permitiu revisar o recorte por poda e complemento, sem reprocessar a camada inteira. O construtor atual da Silver incorpora as duas correções mais importantes, a harmonização de nomes entre as eras de \textit{layout} e a tipagem dos campos numéricos, de modo que um ano novo já entra correto.
+Os defeitos foram corrigidos por rotinas idempotentes (harmonização de nomes, tipagem de colunas numéricas, consolidação de arquivos e aplicação da revisão do recorte), o que permitiu revisar o recorte sem reprocessar a camada inteira. O construtor atual da Silver já incorpora a harmonização de nomes e a tipagem dos campos numéricos, de modo que um ano novo entra correto.
 
 \section{Ferramentas utilizadas}
 \label{sec:ferramentas}
@@ -400,18 +398,18 @@ Cada ferramenta foi escolhida por um requisito do projeto: processar volumes mai
         \rowcolor{black!8}
         \textbf{Ferramenta} & \textbf{Uso no trabalho} & \textbf{Por que esta} \\
         \midrule
-        Python \cite{Python2024} & Linguagem do \textit{pipeline} e dos modelos & Reúne no mesmo ambiente o motor de consulta, as bibliotecas estatísticas e o acesso ao repositório de dados, e já vem instalado nos executores do GitHub Actions. \\
-        Apache Parquet \cite{ApacheParquet2024} & Formato de todas as camadas & Leitura só das colunas pedidas e descarte de blocos pelos metadados; com ZSTD, reduziu o texto bruto em 11,7 vezes e é consultado sem importação (\autoref{subsec:parquet}). Um CSV seria lido inteiro a cada consulta. \\
-        DuckDB \cite{DuckDB2024, Raasveldt2019} & Transformações e agregações de todas as camadas & Motor \textit{in-process}: roda dentro do próprio \textit{script}, sem servidor, processa arquivos maiores que a memória e lê o Parquet direto do repositório pelo protocolo \texttt{hf://}, devolvendo os resultados em Apache Arrow \cite{PyArrow2024}. Um arquivo da RAIS de São Paulo passa de 10~GB, o que inviabiliza carregar a tabela em memória com o \textit{pandas}; o Spark resolveria, mas exige um \textit{cluster}. \\
-        Hugging Face Hub \cite{HuggingFaceDatasets2026} & Armazenamento do \textit{data lake} e publicação dos dados & Gratuito para dados públicos, versionado e servido por HTTP com leitura parcial: o lugar onde o dado é guardado é o mesmo em que é publicado (\autoref{subsec:repositorios-dados}). A biblioteca \textit{huggingface\_hub} envia cada etapa em um único \textit{commit}, e uma etapa interrompida não deixa a camada pela metade. Substituiu o MinIO local (\autoref{sec:publicacao}). \\
-        GitHub Actions \cite{GitHubActions2026} & Execução e orquestração do \textit{pipeline} & Gratuito em repositório público, com os \textit{workflows} versionados junto do código e as dependências entre \textit{jobs} formando o grafo de execução; dispensa o servidor permanente que um orquestrador como o Airflow exigiria (\autoref{subsec:orquestracao}). \\
-        \textit{statsmodels} \cite{Seabold2010} & SARIMA, regressões do Oaxaca-Blinder e modelo de risco & Implementação de referência dos modelos estatísticos em Python. O SARIMA foi escolhido por superar o Prophet na validação de origem móvel, em uma série completa e de sazonalidade estável (\autoref{sec:resultado-q5}). \\
-        Prophet \cite{Taylor2018} & Alternativa avaliada para a previsão & Previsto na proposta; mantido na mesma validação do SARIMA para que a escolha entre os dois fosse medida, e não presumida (\autoref{sec:revisoes}). \\
-        \textit{scikit-learn} \cite{Pedregosa2011} & $k$-médias e coeficiente de silhueta & Implementação de referência dos dois algoritmos, com padronização das variáveis na mesma biblioteca. \\
-        React e TypeScript \cite{React2026} & Interface do \textit{dashboard} & Cada parte da tela é função do estado dos filtros, e a biblioteca redesenha só o que depende do filtro alterado; a tipagem estática reduz erros na manipulação dos dados. \\
-        DuckDB-Wasm \cite{Kohn2022} & Consultas no navegador & O mesmo motor e o mesmo SQL do \textit{pipeline} rodam no site, sem servidor de aplicação: um filtro é uma consulta local (\autoref{sec:visualizacao}). \\
-        Apache ECharts \cite{Li2018} & Gráficos e mapas & Gráficos declarados como configuração, com mapa, interação e animação prontos; com uma biblioteca de baixo nível, como o D3, cada elemento teria de ser programado. \\
-        Cloudflare Pages \cite{CloudflarePages2026} & Hospedagem do site & Hospedagem estática gratuita em rede de distribuição de conteúdo, sem custo por visita, com a reconstrução disparada pela última etapa do orquestrador. \\
+        Python \cite{Python2024} & Linguagem do \textit{pipeline} e dos modelos & Reúne o motor de consulta, as bibliotecas estatísticas e o acesso ao repositório de dados, e já vem instalado nos executores do GitHub Actions. \\
+        Apache Parquet \cite{ApacheParquet2024} & Formato de todas as camadas & Lê só as colunas pedidas e descarta blocos pelos metadados (\autoref{subsec:parquet}); com ZSTD, reduziu o texto bruto em 11,7 vezes. Um CSV seria lido inteiro a cada consulta. \\
+        DuckDB \cite{DuckDB2024, Raasveldt2019} & Transformações e agregações de todas as camadas & Roda dentro do \textit{script}, processa arquivos maiores que a memória e lê o Parquet no repositório pelo protocolo \texttt{hf://}, com resultados em Apache Arrow \cite{PyArrow2024}. Um arquivo da RAIS de São Paulo passa de 10~GB, inviável em memória com o \textit{pandas}; o Spark resolveria, mas exige um \textit{cluster}. \\
+        Hugging Face Hub \cite{HuggingFaceDatasets2026} & Armazenamento e publicação do \textit{data lake} & Gratuito para dados públicos, versionado e servido por HTTP com leitura parcial (\autoref{subsec:repositorios-dados}). Cada etapa é enviada em um único \textit{commit}, e uma etapa interrompida não deixa a camada pela metade. Substituiu o MinIO local (\autoref{sec:publicacao}). \\
+        GitHub Actions \cite{GitHubActions2026} & Execução e orquestração do \textit{pipeline} & Gratuito em repositório público, com os \textit{workflows} versionados junto do código; dispensa o servidor permanente que o Airflow exigiria (\autoref{subsec:orquestracao}). \\
+        \textit{statsmodels} \cite{Seabold2010} & SARIMA, Oaxaca-Blinder e modelo de risco & Implementação de referência dos modelos estatísticos em Python. \\
+        Prophet \cite{Taylor2018} & Alternativa avaliada para a previsão & Previsto na proposta; avaliado na mesma validação do SARIMA para que a escolha fosse medida, e não presumida (\autoref{sec:revisoes}). \\
+        \textit{scikit-learn} \cite{Pedregosa2011} & $k$-médias e coeficiente de silhueta & Implementação de referência dos dois algoritmos e da padronização das variáveis. \\
+        React e TypeScript \cite{React2026} & Interface do \textit{dashboard} & A tela é função do estado dos filtros, e a tipagem estática reduz erros na manipulação dos dados. \\
+        DuckDB-Wasm \cite{Kohn2022} & Consultas no navegador & O mesmo motor e o mesmo SQL do \textit{pipeline} rodam no site, sem servidor de aplicação (\autoref{sec:visualizacao}). \\
+        Apache ECharts \cite{Li2018} & Gráficos e mapas & Gráficos declarados como configuração, com mapa e interação prontos; no D3, cada elemento teria de ser programado. \\
+        Cloudflare Pages \cite{CloudflarePages2026} & Hospedagem do site & Hospedagem estática gratuita, sem custo por visita, reconstruída pela última etapa do orquestrador. \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
@@ -425,7 +423,11 @@ Cada ferramenta foi escolhida por um requisito do projeto: processar volumes mai
 
 A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12, e um \textit{baseline} ingênuo sazonal. O Prophet \cite{Taylor2018}, modelo previsto na proposta, entrou na mesma comparação, em três configurações que variam apenas a flexibilidade da tendência (0,01, 0,05 e 0,5, sendo a segunda o padrão da biblioteca), com sazonalidade anual aditiva, já que o saldo é negativo em parte dos meses. As duas grades são pequenas de propósito, pelo risco de sobreajuste na validação discutido na \autoref{subsec:origem-movel}.
 
-A avaliação seguiu a validação de origem móvel (\autoref{subsec:origem-movel}) com horizonte de 12 meses, origem avançando 12 meses a cada dobra e cinco dobras, com o \textit{baseline} nas mesmas dobras e as métricas MAE e RMSE (\autoref{subsec:metricas}).
+A série emenda as duas gerações do CAGED (\autoref{subsec:caged}), que datam a movimentação de formas diferentes. Até 2019, ela usa a competência declarada, em que uma declaração atrasada entra no mês em que foi feita; a partir de 2020, a competência da movimentação, só com as declarações regulares (MOV). As declarações fora do prazo (FOR), as exclusões (EXC) e os ajustes do CAGED antigo não entram, de modo que a série não é o saldo completo de cada competência descrito na \autoref{subsec:caged}, e sim o saldo declarado no prazo, o mesmo critério cuja diferença em relação ao painel do MTE é medida na \autoref{sec:validacao-mte}. Por ser uma emenda, a série foi examinada antes da modelagem quanto a mudança de nível e de dispersão em 2020, comparando média e desvio-padrão do saldo antes e depois da troca, e quanto a estacionariedade, pelos testes ADF e KPSS.
+% PENDENTE: acrescentar aqui o resultado de serie.diagnostico() (média e desvio antes/depois de 2020, p-valores
+% do ADF e do KPSS), que passou a ser impresso no log da etapa gold-modelos-ti do GitHub Actions.
+
+A avaliação seguiu a validação de origem móvel (\autoref{subsec:origem-movel}) com horizonte de 12 meses, origem avançando 12 meses a cada dobra e cinco dobras, com o \textit{baseline} nas mesmas dobras e as métricas MAE e RMSE (\autoref{subsec:metricas}). A especificação vencedora foi escolhida e avaliada nessas mesmas cinco dobras, sem um período de teste reservado; o ganho reportado sobre o \textit{baseline} é, por isso, uma estimativa otimista do desempenho fora da amostra, viés que a grade pequena reduz, mas não elimina.
 
 \subsection{\textit{Nowcast} do estoque}
 \label{subsec:metodo-nowcast}
@@ -436,29 +438,23 @@ A RAIS de um ano só é publicada no ano seguinte, de modo que o estoque do ano 
 \end{equation}
 em que $E_{t-1}$ é o estoque do último ano publicado da RAIS e $F_t$ é o fluxo líquido acumulado do CAGED no ano $t$, com os meses ainda não divulgados projetados pelo modelo da \autoref{subsec:metodo-sarima}.
 
-A identidade é aproximada, e não exata: a variação do estoque entre dois 31 de dezembro não é idêntica ao saldo do CAGED, porque as duas bases têm coberturas e prazos de declaração distintos. Por isso foram comparados quatro estimadores para a relação entre $\Delta E$ e $F$: a identidade direta, uma regressão linear de $\Delta E$ sobre $F$, a razão mediana histórica entre os dois e um estimador ingênuo que supõe estoque constante.
+A identidade é aproximada, e não exata: a variação do estoque entre dois 31 de dezembro não é idêntica ao saldo do CAGED, porque as duas bases têm coberturas e prazos de declaração distintos. Por isso foram comparados quatro estimadores para a relação entre $\Delta E$ e $F$: a identidade direta, uma regressão linear de $\Delta E$ sobre $F$, a razão mediana histórica entre os dois e um estimador ingênuo que supõe estoque constante. A projeção do ano corrente usa o estimador de menor erro nessa comparação.
 
-A validação é retrospectiva, com janela expansiva: cada ano de 2014 a 2025 é estimado com os estimadores ajustados apenas com os anos anteriores, como se o ano estivesse em curso, e o erro é medido contra o estoque que a RAIS publicou depois. O resultado é reportado em média, em mediana e no pior ano, além do último ano retido, que é o mais próximo do uso real.
+A validação é retrospectiva, com janela expansiva: para cada ano de 2014 a 2025, a relação entre $\Delta E$ e $F$ é ajustada apenas com os anos anteriores e aplicada ao saldo do CAGED do próprio ano, já completo, e o erro é medido contra o estoque que a RAIS publicou depois. O teste mede, portanto, o erro da relação entre fluxo e estoque com o fluxo conhecido, e não o do uso corrente, em que os meses ainda não divulgados vêm da previsão do SARIMA. O erro dessa previsão, que o teste não inclui, entra na margem da projeção, somado em quadratura ao erro da relação. O resultado é reportado em média, em mediana e no pior ano, além do último ano retido.
 
 \subsection{Permanência e sobrevivência no vínculo}
 \label{subsec:metodo-sobrevivencia}
 
-A permanência no emprego foi analisada a partir do tempo de vínculo declarado na RAIS, com desligamentos por iniciativa não comparável (aposentadoria, falecimento, transferência e fim de contrato de experiência, entre outros) tratados como censura.
+A permanência no emprego foi analisada a partir do tempo de vínculo declarado na RAIS, restrita à lente de ocupação. São tratados como censura, e não como desligamento, os motivos em que o vínculo continua em outro lugar ou termina por fora do mercado de trabalho, conforme o dicionário oficial da RAIS: transferência entre estabelecimentos, com ou sem ônus para a cedente (códigos 30 e 31), redistribuição de servidor (34), mudança de regime trabalhista (40) e falecimento (60), além de dois códigos sem descrição no dicionário (35 e 36), com 16 vínculos no recorte de 2024. Os demais motivos contam como desligamento, inclusive o término do contrato de trabalho (12), que abrange o fim do contrato de experiência, as aposentadorias (70 a 80) e os falecimentos por acidente do trabalho ou doença profissional (62 a 64). As transferências respondem por 17\% dos desligamentos declarados no recorte de 2024, e contá-las como fim de vínculo inflaria a rotatividade em quase um quinto.
 
-O método adotado foi a tábua de vida de período, descrita na \autoref{subsec:sobrevivencia}, com sete faixas de tempo de casa (0--6 meses, 6--12 meses, 1--2, 2--3, 3--5, 5--10 e 10--20 anos). Para cada faixa calcula-se a taxa de desligamento observada no ano e, a partir delas, a probabilidade acumulada de permanência.
-
-A escolha do método decorre de um erro corrigido durante o trabalho: o estimador de Kaplan-Meier \cite{Kaplan1958}, aplicado ao corte transversal, produziu permanência mediana de 48 anos (\autoref{sec:achados-qualidade}).
+O método adotado foi a tábua de vida de período (\autoref{subsec:sobrevivencia}), com sete faixas de tempo de casa no início do ano (0--6 meses, 6--12 meses, 1--2, 2--3, 3--5, 5--10 e 10--20 anos): para cada faixa, calcula-se a proporção de vínculos desligados durante o ano e, a partir delas, a probabilidade acumulada de permanência. Quem foi admitido durante o ano entra na primeira faixa com peso cheio, embora tenha tido menos de doze meses de exposição ao risco, o que torna o risco dessa faixa menos comparável ao das demais. A escolha decorre de um erro corrigido durante o trabalho: o estimador de Kaplan-Meier \cite{Kaplan1958}, aplicado ao corte transversal, produziu permanência mediana de 48 anos (\autoref{sec:achados-qualidade}).
 
 Complementarmente, um modelo de risco em tempo discreto (regressão logística do desligamento no ano sobre faixa de tempo de casa, sexo, escolaridade, área de TI, porte do estabelecimento, idade e logaritmo da remuneração em salários mínimos) estima o efeito de cada característica mantendo as demais constantes. O modelo é ajustado sobre uma amostra aleatória de 150 mil vínculos de 2024, e cada categoria é comparada a uma referência fixada pelo perfil mais comum do recorte: homem, superior completo, área de desenvolvimento, estabelecimento com mil ou mais empregados e até seis meses de casa. A referência explícita evita o padrão das bibliotecas, que descartam a primeira categoria em ordem alfabética e, na escolaridade, tomariam como base um grupo minúsculo (fundamental I completo), contra o qual nenhum nível sairia significativo.
 
 \subsection{Decomposição do hiato salarial}
 \label{subsec:metodo-oaxaca}
 
-As diferenças de remuneração por sexo e por raça/cor foram decompostas pelo método de Oaxaca-Blinder \cite{Oaxaca1973, Blinder1973}, apresentado na \autoref{subsec:oaxaca}. A variável dependente é o logaritmo da remuneração média em salários mínimos; as covariáveis são escolaridade, área de TI, porte do estabelecimento, região, setor (TI ou não), tempo de emprego, idade, idade ao quadrado e horas contratuais.
-
-A referência é o vetor de coeficientes da regressão conjunta dos dois grupos \cite{Neumark1988}.
-
-A decomposição foi calculada ano a ano, de 2007 a 2025, o que permite observar a trajetória das duas parcelas (a explicada por características e a não explicada) em lugar de uma fotografia única.
+As diferenças de remuneração por sexo e por raça/cor foram decompostas pelo método de Oaxaca-Blinder \cite{Oaxaca1973, Blinder1973}, apresentado na \autoref{subsec:oaxaca}. A variável dependente é o logaritmo da remuneração média em salários mínimos; as covariáveis são escolaridade, área de TI, porte do estabelecimento, região, setor (TI ou não), tempo de emprego, idade, idade ao quadrado e horas contratuais. A referência é o vetor de coeficientes da regressão conjunta dos dois grupos \cite{Neumark1988}, e a decomposição foi calculada ano a ano, de 2007 a 2025, o que mostra a trajetória das duas parcelas em lugar de uma fotografia única.
 
 \subsection{Agrupamento de municípios}
 \label{subsec:metodo-clusters}
@@ -469,27 +465,27 @@ Para caracterizar a geografia do mercado além do \textit{ranking} de maiores es
 \label{sec:publicacao}
 \label{subsec:migracao}
 
-A proposta do TCC~1 previa publicar o código-fonte e mencionava a possibilidade de publicar os dados tratados. A possibilidade virou necessidade por uma razão de implantação: o \textit{data lake} em MinIO era local, e um \textit{dashboard} hospedado em nuvem não tinha acesso a ele. O Hugging Face Hub (\autoref{subsec:repositorios-dados}) foi escolhido por aceitar Parquet particionado, servir os arquivos com requisições parciais e versionar os conjuntos. Nessa primeira forma, a publicação era uma cópia do \textit{data lake} local, e três problemas da operação local levaram a fazer do repositório público o próprio \textit{data lake}. O primeiro foi de espaço: o \textit{data lake} local chegou a 72~GB, em um disco com 27~GB livres, e 56~GB eram uma duplicata da Bronze já publicada. O segundo foi de ambiente: a política de integridade de código do Windows passou a bloquear as bibliotecas nativas de \textit{scipy}, \textit{statsmodels} e \textit{scikit-learn}, e foi nos executores Linux do GitHub Actions que os modelos voltaram a ser calculados. O terceiro foi de atualização: incorporar um mês novo dependia de alguém executar as etapas na ordem certa e republicar, e enquanto isso o \textit{dashboard} mostrava dado desatualizado sem nenhum sinal. Com o orquestrador da \autoref{subsec:orquestracao-pipeline}, a verificação passou a ser semanal e automática, e a reconstrução do site é a última etapa da mesma fila.
+A proposta do TCC~1 previa publicar o código-fonte e mencionava a possibilidade de publicar os dados tratados. A possibilidade virou necessidade: o \textit{data lake} em MinIO era local, e um \textit{dashboard} hospedado em nuvem não tinha acesso a ele. O Hugging Face Hub (\autoref{subsec:repositorios-dados}) foi escolhido por aceitar Parquet particionado, servir os arquivos com requisições parciais e versionar os conjuntos. De início, a publicação era uma cópia do \textit{data lake} local, e três problemas da operação local levaram a fazer do repositório público o próprio \textit{data lake}. O primeiro foi de espaço: o \textit{data lake} local chegou a 72~GB, em um disco com 27~GB livres, e 56~GB eram uma duplicata da Bronze já publicada. O segundo foi de ambiente: a política de integridade de código do Windows passou a bloquear as bibliotecas nativas de \textit{scipy}, \textit{statsmodels} e \textit{scikit-learn}, e os modelos voltaram a ser calculados nos executores Linux do GitHub Actions. O terceiro foi de atualização: incorporar um mês novo dependia de alguém executar as etapas na ordem certa e republicar, e até lá o \textit{dashboard} mostrava dado desatualizado sem nenhum sinal. Com o orquestrador, a verificação passou a ser semanal e automática, e a reconstrução do site é a última etapa da mesma fila.
 
-Antes da migração, um \textit{workflow} piloto confirmou que a latência e os limites do repositório permitiam processar a Bronze a partir de um executor; depois, cada etapa foi reescrita para ler e gravar direto no repositório, e o código ligado ao MinIO foi removido. Como o envio ao repositório é aditivo (\autoref{subsec:repositorios-dados}), uma camada reorganizada somaria as versões antigas às novas, contando linhas em dobro sem acusar erro. Por isso a publicação da Silver consolida cada partição em um arquivo e remove, no mesmo \textit{commit}, tudo o que existia daquele ano; e um ano só é publicado se todos os seus arquivos de origem foram processados.
+Antes da migração, um \textit{workflow} piloto confirmou que a latência e os limites do repositório permitiam processar a Bronze a partir de um executor; depois, cada etapa foi reescrita para ler e gravar no repositório, e o código ligado ao MinIO foi removido. Como o envio ao repositório é aditivo (\autoref{subsec:repositorios-dados}), uma camada reorganizada somaria as versões antigas às novas, contando linhas em dobro sem acusar erro. Por isso a publicação da Silver consolida cada partição em um arquivo e remove, no mesmo \textit{commit}, tudo o que existia daquele ano; e um ano só é publicado se todos os seus arquivos de origem foram processados.
 
 \section{Camada de apresentação}
 \label{sec:apresentacao}
 
 O \textit{dashboard} segue a arquitetura da \autoref{sec:visualizacao}, com consultas no navegador pelo DuckDB-Wasm; como o motor é o mesmo DuckDB do \textit{pipeline}, uma consulta escrita para a Gold vale igual no site.
 
-Os dados do site são os da Gold. Para que o CAGED pudesse ser filtrado livremente no navegador, a etapa da Gold do CAGED passou a agregar a camada tratada em dois cubos, publicados junto das demais tabelas: um no grão de ano, unidade federativa, setor da empresa, lente do recorte, área de TI, sexo, raça/cor, escolaridade e faixa etária, com 840.935 linhas, e outro no grão de ano, ocupação e lente. Os cubos guardam a soma e a contagem do salário, e não a média: a divisão é feita na consulta, para que qualquer combinação de filtros produza a média ponderada correta: a média de médias de grupos de tamanhos diferentes seria plausível e errada.
+Os dados do site são os da Gold. Para que o CAGED pudesse ser filtrado livremente no navegador, a Gold agrega a camada tratada em dois cubos: um no grão de ano, unidade federativa, setor da empresa, lente do recorte, área de TI, sexo, raça/cor, escolaridade e faixa etária, com 840.935 linhas, e outro no grão de ano, ocupação e lente. Os cubos guardam a soma e a contagem do salário, e não a média, para que qualquer combinação de filtros produza a média ponderada correta; a média de médias de grupos de tamanhos diferentes seria plausível e errada.
 
-O site embarca uma cópia da Gold, de cerca de 8~MB, como medida de disponibilidade: ele abre e responde mesmo com o repositório de dados fora do ar. Pelo mesmo motivo, ele é um aplicativo web progressivo (PWA): instalável, guarda na primeira visita o site, os dados e o motor do DuckDB, e funciona sem internet. Como os dados vão dentro do site, um mês novo só aparece depois da reconstrução, que o Cloudflare Pages faz a partir do repositório do código e que a última etapa do orquestrador dispara; se o repositório de dados estiver indisponível nesse momento, a construção falha e a versão anterior continua no ar.
+O site embarca uma cópia da Gold, de cerca de 8~MB, e abre mesmo com o repositório de dados fora do ar; como aplicativo web progressivo (PWA), é instalável e funciona sem internet. Por isso, um mês novo só aparece depois da reconstrução do site, disparada pela última etapa do orquestrador; se o repositório de dados estiver indisponível nesse momento, a construção falha e a versão anterior continua no ar.
 
-A organização segue o princípio de \citeonline{Shneiderman1996}. Cada pergunta de pesquisa tem uma página para cada parte da resposta (a primeira, em quatro: estoque, fluxo, ocupações e estados; a segunda, também em três: empresas, mapa e trajetória dos municípios; as demais, em duas: salário e permanência; perfil e hiato salarial; previsão do saldo e estimativa do estoque atual) e abre pela própria pergunta e por poucos indicadores; os filtros vêm em seguida; e cada gráfico traz, em um menu próprio, a tabela com os valores exatos e o \textit{download} dos dados e da imagem. Pelo mesmo princípio, a definição dos tipos de município, o placar dos modelos e o detalhe de cada resposta ficam fechados até o visitante pedi-los. As respostas e a interpretação ficam em duas páginas de análise à parte, as únicas com texto corrido (as respostas, com o que os dados não permitem afirmar, e o método com os dados), para que as páginas de gráficos funcionem como um painel. Um filtro de território vale para o site inteiro: o visitante escolhe estados ou regiões numa lista, ou clica num estado no mapa ou no \textit{ranking}, e todas as páginas mostram o recorte. Nem toda fonte permite esse recorte: a decomposição salarial, a tábua de sobrevivência e os modelos de previsão foram calculados para o país, e esses gráficos exibem, com o filtro ligado, um selo que declara que continuam nacionais, em vez de parecerem filtrados sem estar.
+A organização segue o princípio de \citeonline{Shneiderman1996}. Cada pergunta de pesquisa tem páginas próprias, que abrem pela pergunta e por poucos indicadores, seguidos dos filtros e dos gráficos; cada gráfico traz, em um menu, a tabela com os valores exatos e o \textit{download} dos dados. As respostas e o método ficam em duas páginas de análise à parte, as únicas com texto corrido, para que as demais funcionem como um painel. Um filtro de território vale para o site inteiro, escolhido numa lista ou com um clique no mapa ou no \textit{ranking}. A decomposição salarial, a tábua de sobrevivência e os modelos de previsão foram calculados só para o país, e esses gráficos exibem, com o filtro ligado, um selo que declara que continuam nacionais, em vez de parecerem filtrados sem estar.
 
-Um cuidado de método acompanha o filtro: mediana não se soma (\autoref{sec:achados-qualidade}). A Gold guarda a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo por ano, estado e lente. Sem filtro, o site mostra a mediana exata; com filtro, soma as faixas dos estados escolhidos e interpola dentro da faixa que contém o meio da distribuição, com erro máximo de 0,05 salário mínimo.
+Como mediana não se soma (\autoref{sec:achados-qualidade}), a Gold guarda a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo por ano, estado e lente. Sem filtro, o site mostra a mediana exata; com filtro, soma as faixas dos estados escolhidos e interpola dentro da faixa que contém o meio da distribuição, com erro máximo de 0,05 salário mínimo.
 
 \section{Revisões em relação à proposta do TCC~1}
 \label{sec:revisoes}
 
-Projetos de dados raramente terminam idênticos ao que foram propostos, e declarar as mudanças é parte do método. O \autoref{quadro:revisoes} relaciona o que foi proposto, o que foi efetivamente feito e por quê.
+Declarar as mudanças em relação à proposta é parte do método. O \autoref{quadro:revisoes} relaciona o que foi proposto, o que foi feito e por quê.
 
 \begin{quadro}[htbp]
     \centering
@@ -521,10 +517,10 @@ Projetos de dados raramente terminam idênticos ao que foram propostos, e declar
 \section{Limitações e reprodutibilidade}
 \label{sec:limitacoes-metodo}
 
-A RAIS e o CAGED cobrem exclusivamente o mercado formal. Trabalhadores por conta própria, profissionais autônomos sem CNPJ, microempreendedores individuais e a parcela informal do setor ficam fora do escopo, o que é especialmente relevante em uma área em que a contratação como pessoa jurídica é comum. Pelo mesmo motivo ficam fora os profissionais brasileiros que trabalham para empresas estrangeiras, contratados como pessoa jurídica ou por plataformas internacionais, parcela que cresceu com o trabalho remoto e que nenhuma das duas bases registra. A CBO, por sua vez, é atualizada lentamente em relação à criação de ocupações no setor de tecnologia.
+A RAIS e o CAGED cobrem exclusivamente o mercado formal. Ficam fora do escopo os trabalhadores por conta própria, os autônomos sem CNPJ, os microempreendedores individuais e a parcela informal do setor, o que pesa em uma área em que a contratação como pessoa jurídica é comum, e também os brasileiros que trabalham para empresas estrangeiras, parcela que cresceu com o trabalho remoto. A CBO, além disso, é atualizada lentamente em relação à criação de ocupações no setor.
 
-A localização de cada vínculo é a do estabelecimento declarante, não a do trabalho efetivo. Como empresas de TI escolhem onde se registrar por motivos tributários, municípios com incentivo fiscal aparecem com concentração acima da real. O trabalho remoto, que se manteve depois da pandemia \cite{Barrero2023}, agrava a distorção, porque separa o lugar do emprego do lugar onde a pessoa vive e trabalha: quem mora em Londrina e trabalha remotamente para uma empresa de São Paulo é contado em São Paulo. Não há no dado público informação que permita corrigir isso: a limitação é declarada, não contornada.
+A localização de cada vínculo é a do estabelecimento declarante, e não a do trabalho. Como empresas de TI escolhem onde se registrar por motivos tributários, municípios com incentivo fiscal aparecem com concentração acima da real, e o trabalho remoto, que se manteve depois da pandemia \cite{Barrero2023}, agrava a distorção: quem mora em Londrina e trabalha para uma empresa de São Paulo é contado em São Paulo. O dado público não permite corrigir isso: a limitação é declarada, não contornada.
 
-A arquitetura em nuvem troca a dependência de uma máquina pela dependência de dois serviços gratuitos de terceiros. Os limites de cada um (a taxa de requisições do repositório de dados e a memória, o disco e a duração máxima de cada execução do GitHub Actions) não são contratuais e podem mudar, e uma mudança de política de qualquer dos dois exigiria adaptar o \textit{pipeline}. O risco é atenuado por dois fatos: os dados estão em formato aberto, transferível para qualquer armazenamento de objetos, e as etapas são programas Python comuns, que a integração contínua só agenda e executa.
+A arquitetura em nuvem troca a dependência de uma máquina pela de dois serviços gratuitos de terceiros, cujos limites (a taxa de requisições do repositório e a memória, o disco e a duração das execuções do GitHub Actions) não são contratuais e podem mudar. O risco é atenuado porque os dados estão em formato aberto, transferível para qualquer armazenamento de objetos, e as etapas são programas Python comuns, que a integração contínua só agenda e executa.
 
 A reprodutibilidade foi tratada em quatro níveis. O código do \textit{pipeline} e do \textit{dashboard} está em repositório público. As camadas tratadas e os agregados são dados abertos, e as análises podem ser refeitas sem executar a ingestão. A própria correspondência entre o dado bruto e o dado publicado é verificável por uma consulta, apresentada na \autoref{sec:reprodutibilidade}. E o \textit{pipeline} inteiro é reexecutável por terceiros: os \textit{workflows} estão versionados com o código, e uma cópia do repositório, com credenciais e destinos próprios, executa a mesma cadeia sem instalar nada localmente.

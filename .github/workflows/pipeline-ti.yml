@@ -35,8 +35,12 @@ name: Pipeline TI (orquestrador)
 # um pedaço da gold quebrar, só ele precisa ser refeito.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1" # toda segunda, 06:00 UTC — roda a fila inteira
+  # Agendamento suspenso: os dados do TCC estão congelados no corte de
+  # setembro de 2026 (CAGED) e 2025 (RAIS), para que texto, tabelas e site
+  # mostrem os mesmos números até a defesa. A evolução contínua mora no
+  # mercadobrasil. Para reativar, descomente as duas linhas abaixo.
+  # schedule:
+  #   - cron: "0 6 * * 1" # toda segunda, 06:00 UTC — roda a fila inteira
   workflow_dispatch:
     inputs:
       comecar_em:
