@@ -124,22 +124,31 @@ def main() -> int:
     con.executemany("INSERT INTO painel_caged VALUES (?, ?, ?)", caged)
     lista = ", ".join(f"'{c}'" for c in cbos)
 
-    def tardias(tabela: str) -> str:
+    # O painel é atualizado depois do microdado: quando o CAGED do trabalho já
+    # tem um mês que o painel ainda não tem, o ano corrente compararia 9 meses
+    # contra 8 (foi +14,6% em 2026, sem erro nenhum de contagem). Os dois lados
+    # param na última competência do painel. Por isso as movimentações vêm da
+    # Silver, por competência, e não do cubo da Gold, que é anual.
+    corte = con.execute("SELECT max(comp) FROM painel_caged").fetchone()[0]
+    print(f"painel do CAGED vai até a competência {corte}")
+
+    def movimentos(tabela: str) -> str:
         return f"""SELECT TRY_CAST(competenciamov AS INT) // 100 AS ano,
                           count(*) FILTER (WHERE TRY_CAST(saldomovimentacao AS INT) = 1)  AS adm,
                           count(*) FILTER (WHERE TRY_CAST(saldomovimentacao AS INT) = -1) AS des
                    FROM read_parquet({nuvem.fonte_silver_ti(tabela)}, union_by_name = true)
-                   WHERE TRY_CAST(cbo2002ocupacao AS VARCHAR) IN ({lista}) GROUP BY 1"""
+                   WHERE TRY_CAST(cbo2002ocupacao AS VARCHAR) IN ({lista})
+                     AND TRY_CAST(competenciamov AS INT) <= {corte}
+                   GROUP BY 1"""
 
     con.execute(f"""
         CREATE TABLE cmp_caged AS
         SELECT p.ano, p.adm AS adm_painel, m.adm + coalesce(f.adm, 0) - coalesce(e.adm, 0) AS adm_trabalho,
                p.des AS des_painel, m.des + coalesce(f.des, 0) - coalesce(e.des, 0) AS des_trabalho
         FROM (SELECT comp // 100 AS ano, sum(adm) AS adm, sum(des) AS des FROM painel_caged GROUP BY 1) p
-        JOIN (SELECT ano, sum(admissoes) AS adm, sum(desligamentos) AS des FROM read_parquet('{G}/caged_cubo.parquet')
-              WHERE lente IN {LENTES_OCUPACAO} GROUP BY 1) m USING (ano)
-        LEFT JOIN ({tardias('caged_for')}) f USING (ano)
-        LEFT JOIN ({tardias('caged_exc')}) e USING (ano)
+        JOIN ({movimentos('caged_mov')}) m USING (ano)
+        LEFT JOIN ({movimentos('caged_for')}) f USING (ano)
+        LEFT JOIN ({movimentos('caged_exc')}) e USING (ano)
         ORDER BY 1
     """)
 
