@@ -8,12 +8,14 @@ do projeto em .zip, envio de arquivo pelo upload do editor.
     python overleaf/overleaf.py projetos          # lista os projetos e os ids
     python overleaf/overleaf.py diff              # o que difere entre local e Overleaf
     python overleaf/overleaf.py enviar            # manda o que mudou no local
+    python overleaf/overleaf.py aplicar           # idem, SEM soltar os comentários (ver abaixo)
     python overleaf/overleaf.py baixar [pasta]    # traz o projeto (padrão: pasta temporária)
     python overleaf/overleaf.py compilar          # compila lá e diz se deu erro
     python overleaf/overleaf.py comentarios       # notas do orientador: arquivo, linha e trecho
 
 Credenciais e projeto em overleaf/.env: OVERLEAF_USER, OVERLEAF_PASS e
-OVERLEAF_PROJECT (o id que `projetos` mostra).
+OVERLEAF_PROJECT (o id que `projetos` mostra). `--original` troca o projeto pelo
+de OVERLEAF_PROJECT_ORIGINAL (o que o orientador comenta), em qualquer comando.
 
 SEGURANÇA DO ENVIO
 ------------------
@@ -28,9 +30,23 @@ Comentário não altera o texto, e por isso não aparece no diff. Enquanto o
 projeto tiver comentário em aberto, o envio é recusado (salvo --forcar):
 substituir o arquivo pode soltar a nota do trecho a que ela se refere.
 
+LEVAR O TEXTO SEM SOLTAR OS COMENTÁRIOS
+---------------------------------------
+`aplicar` faz o que o `enviar` não pode com comentário em aberto. Os arquivos
+que têm comentário (ou sugestão) são editados como o próprio editor do
+Overleaf faz, pela conexão em tempo real, com operações de remoção e inserção
+sobre o texto atual: o Overleaf reposiciona cada comentário junto com o trecho
+(se o trecho em si é reescrito, a nota segue o texto novo que o substituiu). Os
+arquivos sem comentário vão pelo upload de sempre. Antes de enviar, cada
+operação é conferida em memória (tem de dar exatamente o arquivo local) e,
+depois, o texto no Overleaf é lido de volta e comparado. `--simular` só mostra
+o plano. O orientador pode ter o arquivo aberto: as mudanças aparecem na tela
+dele, ao vivo. Foi testado num projeto-cópia com os comentários recriados.
+
 Requer `requests` e `python-dotenv`.
 """
 import argparse
+import difflib
 import io
 import json
 import mimetypes
@@ -75,6 +91,11 @@ def entrar() -> requests.Session:
 
 
 def projeto_id(args) -> str:
+    if args.original:
+        pid = (os.getenv("OVERLEAF_PROJECT_ORIGINAL") or "").strip()
+        if not pid:
+            sys.exit("❌ --original pede OVERLEAF_PROJECT_ORIGINAL no .env")
+        return pid
     pid = args.projeto or (os.getenv("OVERLEAF_PROJECT") or "").strip()
     if not pid:
         sys.exit("❌ informe --projeto ou OVERLEAF_PROJECT no .env (veja `projetos`)")
@@ -150,6 +171,34 @@ class Editor:
                 if k in c["op"]:
                     c["op"][k] = decodificar(c["op"][k])
         return texto, ranges or {}
+
+    # --- edição por operações (usada por `aplicar`) ---
+    def entrar(self, doc_id: str) -> tuple[str, int]:
+        """Entra no documento e FICA nele: as operações de edição exigem o
+        documento aberto. Devolve o texto e a versão; quem chama deve `sair`."""
+        erro, linhas, versao = self.emitir("joinDoc", [doc_id, {"encodeRanges": True}])[:3]
+        if erro:
+            sys.exit(f"❌ joinDoc: {erro}")
+        return "\n".join(l.encode("latin-1").decode("utf-8") for l in linhas), versao
+
+    def sair(self, doc_id: str) -> None:
+        self.emitir("leaveDoc", [doc_id])
+
+    def editar(self, doc_id: str, operacao: list[dict], versao: int) -> None:
+        """Manda uma operação (applyOtUpdate) e espera a confirmação. O servidor
+        confirma SEM dados ("6:::N"), formato que `emitir` não reconhece, e
+        recusa pelo evento otUpdateError."""
+        self.ack += 1
+        corpo = f"5:{self.ack}+::" + json.dumps({"name": "applyOtUpdate",
+                                                "args": [doc_id, {"doc": doc_id, "op": operacao, "v": versao}]})
+        self.s.post(self.url, params=self._params(), data=corpo.encode("utf-8"), timeout=60)
+        for _ in range(15):
+            for tipo, _id, dado in self._quadros():
+                if tipo == "6" and (dado == str(self.ack) or dado.startswith(f"{self.ack}+")):
+                    return
+                if tipo == "5" and "otUpdateError" in dado:
+                    sys.exit(f"❌ o Overleaf recusou a edição: {dado[:300]}")
+        sys.exit("❌ o Overleaf não confirmou a edição")
 
 
 def pasta_raiz(s: requests.Session, pid: str) -> str:
@@ -284,6 +333,125 @@ def enviar(s: requests.Session, pid: str, caminhos: list[str]) -> None:
         print(f"   {'✅' if ok else '❌'} {rel}" + ("" if ok else f" ({r.status_code}: {r.text[:120]})"))
 
 
+# ------------------------------------------------- aplicar (preserva comentários)
+def operacoes(antigo: str, novo: str) -> list[dict]:
+    """Operações de texto (formato ShareJS) que levam `antigo` a `novo`.
+
+    A diferença é feita por linha e, dentro de cada bloco trocado, por
+    caractere: o menor conjunto de remoções é o que mantém de pé os trechos em
+    que os comentários estão ancorados. Saem em ordem DECRESCENTE de posição,
+    de modo que cada posição vale no texto original (editar mais adiante não
+    desloca o que está antes); na mesma posição, a remoção vem antes da inserção.
+    """
+    la, lb = antigo.splitlines(keepends=True), novo.splitlines(keepends=True)
+    inicio = [0]
+    for linha in la:
+        inicio.append(inicio[-1] + len(linha))
+    comps = []
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, la, lb, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        a, b = "".join(la[i1:i2]), "".join(lb[j1:j2])
+        for t2, k1, k2, m1, m2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+            if t2 in ("replace", "delete"):
+                comps.append({"p": inicio[i1] + k1, "d": a[k1:k2]})
+            if t2 in ("replace", "insert"):
+                comps.append({"p": inicio[i1] + k1, "i": b[m1:m2]})
+    comps.sort(key=lambda c: (c["p"], 0 if "i" in c else 1), reverse=True)
+    return comps
+
+
+def _simular_operacoes(antigo: str, ops: list[dict]) -> str:
+    """Aplica as operações em memória, na ordem em que o servidor as aplicará."""
+    texto = antigo
+    for c in ops:
+        if "d" in c:
+            if texto[c["p"]:c["p"] + len(c["d"])] != c["d"]:
+                raise ValueError(f"a remoção em {c['p']} não bate com o texto")
+            texto = texto[:c["p"]] + texto[c["p"] + len(c["d"]):]
+        else:
+            texto = texto[:c["p"]] + c["i"] + texto[c["p"]:]
+    return texto
+
+
+def _texto_local(rel: str) -> str:
+    return (PASTA_TCC / rel).read_bytes().decode("utf-8").replace("\r\n", "\n")
+
+
+def aplicar(s: requests.Session, pid: str, simular: bool = False, forcar: bool = False) -> int:
+    """Leva o local ao projeto SEM soltar os comentários (ver o topo do arquivo).
+
+    Como no `enviar`, arquivo cuja versão no Overleaf não está no histórico do
+    git é tratado como editado lá (por você ou pelo orientador) e barra a
+    operação; `--forcar` o inclui, e o histórico do Overleaf permite desfazer.
+    """
+    ed = Editor(s, pid)
+    docs = ed.documentos()
+    threads = discussoes(s, pid)
+    com_nota: dict[str, int] = {}
+    for caminho, doc_id in docs.items():
+        _, ranges = ed.abrir(doc_id)
+        abertos = sum(1 for c in ranges.get("comments", []) if not threads.get(c["op"]["t"], {}).get("resolved"))
+        n = abertos + len(ranges.get("changes", []))
+        if n:
+            com_nota[caminho] = n
+    print("documentos com comentário ou sugestão em aberto:", com_nota or "nenhum")
+
+    c = comparar(s, pid)
+    if c["editados_no_overleaf"] and not forcar:
+        imprimir(c)
+        print("\n⛔ há arquivo editado direto no Overleaf: traga a mudança para o local antes de aplicar "
+              "(ou use --forcar, sabendo que o texto de lá será substituído).")
+        return 1
+    pendentes = c["novos"] + c["alterados"] + (c["editados_no_overleaf"] if forcar else [])
+    via_upload = [r for r in pendentes if r not in com_nota]
+    via_operacoes = [r for r in pendentes if r in com_nota]
+
+    plano = {}
+    for rel in via_operacoes:
+        novo = _texto_local(rel)
+        if any(ord(ch) > 0xFFFF for ch in novo):
+            sys.exit(f"❌ {rel} tem caractere fora do plano básico do Unicode, cujas posições o editor "
+                     "conta de outro jeito; aplique esse arquivo pela interface do Overleaf.")
+        antigo, versao = ed.entrar(docs[rel])
+        ed.sair(docs[rel])
+        ops = operacoes(antigo, novo)
+        if _simular_operacoes(antigo, ops) != novo:
+            sys.exit(f"❌ as operações de {rel} não reproduzem o arquivo local; nada foi enviado.")
+        plano[rel] = (antigo, novo, ops)
+
+    print(f"\nplano: {len(via_upload)} arquivo(s) por upload (sem comentário), "
+          f"{len(via_operacoes)} por operações (com comentário)")
+    for r in via_upload:
+        print(f"   upload     {r}")
+    for r, (_a, _n, ops) in plano.items():
+        print(f"   operações  {r}: {len(ops)} operação(ões), {com_nota[r]} nota(s) em aberto")
+    if simular or not pendentes:
+        print("\n(simulação: nada foi enviado)" if simular else "\n✅ nada a aplicar")
+        return 0
+
+    if via_upload:
+        print(f"\n📤 upload de {len(via_upload)} arquivo(s) sem comentário")
+        enviar(s, pid, via_upload)
+    for rel, (antigo, novo, ops) in plano.items():
+        print(f"\n✏️  {rel}")
+        texto, versao = ed.entrar(docs[rel])
+        if texto != antigo:
+            ed.sair(docs[rel])
+            sys.exit(f"❌ {rel} mudou no Overleaf desde o plano (alguém editou agora); rode de novo.")
+        if ops:
+            ed.editar(docs[rel], ops, versao)
+        ed.sair(docs[rel])
+        final, _ = ed.entrar(docs[rel])
+        ed.sair(docs[rel])
+        if final != novo:
+            sys.exit(f"❌ o texto de {rel} no Overleaf ficou diferente do local; o Overleaf guarda o "
+                     "histórico do arquivo, restaure a versão anterior por lá.")
+        print(f"   ✅ idêntico ao local, {com_nota[rel]} nota(s) preservada(s)")
+    print("\nconfira com `comentarios` e `diff`.")
+    return 0
+
+
 def compilar(s: requests.Session, pid: str) -> int:
     csrf = re.search(r'name="ol-csrfToken" content="([^"]+)"', s.get(f"{BASE}/project/{pid}", timeout=30).text).group(1)
     r = s.post(f"{BASE}/project/{pid}/compile", headers={"X-Csrf-Token": csrf}, timeout=300,
@@ -305,9 +473,12 @@ def compilar(s: requests.Session, pid: str) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Sincroniza o TCC com o Overleaf da UTFPR.")
-    p.add_argument("comando", choices=("projetos", "diff", "enviar", "baixar", "compilar", "comentarios"))
+    p.add_argument("comando", choices=("projetos", "diff", "enviar", "aplicar", "baixar", "compilar", "comentarios"))
     p.add_argument("destino", nargs="?", help="pasta do `baixar`")
     p.add_argument("--projeto", help="id do projeto (padrão: OVERLEAF_PROJECT do .env)")
+    p.add_argument("--original", action="store_true",
+                   help="usa o projeto de OVERLEAF_PROJECT_ORIGINAL (o que o orientador comenta)")
+    p.add_argument("--simular", action="store_true", help="`aplicar`: mostra o plano e não envia nada")
     p.add_argument("--forcar", action="store_true",
                    help="envia mesmo com comentários em aberto e sobrescreve o que foi editado no Overleaf")
     p.add_argument("--todos", action="store_true", help="`comentarios`: inclui os resolvidos")
@@ -334,6 +505,9 @@ def main() -> int:
     if args.comando == "comentarios":
         return listar_comentarios(s, pid, args.todos)
 
+    if args.comando == "aplicar":
+        return aplicar(s, pid, args.simular, args.forcar)
+
     c = comparar(s, pid)
     imprimir(c)
     if args.comando == "enviar":
@@ -341,7 +515,8 @@ def main() -> int:
         # arquivo pode desancorá-lo. Enquanto houver nota em aberto, não envia.
         if (n := len(abertas(s, pid))) and not args.forcar:
             print(f"\n⛔ {n} comentário(s) em aberto no Overleaf: nada foi enviado. "
-                  "Leia com `comentarios`, resolva lá e envie de novo.")
+                  "Leia com `comentarios` e resolva lá, ou use `aplicar`, que leva o texto "
+                  "sem soltar os comentários.")
             return 1
         lista = c["novos"] + c["alterados"] + (c["editados_no_overleaf"] if args.forcar else [])
         if lista:
