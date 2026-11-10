@@ -593,7 +593,7 @@ linhas = [[f"\\texttt{{{r[0]}}}", f"\\texttt{{{r[1]}}}", _como_rais(r[2])[:52], 
 """).fetchall()]
 tabela("tab-cbos.tex",
        f"Códigos CBO do recorte de tecnologia observados no estoque de {ANO}",
-       "quadro:cbos", "llp{7.4cm}lr",
+       "quadro:cbos", "llp{6.2cm}p{3.4cm}r",
        ["Família", "CBO", "Ocupação", "Área", f"Vínculos {ANO}"], linhas,
        nota="Ocupações sem descrição são códigos em uso que não constam dos "
             "dicionários oficiais do MTE. ", ambiente="quadro",
