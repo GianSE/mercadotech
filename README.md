@@ -28,7 +28,7 @@ e uma seção do TCC.
 | **2. Onde está o trabalho de TI?** | **58%** dos profissionais de TI trabalham fora de empresas de TI, mas eram 71% em 2007: o crescimento se concentrou nas empresas de TI. São Paulo concentra 41% do estoque, mas o crescimento não depende dele: sem SP, foi de 168%. |
 | **3. O emprego melhorou em qualidade?** | Não em remuneração relativa: a mediana em salários mínimos ficou estável em 18 anos (3,39 → 3,41). O risco de desligamento é máximo entre 6 e 12 meses de casa. |
 | **4. Quem ganha menos, e por quê?** | Pessoas negras e mulheres, por mecanismos distintos: o hiato racial caiu (de 64% para 38% entre brancos e pardos) por melhora de acesso; o de gênero surgiu depois de 2015, chegou a 7,8% em 2025 e está inteiramente na parcela não explicada. |
-| **5. Para onde o mercado vai?** | A previsão do saldo mensal (SARIMA) erra 33% menos que a regra ingênua sazonal, contra 8,3% do melhor Prophet; o *nowcast* do estoque, testado em cada ano de 2014 a 2025, erra em média 1,1%, contra 5,1% do estimador ingênuo. Estimar o presente é bem mais preciso que prever o futuro. |
+| **5. Para onde o mercado vai?** | A previsão do saldo mensal (SARIMA) erra 23% menos que a regra ingênua sazonal, e nenhuma configuração do Prophet supera essa regra; o *nowcast* do estoque, testado em cada ano de 2014 a 2025, erra em média 1,1%, contra 5,1% do estimador ingênuo. Estimar o presente é bem mais preciso que prever o futuro. |
 
 Os números vêm da camada Gold e são os mesmos do TCC: as tabelas do texto são
 geradas por script a partir dos dados publicados, nunca digitadas.
@@ -98,7 +98,7 @@ público. Não existe cópia local nem etapa de "publicar depois": o repositóri
 |---|---|---|
 | **Bronze** | Microdados como saíram do FTP, convertidos para Parquet ZSTD-3: 661 GB de texto viram 56,7 GB no período analisado | [bronze-caged](https://huggingface.co/datasets/Gianpedro/bronze-caged) · [bronze-rais](https://huggingface.co/datasets/Gianpedro/bronze-rais) |
 | **Dicionários** | Planilhas de *layout* do MTE convertidas, usadas para traduzir os códigos | [mte-dicionarios](https://huggingface.co/datasets/Gianpedro/mte-dicionarios) |
-| **Silver de TI** | Só o recorte de tecnologia, com os códigos traduzidos e a procedência de cada linha: 23,8 milhões de vínculos da RAIS e 12,6 milhões de movimentações do CAGED | [silver-caged-ti](https://huggingface.co/datasets/Gianpedro/silver-caged-ti) · [silver-rais-ti](https://huggingface.co/datasets/Gianpedro/silver-rais-ti) |
+| **Silver de TI** | Só o recorte de tecnologia, com os códigos traduzidos e a procedência de cada linha: 23,8 milhões de vínculos da RAIS e 12,7 milhões de movimentações do CAGED | [silver-caged-ti](https://huggingface.co/datasets/Gianpedro/silver-caged-ti) · [silver-rais-ti](https://huggingface.co/datasets/Gianpedro/silver-rais-ti) |
 | **Gold** | Agregados prontos para consumo, cubos do CAGED e resultados dos modelos (poucos MB) | [gold-analise-mercado-ti](https://huggingface.co/datasets/Gianpedro/gold-analise-mercado-ti) |
 
 Os dados publicados usam a licença **ODC-BY**. Qualquer camada pode ser lida
