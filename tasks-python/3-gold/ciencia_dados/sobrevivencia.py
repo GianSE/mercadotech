@@ -149,11 +149,13 @@ def tabua_periodo(df: pd.DataFrame, grupo: str | None = None) -> pd.DataFrame:
     APROXIMAÇÃO ASSUMIDA
     --------------------
     Quem foi admitido durante o ano teve menos de doze meses de exposição, e
-    aqui entra na faixa 0-6m com peso cheio. Isso SUPERESTIMA o risco da
-    primeira faixa. Corrigir exigiria exposição em pessoa-mês, que a RAIS
-    anual não dá diretamente. A distorção é conhecida, é de uma faixa só, e
-    empurra na direção conservadora — o vínculo novo aparece mais frágil do
-    que é, não mais estável.
+    aqui entra na faixa 0-6m com peso cheio. Dois efeitos se misturam nessa
+    faixa: a exposição parcial REDUZ a proporção de desligados em relação a
+    um ano inteiro de exposição, e os recém-admitidos estão no período de
+    maior risco de saída, o que a AUMENTA. O efeito líquido não é medido, e
+    por isso o risco da primeira faixa não se compara bem ao das seguintes
+    (o TCC declara isso ao discutir o pico de 6-12 meses). Corrigir exigiria
+    exposição em pessoa-mês, que a RAIS anual não dá diretamente.
     """
     def _uma(sub: pd.DataFrame, rotulo: str) -> dict:
         # Tempo de casa no início do ano; negativo = admitido no próprio ano.

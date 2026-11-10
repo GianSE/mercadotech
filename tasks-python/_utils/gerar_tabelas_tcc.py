@@ -104,8 +104,14 @@ FONTES = {
 def tabela(nome: str, caption: str, rotulo: str, colunas: str,
            cabecalho: list[str], linhas: list[list[str]],
            fonte: str | None = None,
-           nota: str = "", ambiente: str = "table") -> None:
-    """Monta uma tabela ABNT com booktabs e grava o arquivo."""
+           nota: str = "", ambiente: str = "table",
+           tamanho: str = "footnotesize", esticar: float = 1.25) -> None:
+    """Monta uma tabela ABNT com booktabs e grava o arquivo.
+
+    `tamanho` e `esticar` existem para a tabela longa do apêndice: no padrão,
+    ela passava da altura da página e as últimas linhas e a fonte saíam
+    cortadas do PDF, com só um aviso "Float too large" no log.
+    """
     fonte = fonte or FONTES[nome]
     cab = " & ".join(f"\\textbf{{{c}}}" for c in cabecalho) + " \\\\"
     corpo = "\n".join("        " + " & ".join(l) + " \\\\" for l in linhas)
@@ -114,8 +120,8 @@ def tabela(nome: str, caption: str, rotulo: str, colunas: str,
     \\centering
     \\caption{{{caption}}}
     \\label{{{rotulo}}}
-    \\footnotesize
-    \\renewcommand{{\\arraystretch}}{{1.25}}
+    \\{tamanho}
+    \\renewcommand{{\\arraystretch}}{{{esticar}}}
     \\begin{{tabular}}{{{colunas}}}
         \\toprule
         \\rowcolor{{black!8}}
@@ -587,10 +593,11 @@ linhas = [[f"\\texttt{{{r[0]}}}", f"\\texttt{{{r[1]}}}", _como_rais(r[2])[:52], 
 """).fetchall()]
 tabela("tab-cbos.tex",
        f"Códigos CBO do recorte de tecnologia observados no estoque de {ANO}",
-       "quadro:cbos", "llp{6.0cm}lr",
+       "quadro:cbos", "llp{7.4cm}lr",
        ["Família", "CBO", "Ocupação", "Área", f"Vínculos {ANO}"], linhas,
        nota="Ocupações sem descrição são códigos em uso que não constam dos "
-            "dicionários oficiais do MTE. ", ambiente="quadro")
+            "dicionários oficiais do MTE. ", ambiente="quadro",
+       tamanho="scriptsize", esticar=1.15)
 
 # ------------------------------- reprodutibilidade da RAIS (auditoria)
 # Resultado de _utils/reprodutibilidade_rais.py, publicado na Gold em
