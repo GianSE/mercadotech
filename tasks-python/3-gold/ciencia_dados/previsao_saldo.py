@@ -84,17 +84,48 @@ def _nome_prophet(escala: float) -> str:
     return f"Prophet(tendência {escala:g})"
 
 
+# O Prophet ajusta com L-BFGS e, quando o executável do Stan falha, refaz o
+# ajuste com Newton sozinho, avisando apenas por log ("Falling back to
+# Newton"): o retorno de `fit` é o mesmo nos dois casos. No Actions isso
+# aconteceu uma vez em 15 ajustes ("Operation not permitted"), sem que nada
+# dissesse QUAL. Daqui sai a contagem por configuração, para o log da rodada
+# nomear o ajuste e o texto do TCC poder citá-lo.
+AJUSTES_COM_NEWTON: dict[str, int] = {}
+
+
 def _prophet(treino: pd.Series, escala: float = 0.05, intervalo: float = 0.80):
     """Prophet com sazonalidade anual aditiva (o saldo é negativo em parte dos meses)."""
     import logging
+    import sys
 
     from prophet import Prophet
+
+    class _ContaNewton(logging.Handler):
+        n = 0
+
+        def emit(self, registro):
+            mensagem = registro.getMessage()
+            if "Falling back to Newton" in mensagem:
+                self.n += 1
+            # Com um handler no logger, o Python deixa de imprimir o aviso
+            # sozinho; repete-se aqui para o log do Actions não perdê-lo.
+            sys.stderr.write(mensagem + "\n")
 
     logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
     modelo = Prophet(yearly_seasonality=True, weekly_seasonality=False,
                      daily_seasonality=False, seasonality_mode="additive",
                      changepoint_prior_scale=escala, interval_width=intervalo)
-    return modelo.fit(pd.DataFrame({"ds": treino.index, "y": treino.to_numpy()}))
+    conta = _ContaNewton()
+    prophet_log = logging.getLogger("prophet")
+    prophet_log.addHandler(conta)
+    try:
+        ajustado = modelo.fit(pd.DataFrame({"ds": treino.index, "y": treino.to_numpy()}))
+    finally:
+        prophet_log.removeHandler(conta)
+    if conta.n:
+        nome = _nome_prophet(escala)
+        AJUSTES_COM_NEWTON[nome] = AJUSTES_COM_NEWTON.get(nome, 0) + conta.n
+    return ajustado
 
 
 def _prever_prophet(modelo, h: int) -> pd.DataFrame:
@@ -122,6 +153,7 @@ def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
     cortes = [fim - h - 12 * k for k in range(origens)][::-1]
     cortes = [c for c in cortes if c > 36]
 
+    AJUSTES_COM_NEWTON.clear()
     linhas = []
     for nome, prever_fn in _candidatos():
         erros_abs, erros_qua = [], []
@@ -130,11 +162,15 @@ def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
             treino, teste = y.iloc[:corte], y.iloc[corte:corte + h]
             if len(teste) < h:
                 continue
+            antes = sum(AJUSTES_COM_NEWTON.values())
             try:
                 pred = prever_fn(treino, h)
             except Exception:
                 falhou = True
                 break
+            if sum(AJUSTES_COM_NEWTON.values()) > antes:
+                print(f"   ⚠️  {nome}, dobra com treino até o mês {corte} de {fim}: "
+                      f"o L-BFGS falhou e o ajuste saiu pelo Newton")
             erro = teste.to_numpy() - pred
             erros_abs.append(np.abs(erro))
             erros_qua.append(erro ** 2)
@@ -148,6 +184,10 @@ def validar(y: pd.Series, h: int = 12, origens: int = 5) -> pd.DataFrame:
             "rmse": float(np.sqrt(np.mean(np.concatenate(erros_qua)))),
         })
 
+    if AJUSTES_COM_NEWTON:
+        total = sum(AJUSTES_COM_NEWTON.values())
+        print(f"   ⚠️  Prophet: {total} ajuste(s) com Newton no lugar do L-BFGS "
+              f"({', '.join(f'{n}: {c}' for n, c in AJUSTES_COM_NEWTON.items())})")
     df = pd.DataFrame(linhas).sort_values("mae").reset_index(drop=True)
     base = df.loc[df.modelo == "naive sazonal", "mae"]
     if len(base):
