@@ -226,7 +226,11 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None, modelo: str | None = None)
     - a do fluxo que falta: metade da faixa de 80% da SOMA dos meses restantes,
       tirada das trajetórias simuladas (somar os limites mensais exageraria);
     - a da relação fluxo→estoque: o 80º percentil do erro da própria
-      identidade na retrospectiva (cada ano estimado só com os anteriores).
+      razão mediana na retrospectiva (cada ano estimado só com os anteriores).
+
+    Quem projeta é a razão mediana, o estimador de menor erro na
+    retrospectiva (1,07% contra 1,59% da identidade). Projetar com outro
+    estimador seria publicar um número diferente do que o teste validou.
 
     As duas se somam em quadratura, supondo erros independentes (um é o ruído
     do saldo mensal, o outro a diferença de cobertura entre as bases). A faixa
@@ -254,12 +258,13 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None, modelo: str | None = None)
 
     fluxo_total = observado + fluxo_previsto
     ultimo = df.iloc[-1]
-    # A identidade vence a retrospectiva, então é ela que projeta. Usar a
-    # regressão aqui seria escolher o estimador pior por parecer mais técnico.
-    estoque = float(ultimo["estoque"]) + fluxo_total
+    # A razão mediana vence a retrospectiva, então é ela que projeta, com a
+    # razão ajustada em todos os anos completos. Usar a regressão aqui seria
+    # escolher um estimador pior por parecer mais técnico.
+    estoque = float(ultimo["estoque"]) + _razao(df, fluxo_total)
 
     erros = retrospectiva_anos(df)
-    erros = erros[erros["estimador"] == "identidade (delta = fluxo)"]["erro_pct"].abs()
+    erros = erros[erros["estimador"] == "razão mediana"]["erro_pct"].abs()
     erro_relacao = float(np.quantile(erros, 0.80) / 100 * estoque) if len(erros) else 0.0
     margem = float(np.hypot(erro_fluxo, erro_relacao))
 
@@ -276,6 +281,7 @@ def projetar_ano_corrente(df: pd.DataFrame, con=None, modelo: str | None = None)
         "margem_fluxo": erro_fluxo,
         "margem_relacao": erro_relacao,
         "modelo_fluxo": modelo,
+        "estimador": "razão mediana",
     }
 
 

@@ -67,6 +67,16 @@ def previsao(con) -> dict[str, pd.DataFrame]:
 
     df = sr.carregar(con)
     y = df["saldo"].dropna()
+
+    # A série emenda duas gerações do CAGED em 2020 (ver serie.py). O teste
+    # vai só para o log: é o número que o TCC cita sobre a emenda, e gravá-lo
+    # como tabela mudaria a contagem da Gold sem servir ao dashboard.
+    d = sr.diagnostico(df)
+    print("   diagnóstico da série (emenda de 2020):")
+    for chave, valor in d.items():
+        if chave != "sazonal":
+            print(f"      {chave}: {valor}")
+
     placar = ps.validar(y, h=12, origens=5)
 
     # O rótulo é o do modelo que de fato projeta (ver modelo_para_projecao).
