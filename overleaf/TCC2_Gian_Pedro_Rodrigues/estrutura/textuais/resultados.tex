@@ -10,6 +10,93 @@ Vários resultados deste capítulo levaram o trabalho de volta a fases anteriore
 
 O \textit{pipeline} ingeriu os microdados da RAIS de 2007 a 2025 e do CAGED de 2007 a setembro de 2026, com os volumes da \autoref{fig:fluxo-dado}. A redução de volume entre as camadas é o que viabiliza a plataforma: restrito ao recorte de tecnologia, o dado cabe em pouco mais de 1~GB, que se processa em um executor gratuito e se consulta no navegador. O número de arquivos importa tanto quanto o volume: depois da consolidação em um arquivo por partição, uma contagem completa dos vínculos de TI da RAIS passou a responder em menos de meio segundo, lendo apenas os rodapés de metadados dos arquivos. Em nuvem, uma atualização disparada a partir da Silver, até a Gold, leva cerca de 22 minutos, e a plataforma deixou de depender de uma máquina específica ligada, com espaço livre e com as bibliotecas certas funcionando (\autoref{subsec:migracao}).
 
+A \autoref{fig:actions} mostra uma execução agendada do orquestrador: a verificação encontrou arquivos novos do CAGED de 2026 e nada pendente na RAIS, e a execução inteira, da decisão à última tabela da Gold, levou cerca de meia hora.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Execução agendada do orquestrador no GitHub Actions, em 9 de novembro de 2026}
+    \label{fig:actions}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        job/.style={rectangle, rounded corners=3pt, draw=black!30, fill=white,
+                    text width=3.8cm, minimum height=7.5mm, align=left, font=\small,
+                    inner xsep=2mm,
+                    execute at begin node={\hyphenpenalty=10000\hspace*{4.4mm}}},
+        pulado/.style={text=black!50},
+        matriz/.style={rectangle, rounded corners=3pt, draw=black!30, fill=black!3, inner sep=1.3mm},
+        rotmatriz/.style={font=\scriptsize\ttfamily, text=black!70, anchor=south west, inner sep=1.5pt},
+        etapa/.style={font=\small\bfseries, anchor=east, align=right, text=black!75},
+        liga/.style={black!40, line width=0.7pt}
+    ]
+    \newcommand{\ok}[1]{%
+        \fill[green!50!black] ([xshift=3.4mm]#1.west) circle (1.5mm);
+        \draw[white, line width=0.9pt] ([xshift=2.75mm, yshift=0.05mm]#1.west) -- ([xshift=3.25mm, yshift=-0.5mm]#1.west) -- ([xshift=4.05mm, yshift=0.55mm]#1.west);}
+    \newcommand{\pul}[1]{\draw[black!45, line width=0.7pt] ([xshift=3.4mm]#1.west) circle (1.5mm);}
+    \newcommand{\dur}[1]{\hfill{\scriptsize\textcolor{black!55}{#1}}}
+
+    \node[etapa] at (-2.1,  0.0)  {Decisão};
+    \node[etapa] at (-2.1, -1.4)  {Bronze\\verificação};
+    \node[etapa] at (-2.1, -3.8)  {Bronze\\ingestão};
+    \node[etapa] at (-2.1, -6.2)  {Silver\\verificação};
+    \node[etapa] at (-2.1, -8.4)  {Silver\\tradução};
+    \node[etapa] at (-2.1, -10.8) {Gold};
+
+    \node[job] (dec) at (6.75,0) {decidir\dur{3s}}; \ok{dec}
+    \node[font=\small, text=black!65, anchor=east] at (15.4,0) {agendada (\textit{cron}) · total 30m33s};
+
+    % Bronze: verificação das três fontes e ingestão do que faltava
+    \node[job] (vdi) at (2.25,-1.4)  {dicionario\dur{33s}};    \ok{vdi}
+    \node[job] (vbc) at (6.75,-1.4)  {bronze-caged\dur{2m37s}}; \ok{vbc}
+    \node[job] (vbr) at (11.25,-1.4) {bronze-rais\dur{1m21s}};  \ok{vbr}
+    \node[job] (b1) at (4.50,-3.0) {caged\_mov\dur{4m37s}}; \ok{b1}
+    \node[job] (b2) at (4.50,-3.8) {caged\_exc\dur{39s}};   \ok{b2}
+    \node[job] (b3) at (4.50,-4.6) {caged\_for\dur{1m15s}}; \ok{b3}
+    \node[job, pulado] (b4) at (9.00,-3.0) {nada pendente}; \pul{b4}
+
+    % Silver
+    \node[job] (vsc) at (4.50,-6.2) {silver-caged-ti\dur{15s}}; \ok{vsc}
+    \node[job] (vsr) at (9.00,-6.2) {silver-rais-ti\dur{11s}};  \ok{vsr}
+    \node[job] (t1) at (4.50,-7.6) {caged\_mov\dur{2m12s}}; \ok{t1}
+    \node[job] (t2) at (4.50,-8.4) {caged\_exc\dur{1m46s}}; \ok{t2}
+    \node[job] (t3) at (4.50,-9.2) {caged\_for\dur{1m25s}}; \ok{t3}
+    \node[job, pulado] (t4) at (9.00,-7.6) {nada pendente}; \pul{t4}
+
+    % Gold
+    \node[job] (gc) at (0.00,-10.8) {gold-caged-\\\hspace*{4.4mm}consolidado\dur{11m18s}}; \ok{gc}
+    \node[job] (gr) at (4.50,-10.8) {gold-rais\dur{9m19s}};        \ok{gr}
+    \node[job] (gt) at (9.00,-10.8) {gold-territorio\dur{9m32s}};  \ok{gt}
+    \node[job] (gm) at (13.50,-10.8) {gold-modelos\dur{19m22s}};   \ok{gm}
+
+    \begin{scope}[on background layer]
+        \node[matriz, fit=(b1)(b3)] (mbc) {};
+        \node[matriz, fit=(b4)] (mbr) {};
+        \node[matriz, fit=(t1)(t3)] (msc) {};
+        \node[matriz, fit=(t4)] (msr) {};
+        % ligações por camada, como a interface agrupa
+        \draw[liga] (dec.south) -- (6.75,-0.7) (2.25,-0.7) -- (11.25,-0.7);
+        \foreach \b in {vdi,vbc,vbr} \draw[liga] (\b.north |- 0,-0.7) -- (\b.north);
+        \foreach \a in {vdi,vbc,vbr} \draw[liga] (\a.south) -- (\a.south |- 0,-2.15);
+        \draw[liga] (2.25,-2.15) -- (11.25,-2.15);
+        \foreach \b in {mbc,mbr} \draw[liga] (\b.north |- 0,-2.15) -- (\b.north);
+        \foreach \a in {mbc,mbr} \draw[liga] (\a.south) -- (\a.south |- 0,-5.5);
+        \draw[liga] (4.50,-5.5) -- (9.00,-5.5);
+        \foreach \b in {vsc,vsr} \draw[liga] (\b.north |- 0,-5.5) -- (\b.north);
+        \draw[liga] (vsc.south) -- (msc.north) (vsr.south) -- (msr.north);
+        \draw[liga] (msc.south) -- (4.50,-10.0) (msr.south) -- (9.00,-10.0) (0.00,-10.0) -- (13.50,-10.0);
+        \foreach \b in {gc,gr,gt,gm} \draw[liga] (\b.north |- 0,-10.0) -- (\b.north);
+    \end{scope}
+    \node[rotmatriz, fill=white] at (mbc.north west) {Matrix: atualizar (2026)};
+    \node[rotmatriz, fill=white] at (mbr.north west) {Matrix: atualizar};
+    \node[rotmatriz, fill=white] at (msc.north west) {Matrix: traduzir (2026)};
+    \node[rotmatriz, fill=white] at (msr.north west) {Matrix: traduzir};
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize Círculo cheio: etapa executada; círculo vazio: nada a processar. As ligações seguem o agrupamento por camada da interface do GitHub Actions, mas cada etapa espera só as de que depende: a \texttt{gold-rais} começou dois minutos após o início, com o CAGED ainda na Bronze, e a \texttt{gold-modelos}, que usa o estoque da RAIS, começou quando a \texttt{gold-rais} terminou.}
+    \\[2pt]
+    {\footnotesize Fonte: Elaborado pelo autor, a partir da execução registrada no GitHub Actions \cite{GitHubActions2026}.}
+\end{figure}
+
 A validação mais exigente da plataforma é verificar se o recorte publicado pode ser reconstruído a partir do dado bruto, o que a comparação de agregados com painéis oficiais não garante, porque erros podem se cancelar numa soma. A consulta do \autoref{lst:reprodutibilidade}, no \autoref{apend:consultas}, aplica a definição do recorte ao microdado bruto de junho de 2025 e compara com a camada publicada: são 73.977 movimentações dos dois lados, diferença zero. Como as duas pontas estão publicadas, qualquer pessoa pode repetir a conta. Esse é o sentido de reprodutibilidade adotado aqui: não que o código esteja disponível, mas que a afirmação possa ser recontada da fonte.
 
 Para a RAIS, a verificação cobre todos os anos: um \textit{script} do repositório aplica a definição do recorte a cada arquivo bruto da Bronze e compara a contagem com a camada publicada, com diferença zero em todos os anos (\autoref{tab:reprodutibilidade-rais}, no \autoref{apend:consultas}). Em 2022, o zero veio depois de uma correção: sete pedaços de dois arquivos não tinham chegado à camada tratada (\autoref{quadro:achados}), e a verificação de completude não acusava, porque outros pedaços dos mesmos arquivos haviam chegado. A recontagem teria apontado o defeito no momento em que ocorreu, por comparar a saída com a fonte, e não só a presença de cada arquivo; por isso virou uma etapa do repositório, executável sob demanda no GitHub Actions.
@@ -80,7 +167,7 @@ A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e er
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{quadro}
 
 
@@ -106,7 +193,7 @@ Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa se
     \label{tab:perdas}
     \footnotesize
     \renewcommand{\arraystretch}{1.25}
-    \begin{tabular}{lrrrl}
+    \begin{tabularx}{\textwidth}{lrrr>{\raggedright\arraybackslash}X}
         \toprule
         \rowcolor{black!8}
         \textbf{Arquivo} & \textbf{Lidas} & \textbf{No arquivo} & \textbf{Perdidas} & \textbf{Uso nas análises} \\
@@ -116,7 +203,7 @@ Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa se
         \midrule
         \textbf{Total, CAGED bruto} & & & \textbf{0,23\%} & 1.749.283 de 769,6 milhões de linhas \\
         \bottomrule
-    \end{tabular}
+    \end{tabularx}
     \\[4pt]
     No arquivo: linhas estimadas pela proporção entre os bytes legíveis e o tamanho original declarado no pacote. Todas as ocupações e setores. Fonte: Elaborado pelo autor com dados do CAGED \cite{CAGED2024}.
 \end{table}
@@ -152,7 +239,7 @@ O fluxo do CAGED, na \autoref{fig:dashboard-fluxo}, mostra as mesmas ondas pelo 
     \\[4pt]
     {\footnotesize O ano de 2026 vai até setembro (barras claras). Em 2007, o CAGED antigo quase não traz a classificação de atividade pela CNAE 2.0, e o ano conta praticamente só a lente de ocupação, por isso as barras são menores.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados do CAGED \cite{CAGED2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados do CAGED \cite{CAGED2024}.}
 \end{figure}
 
 \section{Pergunta 2: onde está o trabalho de TI}
@@ -180,7 +267,7 @@ A \autoref{tab:areas} desagrega o estoque pelas áreas de atuação. Desenvolvim
     \label{fig:dashboard-mapa}
     \includegraphics[width=0.75\textwidth]{figuras/dashboard-mapa-uf.png}
     \\[4pt]
-    Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.}
 \end{figure}
 
 A \autoref{fig:dashboard-mapa} mostra que a concentração é acentuada (os valores de cada unidade federativa estão na \autoref{tab:uf}, no \autoref{apend:tabelas}): São Paulo responde por 41\% do estoque nacional, e as cinco primeiras unidades federativas somam quase 70\%. A remuneração mediana varia muito entre elas, e a leitura exige cuidado: o Ceará aparece com mediana de 1,40 salário mínimo, bem abaixo das demais, o que reflete a concentração de centrais de atendimento classificadas em atividades de TI, e não um mercado de desenvolvimento mal remunerado.
@@ -208,7 +295,7 @@ A escolaridade mostra o mesmo mecanismo (\autoref{fig:dashboard-escolaridade}). 
     \\[4pt]
     {\footnotesize Recorte completo (as duas lentes). Barra clara: 2007; barra escura: 2025. Mestrado e doutorado somam menos de 2\% dos vínculos, e por isso seus valores oscilam mais de um ano para outro.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.}
 \end{figure}
 
 O tempo médio de emprego ficou praticamente igual nas pontas, perto de quatro anos, mas oscila com o ciclo (\autoref{tab:estoque-serie}): subiu depois de anos de contratação fraca e caiu de uma vez em 2021, quando o setor ganhou 174 mil vínculos. É efeito de composição \cite{Solon1994}: quando muita gente entra, a média de tempo de casa cai sem que ninguém tenha saído mais cedo. A rotatividade se lê no giro e no risco de desligamento.
@@ -223,7 +310,7 @@ O giro, na \autoref{fig:dashboard-giro}, é a proporção de vínculos encerrado
     \\[4pt]
     {\footnotesize Vínculos encerrados no ano divididos pelo estoque em 31 de dezembro, no recorte completo. O eixo vertical começa em 36\%, o que amplia visualmente a variação.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados da RAIS \cite{RAIS2024}.}
 \end{figure}
 
 \input{estrutura/tabelas-geradas/fig-risco.tex}
@@ -247,7 +334,7 @@ No eixo de gênero, o hiato bruto em 2025 é de 7,8\%, e a parcela explicada por
 
 A trajetória, na \autoref{fig:hiato-serie}, mostra que esse hiato é recente. Até 2015 ele foi ligeiramente negativo: as mulheres do setor ganhavam, em média, um pouco mais que os homens. Tornou-se positivo em 2016 e chegou ao máximo em 2022. A decomposição mostra o mecanismo (\autoref{tab:hiato}): a parcela não explicada ficou praticamente constante em todo o período; o que mudou foi a parcela explicada, cuja vantagem para as mulheres encolheu a menos da metade. A penalidade de retorno sempre existiu; o que a encobria era uma vantagem das mulheres em características observáveis, que encolheu. É o mecanismo que \citeonline{BlauKahn2017} descrevem para a queda do hiato nos Estados Unidos, operando no sentido inverso: lá, a escolaridade das mulheres alcançou a dos homens e o hiato caiu; aqui, a vantagem das mulheres se reduziu e o hiato apareceu. A persistência da parcela não explicada, por sua vez, é coerente com \citeonline{Goldin2014}, que a localiza dentro das ocupações, e com \citeonline{Madalozzo2010}, que, para o Brasil, a encontrou estável na década até 2007, mesmo com controle de ocupação.
 
-No eixo de raça/cor, a estrutura se inverte. Os hiatos são bem maiores, a maior parte deles é explicada por características (pessoas brancas estão sobre-representadas nas áreas, nos portes e nas regiões que pagam mais) e eles caíram de forma contínua, de 64\% para 38\% entre brancos e pardos e de 51\% para 31\% entre brancos e pretos. Quase toda a queda veio da parcela explicada, enquanto a não explicada mudou pouco. É desigualdade de acesso (quem chega a quais posições) mais do que de remuneração dentro da mesma posição, e foi o acesso que melhorou. Mesmo depois da queda, os hiatos raciais de TI são cerca de metade dos observados no mercado de trabalho como um todo, em que o rendimento médio de brancos superava em mais de 70\% o de pretos e de pardos em 2021 \cite{IBGE2022Desigualdades}, comparação que vale como ordem de grandeza, porque as duas medidas não são idênticas.
+No eixo de raça/cor, a estrutura se inverte. Os hiatos são bem maiores, a maior parte deles está na parcela explicada, isto é, na diferença de características observadas (escolaridade, área, porte, região), e eles caíram de forma contínua, de 64\% para 38\% entre brancos e pardos e de 51\% para 31\% entre brancos e pretos. Quase toda a queda veio da parcela explicada, enquanto a não explicada mudou pouco. É desigualdade de acesso (quem chega a quais posições) mais do que de remuneração dentro da mesma posição, e foi o acesso que melhorou. A queda não vem de mudança em quem declara raça/cor: os vínculos sem a informação passaram de 7\% em 2007 a 18,5\% em 2022 e caíram a 1,6\% em 2025, mas a maior parte da queda do hiato ocorreu até 2012, com essa parcela abaixo de 10\%, e de 2022 para 2023, quando ela caiu 11 pontos, o hiato entre brancos e pardos ficou em 37,1\%, e o entre brancos e pretos foi de 29,9\% para 29,5\%. Mesmo depois da queda, os hiatos raciais de TI são cerca de metade dos observados no mercado de trabalho como um todo, em que o rendimento médio de brancos superava em mais de 70\% o de pretos e de pardos em 2021 \cite{IBGE2022Desigualdades}, comparação que vale como ordem de grandeza, porque as duas medidas não são idênticas.
 
 A distinção tem consequência prática direta. Política de equidade salarial dentro da empresa atua sobre a parcela não explicada, e portanto sobre o hiato de gênero; política de acesso (formação, recrutamento, promoção) atua sobre a parcela explicada, e portanto sobre o hiato racial. Tratar os dois eixos com o mesmo instrumento ignora o que a decomposição mostra.
 
@@ -278,7 +365,7 @@ O horizonte útil, porém, é curto. A faixa de 80\% de cada mês cruza o zero d
     \\[4pt]
     {\footnotesize Especificação $(1, 0, 1)(1, 1, 1)_{12}$, a vencedora da \autoref{tab:previsao}. No acumulado dos 18 meses projetados, o saldo esperado é de 35,9 mil vagas, com faixa de 80\% de $-$15,5 mil a $+$87,1 mil.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados do CAGED \cite{CAGED2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, a partir do \textit{dashboard} da plataforma, com dados do CAGED \cite{CAGED2024}.}
 \end{figure}
 
 \input{estrutura/tabelas-geradas/tab-nowcast.tex}
@@ -315,5 +402,5 @@ O filtro de território vale para o site inteiro e torna a interface um instrume
         {\footnotesize (b) Mapa e \textit{ranking} de estados sem São Paulo}
     \end{minipage}
     \\[4pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{figure}

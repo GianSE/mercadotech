@@ -9,7 +9,7 @@ Nas últimas décadas, o setor de TI no Brasil cresceu sem grandes interrupçõe
 
 Uma pesquisa da Federação do Comércio de Bens, Serviços e Turismo do Estado de São Paulo (FECOMERCIOSP), baseada nos microdados da RAIS, mostrou que as profissões ligadas à tecnologia cresceram 95\% entre 2012 e 2022, com altas acima de 740\% em casos como o de engenheiro de sistemas operacionais \cite{Fecomercio2024}. A oferta de mão de obra qualificada não acompanhou esse ritmo: entre 2019 e 2024, o mercado precisou de cerca de 665 mil profissionais de TI, mas formaram-se 465 mil entre 2018 e 2023 (quem se forma em um ano entra no mercado no seguinte), um déficit de cerca de 30\% \cite{Brasscom2025}.
 
-A pandemia de COVID-19 acelerou esse cenário. A partir de 2020, a adoção de ferramentas de colaboração remota, \textit{cloud computing} e automação ampliou a procura por profissionais de TI no momento em que o restante do mercado formal se contraía \cite{CAGED2024}. O emprego segue concentrado no Sudeste, sobretudo em São Paulo, como os dados deste trabalho confirmam (\autoref{sec:resultado-q2}).
+A pandemia de COVID-19 acelerou esse cenário. A partir de 2020, a adoção de ferramentas de colaboração remota, \textit{cloud computing} e automação ampliou a procura por profissionais de TI no momento em que o restante do mercado formal se contraía \cite{CAGED2024}.
 
 \label{sec:literatura-trabalho}
 Além do crescimento, três temas da economia do trabalho orientam a leitura dos resultados: como se formam os hiatos salariais por sexo e por raça, o que acontece com o emprego e o salário quando uma função passa a ser contratada de fora, e o que o trabalho remoto muda na geografia do emprego.
@@ -55,6 +55,7 @@ Usadas juntas, as duas bases dão uma visão que nenhuma oferece sozinha. A RAIS
 
 \section{Engenharia de dados e visualização \textit{web}}
 
+\subsection{\textit{Data lake} e Arquitetura Medalhão}
 \label{subsec:medalhao}
 
 O \textit{data lake} surgiu como alternativa ao \textit{data warehouse} tradicional para lidar com grandes volumes de dados heterogêneos \cite{Reis2022}. A distinção principal está em \textit{quando} o esquema é fixado: o \textit{data warehouse} obriga a modelar tudo num esquema rígido antes de gravar (\textit{schema on write}), ao passo que o \textit{data lake} guarda o dado bruto e só o transforma depois (\textit{schema on read}). Essa flexibilidade faz diferença quando os dados de origem chegam em formatos heterogêneos e as regras de transformação podem mudar.
@@ -65,11 +66,12 @@ A Arquitetura Medalhão (\textit{Medallion Architecture}), popularizada pelo eco
     \centering
     \caption{Fluxo de dados entre as camadas da Arquitetura Medalhão}
     \label{fig:medalhao}
-    \includegraphics[width=0.85\textwidth]{figuras/medalhao-microsoft.png}
+    \includegraphics[width=0.78\textwidth]{figuras/medalhao-microsoft.png}
     \\[4pt]
-    Fonte: \citeonline{MicrosoftMedallion2024}.
+    {\footnotesize Fonte: \citeonline{MicrosoftMedallion2024}.}
 \end{figure}
 
+\subsection{Formato Apache Parquet}
 \label{subsec:parquet}
 
 O Apache Parquet é um formato de armazenamento colunar mantido pela Apache Software Foundation \cite{ApacheParquet2024}. Nos formatos orientados a linha, como CSV ou JSON, todos os campos de um mesmo registro ficam juntos no disco; o Parquet inverte essa lógica e grava em sequência os valores de cada coluna. Uma consulta que usa poucas colunas lê apenas os blocos delas (\textit{column pruning}), e o ganho cresce com tabelas de dezenas de colunas e milhões de registros, como as deste trabalho. A \autoref{fig:parquet-layout} mostra a organização do arquivo definida pela especificação: as linhas são divididas em grupos (\textit{row groups}); dentro de cada grupo, cada coluna ocupa um bloco contíguo (\textit{column chunk}), dividido em páginas; e o rodapé (\textit{footer}) guarda o esquema e, para cada bloco, a posição no arquivo e estatísticas como mínimo e máximo.
@@ -78,13 +80,14 @@ O Apache Parquet é um formato de armazenamento colunar mantido pela Apache Soft
     \centering
     \caption{Organização de um arquivo Parquet}
     \label{fig:parquet-layout}
-    \includegraphics[width=0.62\textwidth]{figuras/parquet-layout-apache.png}
+    \includegraphics[width=0.55\textwidth]{figuras/parquet-layout-apache.png}
     \\[4pt]
-    Fonte: \citeonline{ParquetFormat2026}.
+    {\footnotesize Fonte: \citeonline{ParquetFormat2026}.}
 \end{figure}
 
 A leitura seletiva vem acompanhada de dois outros benefícios. No \textit{predicate pushdown}, os filtros são avaliados contra as estatísticas de mínimo e máximo guardadas nos metadados de cada bloco, e blocos inteiros são descartados sem leitura; pelos mesmos metadados, contar as linhas de um arquivo não exige ler nenhum dado. E a compressão é mais eficiente: valores de uma mesma coluna têm distribuição parecida, o que favorece algoritmos como Snappy e ZSTD, e o arquivo comprimido é consultado sem importação prévia. O formato aceita ainda particionar os arquivos por colunas como ano e estado, o que permite ao leitor carregar só as partições que casam com os filtros da consulta \cite{ApacheParquet2024}.
 
+\subsection{DuckDB e repositórios públicos de dados}
 \label{subsec:motores-in-process}
 
 Os motores de \textit{Online Analytical Processing} (OLAP) tradicionais, como Redshift, BigQuery ou ClickHouse, seguem o modelo cliente-servidor, que cobra seu preço em latência de rede e complexidade de operação. Os motores \textit{in-process} são executados dentro do próprio processo da aplicação, sem servidor separado, e o DuckDB é o principal representante dessa categoria. Ele usa execução vetorizada: em vez de processar uma linha por vez, opera sobre vetores de valores de uma mesma coluna, o que aproveita as instruções vetoriais dos processadores modernos \cite{Raasveldt2019}.
@@ -97,6 +100,7 @@ A diferença em relação a um \textit{bucket} privado não é de desempenho, ma
 
 Uma propriedade desse modelo tem consequência direta na engenharia: o envio é aditivo. Um \textit{commit} acrescenta ou substitui os arquivos enviados, mas não remove os que deixaram de existir na origem, a menos que a remoção seja pedida explicitamente \cite{HuggingFaceUpload2026}. Se uma camada for reorganizada e seus arquivos renomeados, as versões antigas permanecem, e uma leitura da pasta inteira passa a contá-las junto com as novas.
 
+\subsection{Orquestração de \textit{pipelines}}
 \label{subsec:orquestracao}
 
 Um \textit{pipeline} de dados com várias etapas precisa de um orquestrador, que decide quando cada etapa roda e garante que ela só comece depois daquelas de que depende. Essa estrutura é um grafo acíclico dirigido (DAG), em que os nós são as etapas e as arestas, as dependências entre elas \cite{Reis2022}. Ferramentas dedicadas, como o Apache Airflow, implementam esse modelo, mas pressupõem um servidor próprio em funcionamento contínuo.
@@ -105,6 +109,7 @@ Plataformas de integração contínua oferecem os mesmos elementos como serviço
 
 Duas características desse modelo condicionam o desenho do \textit{pipeline}. Os executores são isolados: um \textit{job} não enxerga o disco de outro, e todo dado que passa de uma etapa à seguinte precisa ser persistido fora do executor \cite{GitHubActions2026}. E cada execução tem memória, disco e duração limitados, o que favorece dividir o trabalho em unidades pequenas e independentes, que cabem no executor e podem ser repetidas isoladamente quando uma delas falha.
 
+\subsection{Visualização \textit{web} sem servidor}
 \label{sec:visualizacao}
 
 Um \textit{dashboard} interativo na \textit{web} pode executar as consultas em um servidor ou no navegador de quem o visita. No primeiro caso, cada interação exige uma ida e volta pela rede, e a aplicação só existe enquanto houver um processo de servidor ativo; no segundo, o filtro responde sem rede, e o \textit{dashboard} se reduz a um conjunto de arquivos estáticos \cite{Kohn2022}.
@@ -180,17 +185,7 @@ A alternativa adequada é a tábua de vida de período, instrumento clássico da
 \section{Trabalhos relacionados}
 \label{sec:relacionados}
 
-A análise do mercado de trabalho brasileiro com os microdados da RAIS e do CAGED é tema recorrente. Esta seção apresenta os trabalhos que mais se aproximam deste, por método ou por objeto, e indica o que os diferencia.
-
-O Instituto de Pesquisa Econômica Aplicada (IPEA) publica relatórios trimestrais de \textit{Conjuntura do Mercado de Trabalho no Brasil}, que cruzam a Pesquisa Nacional por Amostra de Domicílios Contínua (PNAD Contínua), o CAGED e a RAIS \cite{IPEA2023}. O foco é macroeconômico (população ocupada, taxa de desemprego e rendimento médio em recortes amplos), sem aprofundar um setor específico como o de TI.
-
-A pesquisa da FECOMERCIOSP \cite{Fecomercio2024}, citada na seção anterior, é a que mais se aproxima deste trabalho, mas descreve séries anuais de 30 ocupações, sem modelagem preditiva nem integração com o CAGED, e, publicada como nota técnica, não traz o detalhamento que permitiria reproduzi-la. Os relatórios da BRASSCOM \cite{Brasscom2024, Brasscom2025} combinam RAIS, CAGED e outras fontes, mas não abrem a metodologia nem os dados intermediários.
-
-Na literatura acadêmica, \citeonline{Azambuja2016} usaram a RAIS de 2006 a 2013 para comparar a demanda de trabalho das empresas de serviços de TIC com a do setor de serviços como um todo, e concluíram que o setor é heterogêneo: as condições de trabalho variam conforme o grau de inserção de cada segmento na competição por inovação. No tema da equidade, \citeonline{Dobner2022} aplicaram as decomposições de Oaxaca-Blinder e de Ñopo à RAIS do Rio Grande do Sul, de 2012 a 2018, e encontraram hiato de gênero favorável aos homens em todos os setores, com uma característica notável: se os atributos produtivos determinassem o salário, as mulheres ganhariam mais. Nenhum dos dois trata o setor de TI pelas duas lentes, de setor e de ocupação, nem cobre a série desde 2007.
-
-No campo técnico, a Arquitetura Medalhão (\autoref{subsec:medalhao}) tornou-se referência para a organização de \textit{data lakes}, e \citeonline{Armbrust2021} propuseram o \textit{lakehouse}, que combina o desempenho analítico do \textit{data warehouse} com o armazenamento de dados brutos em formatos abertos como o Parquet, lidos diretamente por motores analíticos modernos, a mesma intuição que orienta as escolhas técnicas deste trabalho. A aplicação dessa arquitetura a microdados governamentais brasileiros, com motores leves como o DuckDB, repositórios públicos de dados e execução por integração contínua, ainda é pouco documentada em trabalhos acadêmicos.
-
-A \autoref{tab:comparativo-relacionados} resume como este TCC se posiciona frente a esses trabalhos.
+Entre os muitos estudos sobre o mercado de trabalho com a RAIS e o CAGED, esta seção apresenta os mais próximos deste, por método ou por objeto, e o que os diferencia.
 
 \begin{table}[htbp]
     \centering
@@ -219,7 +214,15 @@ A \autoref{tab:comparativo-relacionados} resume como este TCC se posiciona frent
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{IPEA2023}, \citeonline{Fecomercio2024}, \citeonline{Brasscom2024}, \citeonline{Azambuja2016} e \citeonline{Dobner2022}.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{table}
 
-Esses trabalhos deixam três lacunas que este TCC pretende preencher: a integração das duas bases em uma série única e harmonizada, cobrindo dezoito anos; a aplicação de modelos formais (previsão da série mensal com especificação escolhida por validação de origem móvel e estimação do estoque corrente por \textit{nowcast}), além da análise descritiva; e uma plataforma analítica reprodutível, em que o \textit{pipeline} e o \textit{dashboard} podem ser inspecionados, executados e estendidos por outros pesquisadores.
+O Instituto de Pesquisa Econômica Aplicada (IPEA) publica relatórios trimestrais de \textit{Conjuntura do Mercado de Trabalho no Brasil}, que cruzam a Pesquisa Nacional por Amostra de Domicílios Contínua (PNAD Contínua), o CAGED e a RAIS \cite{IPEA2023}. O foco é macroeconômico (população ocupada, taxa de desemprego e rendimento médio em recortes amplos), sem aprofundar um setor específico como o de TI.
+
+A pesquisa da FECOMERCIOSP \cite{Fecomercio2024} é a que mais se aproxima deste trabalho, mas descreve séries anuais de 30 ocupações, sem modelagem preditiva nem integração com o CAGED, e, publicada como nota técnica, não traz o detalhamento que permitiria reproduzi-la. Os relatórios da BRASSCOM \cite{Brasscom2024, Brasscom2025} combinam RAIS, CAGED e outras fontes, mas não abrem a metodologia nem os dados intermediários.
+
+Na literatura acadêmica, \citeonline{Azambuja2016} usaram a RAIS de 2006 a 2013 para comparar a demanda de trabalho das empresas de serviços de TIC com a do setor de serviços como um todo, e concluíram que o setor é heterogêneo: as condições de trabalho variam conforme o grau de inserção de cada segmento na competição por inovação. No tema da equidade, \citeonline{Dobner2022} aplicaram as decomposições de Oaxaca-Blinder e de Ñopo à RAIS do Rio Grande do Sul, de 2012 a 2018, e encontraram hiato de gênero favorável aos homens em todos os setores, com uma característica notável: se os atributos produtivos determinassem o salário, as mulheres ganhariam mais. Nenhum dos dois trata o setor de TI pelas duas lentes, de setor e de ocupação, nem cobre a série desde 2007.
+
+No campo técnico, a Arquitetura Medalhão (\autoref{subsec:medalhao}) tornou-se referência para a organização de \textit{data lakes}, e \citeonline{Armbrust2021} propuseram o \textit{lakehouse}, que combina o desempenho analítico do \textit{data warehouse} com o armazenamento de dados brutos em formatos abertos como o Parquet, lidos diretamente por motores analíticos modernos, a mesma intuição que orienta as escolhas técnicas deste trabalho. No acesso a microdados brasileiros, a iniciativa mais próxima é a Base dos Dados \cite{Dahis2022}, que publica dezenas de bases públicas já tratadas, entre elas a RAIS, em um \textit{data lake} de esquema unificado consultável por SQL no BigQuery. Este trabalho acrescenta o recorte setorial com as duas lentes, a recontagem publicada contra o dado bruto, a auditoria da fonte e a leitura por HTTP, sem conta em provedor de nuvem.
+
+Esses trabalhos, comparados na \autoref{tab:comparativo-relacionados}, deixam três lacunas que este TCC pretende preencher: a integração das duas bases em uma série única e harmonizada, cobrindo dezoito anos; a aplicação de modelos formais (previsão da série mensal com especificação escolhida por validação de origem móvel e estimação do estoque corrente por \textit{nowcast}), além da análise descritiva; e uma plataforma analítica reprodutível, em que o \textit{pipeline} e o \textit{dashboard} podem ser inspecionados, executados e estendidos por outros pesquisadores.

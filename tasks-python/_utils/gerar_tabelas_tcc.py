@@ -257,7 +257,7 @@ def figura(nome: str, caption: str, rotulo: str, corpo: str, nota: str = "",
     \\label{{{rotulo}}}
 {corpo}
     \\\\[4pt]
-    {{\\footnotesize {nota}}}Fonte: {fonte}
+    {{\\footnotesize {nota}Fonte: {fonte}}}
 \\end{{figure}}""")
 
 
@@ -331,7 +331,10 @@ linhas = [[r[0], num(r[1]), num(r[2], 2), num(r[3])] for r in con.execute(f"""
 """).fetchall()]
 tabela("tab-lentes.tex",
        f"As duas lentes do recorte de tecnologia em {ANO}",
-       "tab:lentes", "lrrr",
+       # Cabeçalhos longos em colunas de largura fixa: em "lrrr" a tabela
+       # passava 54 pt da margem.
+       "tab:lentes", "l" + ">{\\raggedleft\\arraybackslash}p{2.0cm}" * 1
+                     + ">{\\raggedleft\\arraybackslash}p{3.0cm}" * 2,
        ["Lente", "Vínculos", "Remuneração mediana (SM)", "Tempo de emprego (meses)"], linhas)
 
 # A mesma divisão no tempo: a fotografia de um ano mostra a maioria fora das
@@ -530,7 +533,9 @@ for a, b in periodos:
                       num(w["adm"].sum() / w["adm_caged"].sum(), 3), num(w["desl"].sum() / w["desl_caged"].sum(), 3)])
 tabela("tab-coerencia.tex",
        f"Variação do estoque da RAIS e saldo do CAGED, vínculos CLT de TI, {periodos[-1][0]}--{periodos[-1][1]}",
-       "tab:coerencia", "lrrrrrrr",
+       # Quatro colunas de cabeçalho longo com largura fixa: em "lrrrrrrr" a
+       # tabela passava 24 pt da margem.
+       "tab:coerencia", "l" + ">{\\raggedleft\\arraybackslash}p{1.5cm}" * 4 + "rrr",
        ["Período", "Var. RAIS", "Saldo CAGED", "Diferença", "Sem contratação", "Fluxos", "Adm.", "Desl."],
        linhas_co,
        nota="Var. RAIS: variação do estoque CLT em 31/12. A diferença para o saldo do CAGED se divide, sem resto, "

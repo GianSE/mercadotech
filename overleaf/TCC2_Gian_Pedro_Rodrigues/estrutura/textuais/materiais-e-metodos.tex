@@ -47,7 +47,7 @@ O trabalho seguiu o \textit{Cross-Industry Standard Process for Data Mining} (CR
 
     \end{tikzpicture}
     \\[4pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
+    {\footnotesize Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.}
 \end{figure}
 
 A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executadas.
@@ -72,7 +72,7 @@ A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executa
         \bottomrule
     \end{tabular}
     \\[4pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
+    {\footnotesize Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.}
 \end{table}
 
 O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes, o recorte e as perguntas iniciais, e a execução mostrou várias vezes que algo precisava mudar: a cada descoberta, voltou-se a uma fase anterior para buscar dados não previstos, corrigir a preparação, trocar um modelo ou reformular uma pergunta. O \autoref{quadro:crispdm-retornos} relaciona os principais retornos; quase todos partiram da Avaliação, isto é, do confronto de um resultado com o que era plausível ou com o resultado de cálculos independentes, a fim de identificar possíveis inconsistências.
@@ -101,7 +101,7 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{quadro}
 
 \section{Fontes de dados}
@@ -192,7 +192,7 @@ A plataforma foi construída primeiro sobre infraestrutura local e migrada, na f
     \\[4pt]
     {\footnotesize Contorno duplo: conjunto de dados público no Hugging Face Hub. Todas as etapas, do \textit{download} à Gold, rodam em executores do GitHub Actions; o \textit{dashboard} é publicado na Cloudflare Pages e lê a Gold direto do Hub. Arquivos: 984 na Bronze do período (50 arquivos grandes da RAIS são publicados em 146 partes) e 604 na Silver; o repositório da Bronze guarda também 4,3~GB de anos anteriores a 2007.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, com base na arquitetura Medalhão \cite{MicrosoftMedallion2024}.
+    {\footnotesize Fonte: Elaborado pelo autor, com base na arquitetura Medalhão \cite{MicrosoftMedallion2024}.}
 \end{figure}
 
 O repositório público é o próprio \textit{data lake}: cada camada é um conjunto de dados no Hugging Face Hub (dois da Bronze, um de dicionários, dois da Silver e um da Gold), e cada etapa lê a camada anterior e grava a seguinte nele. O processamento não tem máquina fixa: cada etapa roda em um executor efêmero do GitHub Actions, e nada persiste entre execuções além do que foi gravado no repositório. A Silver traduz só as linhas do recorte, e não o mercado inteiro, que teria volume da ordem da Bronze; analisar outra área exige apenas outra Silver, construída a partir da mesma Bronze.
@@ -265,99 +265,14 @@ O repositório público é o próprio \textit{data lake}: cada camada é um conj
     \\[4pt]
     {\footnotesize O site é construído pela Cloudflare Pages a cada alteração do código no GitHub; os dados não passam por ela: o navegador pede à Gold só as tabelas da aba aberta e as consulta localmente.}
     \\[2pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{figure}
 
 \label{subsec:orquestracao-pipeline}
 
 O \textit{pipeline} é dividido em nove etapas, cada uma um \textit{workflow} do GitHub Actions. Um décimo \textit{workflow}, o orquestrador, roda toda semana e encadeia as nove pela dependência real entre elas: uma etapa só começa quando as de que depende terminaram. Ele também pode ser disparado a partir de qualquer camada, e cada etapa pode rodar isoladamente.
 
-O processamento é incremental. As etapas de Bronze e de Silver começam por uma verificação, que compara a origem com o que já está publicado e lista os pares (tabela, ano) pendentes, e processam cada par em um \textit{job} próprio, até quatro em paralelo; o particionamento por ano é o que permite reprocessar um ano sem tocar nos demais. A verificação identifica cada arquivo já ingerido pelo caminho de origem gravado nas linhas, e não pelo nome, porque arquivos grandes da RAIS são divididos em partes na publicação, e, quando ela falha, trata o item como existente: deixar de atualizar um ano é uma falha visível, enquanto ingerir duas vezes duplicaria o dado sem aviso. A Gold, pequena, é reconstruída inteira, dividida em quatro etapas para que a falha de uma não obrigue a refazer as outras. A \autoref{fig:actions} mostra uma execução agendada: a verificação encontrou arquivos novos do CAGED de 2026 e nada pendente na RAIS, e a execução inteira, da decisão à última tabela da Gold, levou cerca de meia hora.
-
-\begin{figure}[htbp]
-    \centering
-    \caption{Execução agendada do orquestrador no GitHub Actions, em 9 de novembro de 2026}
-    \label{fig:actions}
-    \resizebox{\textwidth}{!}{%
-    \begin{tikzpicture}[
-        job/.style={rectangle, rounded corners=3pt, draw=black!30, fill=white,
-                    text width=3.8cm, minimum height=7.5mm, align=left, font=\small,
-                    inner xsep=2mm,
-                    execute at begin node={\hyphenpenalty=10000\hspace*{4.4mm}}},
-        pulado/.style={text=black!50},
-        matriz/.style={rectangle, rounded corners=3pt, draw=black!30, fill=black!3, inner sep=1.3mm},
-        rotmatriz/.style={font=\scriptsize\ttfamily, text=black!70, anchor=south west, inner sep=1.5pt},
-        etapa/.style={font=\small\bfseries, anchor=east, align=right, text=black!75},
-        liga/.style={black!40, line width=0.7pt}
-    ]
-    \newcommand{\ok}[1]{%
-        \fill[green!50!black] ([xshift=3.4mm]#1.west) circle (1.5mm);
-        \draw[white, line width=0.9pt] ([xshift=2.75mm, yshift=0.05mm]#1.west) -- ([xshift=3.25mm, yshift=-0.5mm]#1.west) -- ([xshift=4.05mm, yshift=0.55mm]#1.west);}
-    \newcommand{\pul}[1]{\draw[black!45, line width=0.7pt] ([xshift=3.4mm]#1.west) circle (1.5mm);}
-    \newcommand{\dur}[1]{\hfill{\scriptsize\textcolor{black!55}{#1}}}
-
-    \node[etapa] at (-2.1,  0.0)  {Decisão};
-    \node[etapa] at (-2.1, -1.4)  {Bronze\\verificação};
-    \node[etapa] at (-2.1, -3.8)  {Bronze\\ingestão};
-    \node[etapa] at (-2.1, -6.2)  {Silver\\verificação};
-    \node[etapa] at (-2.1, -8.4)  {Silver\\tradução};
-    \node[etapa] at (-2.1, -10.8) {Gold};
-
-    \node[job] (dec) at (6.75,0) {decidir\dur{3s}}; \ok{dec}
-    \node[font=\small, text=black!65, anchor=east] at (15.4,0) {agendada (\textit{cron}) · total 30m33s};
-
-    % Bronze: verificação das três fontes e ingestão do que faltava
-    \node[job] (vdi) at (2.25,-1.4)  {dicionario\dur{33s}};    \ok{vdi}
-    \node[job] (vbc) at (6.75,-1.4)  {bronze-caged\dur{2m37s}}; \ok{vbc}
-    \node[job] (vbr) at (11.25,-1.4) {bronze-rais\dur{1m21s}};  \ok{vbr}
-    \node[job] (b1) at (4.50,-3.0) {caged\_mov\dur{4m37s}}; \ok{b1}
-    \node[job] (b2) at (4.50,-3.8) {caged\_exc\dur{39s}};   \ok{b2}
-    \node[job] (b3) at (4.50,-4.6) {caged\_for\dur{1m15s}}; \ok{b3}
-    \node[job, pulado] (b4) at (9.00,-3.0) {nada pendente}; \pul{b4}
-
-    % Silver
-    \node[job] (vsc) at (4.50,-6.2) {silver-caged-ti\dur{15s}}; \ok{vsc}
-    \node[job] (vsr) at (9.00,-6.2) {silver-rais-ti\dur{11s}};  \ok{vsr}
-    \node[job] (t1) at (4.50,-7.6) {caged\_mov\dur{2m12s}}; \ok{t1}
-    \node[job] (t2) at (4.50,-8.4) {caged\_exc\dur{1m46s}}; \ok{t2}
-    \node[job] (t3) at (4.50,-9.2) {caged\_for\dur{1m25s}}; \ok{t3}
-    \node[job, pulado] (t4) at (9.00,-7.6) {nada pendente}; \pul{t4}
-
-    % Gold
-    \node[job] (gc) at (0.00,-10.8) {gold-caged-\\\hspace*{4.4mm}consolidado\dur{11m18s}}; \ok{gc}
-    \node[job] (gr) at (4.50,-10.8) {gold-rais\dur{9m19s}};        \ok{gr}
-    \node[job] (gt) at (9.00,-10.8) {gold-territorio\dur{9m32s}};  \ok{gt}
-    \node[job] (gm) at (13.50,-10.8) {gold-modelos\dur{19m22s}};   \ok{gm}
-
-    \begin{scope}[on background layer]
-        \node[matriz, fit=(b1)(b3)] (mbc) {};
-        \node[matriz, fit=(b4)] (mbr) {};
-        \node[matriz, fit=(t1)(t3)] (msc) {};
-        \node[matriz, fit=(t4)] (msr) {};
-        % ligações por camada, como a interface agrupa
-        \draw[liga] (dec.south) -- (6.75,-0.7) (2.25,-0.7) -- (11.25,-0.7);
-        \foreach \b in {vdi,vbc,vbr} \draw[liga] (\b.north |- 0,-0.7) -- (\b.north);
-        \foreach \a in {vdi,vbc,vbr} \draw[liga] (\a.south) -- (\a.south |- 0,-2.15);
-        \draw[liga] (2.25,-2.15) -- (11.25,-2.15);
-        \foreach \b in {mbc,mbr} \draw[liga] (\b.north |- 0,-2.15) -- (\b.north);
-        \foreach \a in {mbc,mbr} \draw[liga] (\a.south) -- (\a.south |- 0,-5.5);
-        \draw[liga] (4.50,-5.5) -- (9.00,-5.5);
-        \foreach \b in {vsc,vsr} \draw[liga] (\b.north |- 0,-5.5) -- (\b.north);
-        \draw[liga] (vsc.south) -- (msc.north) (vsr.south) -- (msr.north);
-        \draw[liga] (msc.south) -- (4.50,-10.0) (msr.south) -- (9.00,-10.0) (0.00,-10.0) -- (13.50,-10.0);
-        \foreach \b in {gc,gr,gt,gm} \draw[liga] (\b.north |- 0,-10.0) -- (\b.north);
-    \end{scope}
-    \node[rotmatriz, fill=white] at (mbc.north west) {Matrix: atualizar (2026)};
-    \node[rotmatriz, fill=white] at (mbr.north west) {Matrix: atualizar};
-    \node[rotmatriz, fill=white] at (msc.north west) {Matrix: traduzir (2026)};
-    \node[rotmatriz, fill=white] at (msr.north west) {Matrix: traduzir};
-    \end{tikzpicture}%
-    }
-    \\[4pt]
-    {\footnotesize Círculo cheio: etapa executada; círculo vazio: nada a processar. As ligações seguem o agrupamento por camada da interface do GitHub Actions, mas cada etapa espera só as de que depende: a \texttt{gold-rais} começou dois minutos após o início, com o CAGED ainda na Bronze, e a \texttt{gold-modelos}, que usa o estoque da RAIS, começou quando a \texttt{gold-rais} terminou.}
-    \\[2pt]
-    Fonte: Elaborado pelo autor, a partir da execução registrada no GitHub Actions \cite{GitHubActions2026}.
-\end{figure}
+O processamento é incremental. As etapas de Bronze e de Silver começam por uma verificação, que compara a origem com o que já está publicado e lista os pares (tabela, ano) pendentes, e processam cada par em um \textit{job} próprio, até quatro em paralelo; o particionamento por ano é o que permite reprocessar um ano sem tocar nos demais. A verificação identifica cada arquivo já ingerido pelo caminho de origem gravado nas linhas, e não pelo nome, porque arquivos grandes da RAIS são divididos em partes na publicação, e, quando ela falha, trata o item como existente: deixar de atualizar um ano é uma falha visível, enquanto ingerir duas vezes duplicaria o dado sem aviso. A Gold, pequena, é reconstruída inteira, dividida em quatro etapas para que a falha de uma não obrigue a refazer as outras. Uma execução real está na \autoref{fig:actions}.
 
 Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o ano (e o mês, nas tabelas mensais) no caminho, como em \nolinkurl{caged_mov/ano_particao=2025/mes_particao=6/}, o que permite ao DuckDB descartar partições pelo caminho, antes de abrir qualquer arquivo. Cada partição é consolidada em um único arquivo, porque sobre HTTP cada objeto custa uma requisição, e a procedência de cada linha fica em colunas de linhagem (arquivo e caminho de origem, data de ingestão), e não no nome do arquivo. A \autoref{fig:leitura-particao} mostra o que o DuckDB lê para somar o saldo de um mês por estado: uma das 81 partições da tabela e, dentro dela, só as duas colunas da consulta, cerca de 3\% do arquivo.
 
@@ -424,7 +339,7 @@ Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o 
     \\[4pt]
     {\footnotesize Cada faixa do arquivo representa duas colunas. Os números são do arquivo de junho de 2025 da tabela \texttt{caged\_mov} no repositório \texttt{silver-caged-ti}; os mínimos e máximos dos dois blocos se sobrepõem, e nenhum bloco é descartado por eles nesta consulta.}
     \\[2pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{MuhleisenRaasveldt2021}.
+    {\footnotesize Fonte: Elaborado pelo autor, com base em \citeonline{MuhleisenRaasveldt2021}.}
 \end{figure}
 
 \label{sec:publicacao}
@@ -466,7 +381,7 @@ Cada ferramenta foi escolhida por um requisito do projeto: processar volumes mai
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{quadro}
 
 \section{Auditoria e reprodutibilidade}
@@ -487,6 +402,7 @@ A reprodutibilidade foi tratada em quatro níveis: o código está em repositór
 
 \section{Modelos aplicados}
 
+\subsection{Previsão do saldo mensal}
 \label{subsec:metodo-sarima}
 
 A série de saldo mensal de empregos em TI (admissões menos desligamentos) foi modelada pela família SARIMA, descrita na \autoref{subsec:sarima}. Foram avaliadas seis especificações, todas com componente sazonal de período 12, e um \textit{baseline} ingênuo sazonal. O Prophet \cite{Taylor2018}, modelo previsto na proposta, entrou na mesma comparação, em três configurações que variam apenas a flexibilidade da tendência (0,01, 0,05 e 0,5, sendo a segunda o padrão da biblioteca), com sazonalidade anual aditiva, já que o saldo é negativo em parte dos meses. As duas grades são pequenas de propósito, pelo risco de sobreajuste na validação (\autoref{subsec:origem-movel}).
@@ -495,6 +411,7 @@ A série emenda as duas gerações do CAGED (\autoref{subsec:caged}) e usa só a
 
 A avaliação seguiu a validação de origem móvel (\autoref{subsec:origem-movel}), com horizonte de 12 meses, cinco dobras anuais, o \textit{baseline} nas mesmas dobras e as métricas MAE e RMSE. Como a especificação foi escolhida e avaliada nas mesmas dobras, sem período de teste reservado, o ganho sobre o \textit{baseline} é uma estimativa otimista.
 
+\subsection{\textit{Nowcast} do estoque}
 \label{subsec:metodo-nowcast}
 
 A RAIS de um ano só é publicada no ano seguinte, mas o CAGED já publicou parte dele (\autoref{subsec:nowcasting}), o que permite estimar o estoque corrente pela identidade contábil
@@ -505,12 +422,14 @@ em que $E_{t-1}$ é o estoque do último ano publicado da RAIS e $F_t$ é o flux
 
 Como as duas bases têm coberturas e prazos distintos, a identidade é aproximada, e foram comparados quatro estimadores da relação entre $\Delta E$ e $F$: a identidade direta, uma regressão linear, a razão mediana histórica e um estimador ingênuo de estoque constante. A validação é retrospectiva: para cada ano de 2014 a 2025, a relação é ajustada só com os anos anteriores, aplicada ao saldo do próprio ano, já completo, e comparada com o estoque que a RAIS publicou depois. O teste não inclui o erro da previsão dos meses ainda não divulgados, que entra na margem da projeção, somado em quadratura.
 
+\subsection{Permanência no emprego}
 \label{subsec:metodo-sobrevivencia}
 
 A permanência foi analisada pelo tempo de vínculo declarado na RAIS, na lente de ocupação. Contam como censura, e não como desligamento, os motivos em que o vínculo continua em outro lugar ou sai do mercado de trabalho (transferência, redistribuição de servidor, mudança de regime e falecimento); só as transferências são 17\% dos desligamentos declarados em 2024, e contá-las inflaria a rotatividade em quase um quinto.
 
 O método foi a tábua de vida de período (\autoref{subsec:sobrevivencia}), com sete faixas de tempo de casa no início do ano, de 0--6 meses a 10--20 anos: a proporção de desligados em cada faixa dá a probabilidade acumulada de permanência. Os admitidos durante o ano entram na primeira faixa com peso cheio, embora expostos por menos de doze meses, o que torna essa faixa menos comparável.
 
+\subsection{Decomposição salarial}
 \label{subsec:metodo-oaxaca}
 
 As diferenças de remuneração por sexo e por raça/cor foram decompostas pelo método de Oaxaca-Blinder \cite{Oaxaca1973, Blinder1973}, apresentado na \autoref{subsec:oaxaca}. A variável dependente é o logaritmo da remuneração média em salários mínimos; as covariáveis são escolaridade, área de TI, porte do estabelecimento, região, setor (TI ou não), tempo de emprego, idade, idade ao quadrado e horas contratuais. A referência é o vetor de coeficientes da regressão conjunta dos dois grupos \cite{Neumark1988}, e a decomposição foi calculada ano a ano, de 2007 a 2025, o que mostra a trajetória das duas parcelas em lugar de uma fotografia única.
@@ -544,5 +463,5 @@ Declarar as mudanças em relação à proposta é parte do método. O \autoref{q
         \bottomrule
     \end{tabularx}
     \\[4pt]
-    Fonte: Elaborado pelo autor.
+    {\footnotesize Fonte: Elaborado pelo autor.}
 \end{quadro}

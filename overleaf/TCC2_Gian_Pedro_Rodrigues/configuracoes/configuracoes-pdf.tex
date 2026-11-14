@@ -24,20 +24,23 @@
 \makeindex
 
 % "Citado na página X" nas referências (gerado pelo abnt-refinfo do abntex2cite)
-% As linhas abaixo estavam suprimindo essa informação e foram desativadas.
-% \renewcommand*{\backref}[1]{}
-% \renewcommand*{\backrefalt}[4]{}
+% A NBR 6023 não prevê essa informação, e os TCCs da UTFPR não a trazem: suprimida.
+\renewcommand*{\backref}[1]{}
+\renewcommand*{\backrefalt}[4]{}
+
+% URL sem < > nas referências, como pede a NBR 6023:2018 (o abntex2cite ainda os põe).
+\AtBeginDocument{\def\UrlLeft{}\def\UrlRight{}}
 
 % CABEÇALHO DAS PÁGINAS---------------------------------------------------------
-% "Capítulo N." em caixa normal (a classe já o exibe em itálico) e apenas o
-% título do capítulo em maiúsculas, ex.: "Capítulo 1. INTRODUÇÃO".
-% Anexado a \textual para sobrescrever o \chaptermark definido pela classe.
+% Só o número da página, no canto superior direito, sem título do capítulo e
+% sem filete (NBR 14724), como nos TCCs da UTFPR. Anexado a \textual porque é
+% lá que a classe liga o estilo abntheadings.
+\makepagestyle{numeropagina}
+\makeoddhead{numeropagina}{}{}{\ABNTEXfontereduzida\thepage}
+\makeevenhead{numeropagina}{}{}{\ABNTEXfontereduzida\thepage}
+\makeheadrule{numeropagina}{\textwidth}{0pt}
 \makeatletter
-\g@addto@macro\textual{%
-    \renewcommand{\chaptermark}[1]{%
-        \markboth{\@chapapp\ \thechapter.\ \MakeTextUppercase{#1}}%
-                 {\@chapapp\ \thechapter.\ \MakeTextUppercase{#1}}}%
-}
+\g@addto@macro\textual{\pagestyle{numeropagina}}
 \makeatother
 
 % HIFENIZAÃ‡ÃÆ’O DE PALAVRAS QUE NÃÆ’O ESTÃÆ’O NO DICIONÃRIO---------------------------
