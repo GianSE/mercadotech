@@ -71,8 +71,9 @@ A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e er
         Códigos não documentados & CBO 211220 e seis motivos de desligamento de 2024 fora dos dicionários oficiais & Tradução sem correspondente \\
         Ingestão parcial & 446.267 vínculos de 2022 ausentes da camada tratada & Série anual implausível \\
         Duplicata no CAGED antigo & 206.950 linhas repetidas em 2007, saldo inflado em 26.472 vagas & Recontagem do dado bruto \\
-        Extração interrompida & 21 meses de 2008 a 2014 com parte das linhas, sem erro & Meses abaixo dos vizinhos (\autoref{sec:coerencia-bases}) \\
+        Extração interrompida & 21 meses de 2008 a 2014 com parte das linhas, sem erro & Meses abaixo dos vizinhos (\autoref{sec:validacao-mte}) \\
         Arquivos corrompidos na fonte & Dois arquivos do MTE, de 2010 e 2011 (\autoref{subsec:perdas}) & Teste de integridade \\
+        Bloco perdido na ingestão (método) & 567.751 vínculos da RAIS de 2017 a 2021 fora da Bronze (\autoref{subsec:perdas}) & Linhas do texto contra a Bronze \\
         Servidores como programadores & Governo de Rondônia: 40 a 49 mil falsos profissionais de TI (\autoref{subsec:artefato-ro}) & Um órgão como maior grupo de TI \\
         Kaplan-Meier em corte transversal (método) & Permanência mediana de 48 anos & Resultado implausível \\
         Mediana pela média das medianas (método) & Mediana superestimada e comparação entre lentes invertida & Dois cálculos divergentes \\
@@ -97,7 +98,7 @@ O grupo foi excluído na Gold nos anos em que passa de mil registros, limite que
 \subsection{Quanto dado se perdeu}
 \label{subsec:perdas}
 
-Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa ser medido, e não presumido. A recontagem a partir do dado bruto (\autoref{sec:reprodutibilidade}) deu diferença zero em todos os anos das duas bases: a tradução e o recorte não descartam registros. A perda, portanto, está antes da Bronze, na leitura dos pacotes do servidor: os dois arquivos corrompidos na fonte do \autoref{quadro:achados} entraram na camada só com a parte legível. A proporção entre a parte legível e o tamanho original declarado no pacote dá a estimativa do que falta (\autoref{tab:perdas}).
+Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa ser medido, e não presumido. A recontagem a partir do dado bruto (\autoref{sec:reprodutibilidade}) deu diferença zero em todos os anos das duas bases: a tradução e o recorte não descartam registros. A perda, portanto, está antes da Bronze. Para medi-la, uma execução à parte baixou de novo os 883 pacotes das duas bases, testou a integridade de cada um e contou as linhas do texto contra as da Bronze, sem gravar nada nas camadas. Só dois pacotes, ambos do CAGED, estão corrompidos na fonte (\autoref{quadro:achados}) e entraram na camada só com a parte legível; a proporção entre a parte legível e o tamanho original declarado no pacote dá a estimativa do que falta (\autoref{tab:perdas}).
 
 \begin{table}[htbp]
     \centering
@@ -120,12 +121,11 @@ Todo projeto de dados perde parte do que recebe, e o tamanho da perda precisa se
     No arquivo: linhas estimadas pela proporção entre os bytes legíveis e o tamanho original declarado no pacote. Todas as ocupações e setores. Fonte: Elaborado pelo autor com dados do CAGED \cite{CAGED2024}.
 \end{table}
 
-% PENDENTE: medir a perda na RAIS. A Bronze da RAIS veio da ingestão local, anterior à
-% conferência de tamanho do extrator (extracao_ftp/extrator.py), e a recontagem cobre só
-% Bronze -> Silver. Não afirmar perda nula sem o teste de integridade dos pacotes.
-Na base inteira, a perda é de 0,23\% do CAGED bruto. No recorte de tecnologia, só o arquivo de março de 2011 importa, porque os ajustes não entram na série nem nos modelos. Como esse arquivo é ordenado por unidade federativa, a perda não é uma amostra: faltam por inteiro Paraná, Santa Catarina, Rio Grande do Sul, Mato Grosso do Sul, Mato Grosso, Goiás e o Distrito Federal, e cerca de metade de São Paulo. Estimando cada estado pela média de fevereiro e abril, corrigida pela sazonalidade de março medida nos estados completos, faltam 43\% das movimentações de TI do mês, mas só 0,17\% das da série inteira, e o saldo acumulado fica subestimado em 0,5\%. A comparação com a RAIS confirma a ordem de grandeza: em 2011, a diferença de admissões entre as duas bases sobe alguns pontos em relação aos anos vizinhos (\autoref{sec:coerencia-bases}).
+Na base inteira, a perda é de 0,23\% do CAGED bruto. No recorte de tecnologia, só o arquivo de março de 2011 importa, porque os ajustes não entram na série nem nos modelos. Como esse arquivo é ordenado por unidade federativa, a perda não é uma amostra: faltam por inteiro Paraná, Santa Catarina, Rio Grande do Sul, Mato Grosso do Sul, Mato Grosso, Goiás e o Distrito Federal, e cerca de metade de São Paulo. Estimando cada estado pela média de fevereiro e abril, corrigida pela sazonalidade de março medida nos estados completos, faltam 43\% das movimentações de TI do mês, mas só 0,17\% das da série inteira, e o saldo acumulado fica subestimado em 0,5\%. A comparação com a RAIS confirma a ordem de grandeza: em 2011, a diferença de admissões entre as duas bases sobe alguns pontos em relação aos anos vizinhos (\autoref{sec:validacao-mte}).
 
-A série mantém o dado observado, sem imputação: o efeito é pequeno diante de conclusões que se apoiam em tendências de vários anos, e uma estimativa misturada ao dado observado ficaria indistinguível dele. A lacuna fica declarada aqui e na documentação dos dados publicados.
+Na RAIS, nenhum dos 370 pacotes de 2007 a 2025 está corrompido, mas a contagem encontrou uma perda de outra natureza. Em nove arquivos de vínculos, de 2017 a 2021 (São Paulo em todos esses anos, Sul e Nordeste em alguns), a Bronze tem entre 61 e 65 mil linhas a menos que o texto, de 0,31\% a 0,54\% de cada arquivo. O que falta equivale, nos nove, a cerca de 30~MiB do texto. A regularidade aponta um bloco de leitura descartado pela ingestão local, que gerou a Bronze da RAIS antes de o extrator passar a conferir o total gravado contra as linhas do texto, e não um defeito da fonte: o extrator atual, que tolera descartar até 0,1\% das linhas, recusaria esses arquivos. São 567.751 vínculos, 0,04\% da base e no máximo 0,28\% de um ano (2018); nos demais arquivos, a diferença é de no máximo 739 linhas. Se o bloco tiver a composição média do arquivo, o estoque de TI de cada ano fica subestimado em menos de 0,6\%.
+
+Nas duas bases, a série mantém o dado como foi lido, sem imputação: o efeito é pequeno diante de conclusões que se apoiam em tendências de vários anos, e uma estimativa misturada ao dado observado ficaria indistinguível dele. As lacunas ficam declaradas aqui e na documentação dos dados publicados; a da RAIS se fecha reingerindo os nove arquivos com o extrator atual.
 
 \section{Pergunta 1: quanto o mercado cresceu}
 \label{sec:resultado-q1}
@@ -142,7 +142,7 @@ A expansão até 2014 foi interrompida pela recessão de 2015--2016, na única f
 
 Os números são coerentes com os da literatura (\autoref{sec:relacionados}), com diferenças que o recorte explica. Entre 2012 e 2022, a lente de ocupação deste trabalho cresceu 65\%, contra 95\% medidos pela FECOMERCIOSP para a sua lista de ocupações de tecnologia \cite{Fecomercio2024}: o sentido e a ordem de grandeza coincidem, e a distância é compatível com listas de ocupações diferentes, já que a seleção por família, as exclusões e a inclusão dos estatísticos mudam a base de comparação. Já os 2,1 milhões de empregos que a BRASSCOM atribui ao macrossetor TIC em 2024 \cite{Brasscom2024} superam o 1,31 milhão deste trabalho porque o macrossetor soma às atividades de TI as de telecomunicações e de equipamentos, fora do recorte adotado aqui.
 
-O fluxo do CAGED, na \autoref{fig:dashboard-fluxo}, mostra as mesmas ondas pelo lado das contratações. O saldo anual só foi negativo em 2015 e 2016 e chegou ao pico em 2021, com 139 mil vagas. Depois de 2022, as admissões continuaram altas, mas os desligamentos subiram junto, e o saldo voltou a ficar abaixo de 40 mil vagas por ano. O saldo acumulado de janeiro de 2007 a setembro de 2026, de 705 mil vagas, difere da variação do estoque da RAIS pelas razões medidas na \autoref{sec:coerencia-bases}.
+O fluxo do CAGED, na \autoref{fig:dashboard-fluxo}, mostra as mesmas ondas pelo lado das contratações. O saldo anual só foi negativo em 2015 e 2016 e chegou ao pico em 2021, com 139 mil vagas. Depois de 2022, as admissões continuaram altas, mas os desligamentos subiram junto, e o saldo voltou a ficar abaixo de 40 mil vagas por ano. O saldo acumulado de janeiro de 2007 a setembro de 2026, de 705 mil vagas, difere da variação do estoque da RAIS pelas razões medidas na \autoref{sec:validacao-mte}.
 
 \begin{figure}[htbp]
     \centering
@@ -288,7 +288,7 @@ A estimação do presente tem resultado bem mais forte. A \autoref{tab:nowcast} 
 
 \input{estrutura/tabelas-geradas/fig-nowcast-anos.tex}
 
-O melhor estimador, a razão mediana histórica entre a variação do estoque e o saldo do CAGED, erra em média 1,1\%, contra 5,1\% do estimador ingênuo, que supõe estoque constante, e supera também a identidade direta (\autoref{tab:nowcast}). O maior erro foi o de 2022, ano em que o estoque cresceu mais do que o saldo do CAGED indicava. A razão supera a identidade porque a variação do estoque e o saldo do fluxo não andam de um para um (\autoref{sec:coerencia-bases}), e ela incorpora essa relação histórica.
+O melhor estimador, a razão mediana histórica entre a variação do estoque e o saldo do CAGED, erra em média 1,1\%, contra 5,1\% do estimador ingênuo, que supõe estoque constante, e supera também a identidade direta (\autoref{tab:nowcast}). O maior erro foi o de 2022, ano em que o estoque cresceu mais do que o saldo do CAGED indicava. A razão supera a identidade porque a variação do estoque e o saldo do fluxo não andam de um para um (\autoref{sec:validacao-mte}), e ela incorpora essa relação histórica.
 Aplicado ao ano corrente, com nove meses de CAGED publicados, a razão mediana projeta 1,38 milhão de vínculos em 31 de dezembro de 2026, alta de 1,5\% sobre 2025, com margem que vai de uma pequena queda a uma alta de 3\%. A previsão de fluxo aponta na mesma direção, com saldo esperado de 25 mil vagas nos doze meses seguintes, mas com um intervalo que inclui o zero. Os dois resultados confirmam a desaceleração posterior a 2022.
 
 Essa assimetria, previsão de futuro incerta e estimação de presente bem mais precisa, é a mesma que a literatura de \textit{nowcasting} explora para o PIB \cite{Giannone2008, Banbura2013}, aplicada aqui ao emprego, e é o resultado de modelagem mais útil do trabalho: em bases com defasagem de publicação, estimar o que já aconteceu e ainda não foi divulgado rende mais do que prever o que não aconteceu.
