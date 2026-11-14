@@ -1,122 +1,112 @@
 import * as duckdb from "@duckdb/duckdb-wasm";
+import { useEffect, useState } from "react";
+import { baixarTabela, infoGold, RENOMEAR, type Estado } from "./dados";
 
-export type Linha = Record<string, string | number | boolean | null>;
+/*
+ * SQL sobre a gold da área, no navegador. As páginas escrevem as consultas
+ * pelo nome da tabela (`FROM rais_estoque_uf`), como no site do TCC; cada
+ * tabela citada é baixada na primeira vez e vira uma VIEW no schema da área.
+ * Um schema por área: trocar de área nunca mistura as tabelas de uma com as
+ * da outra, e a mesma consulta serve a todas.
+ *
+ * O motor (uns 35 MB) só é baixado quando a primeira consulta chega, ou seja,
+ * quando uma seção que filtra os dados é aberta. A página inicial e a visão
+ * geral não precisam dele.
+ */
 
-type Manifesto = {
-  gerado_em: string;
-  tabelas: Record<string, { arquivo: string; bytes: number }>;
-};
+export type LinhaSQL = Record<string, string | number | boolean | null>;
 
-let manifesto: Promise<Manifesto> | null = null;
-let banco: Promise<duckdb.AsyncDuckDB> | null = null;
-const tabelas = new Map<string, Promise<void>>();
-
-export function obterManifesto(): Promise<Manifesto> {
-  // Sempre conferido com o servidor (a resposta é um 304 quando nada mudou):
-  // é ele que diz qual versão dos dados acompanha o código publicado.
-  manifesto ??= fetch("/dados/manifesto.json", { cache: "no-cache" }).then((r) => {
-    if (!r.ok) throw new Error("manifesto.json não encontrado — rode `npm run dados`");
-    return r.json();
-  });
-  return manifesto;
+/** A área ainda não publicou a tabela: a página mostra o aviso, não um erro. */
+export class TabelaAusente extends Error {
+  constructor(public tabela: string) {
+    super(`a área ainda não publicou ${tabela}`);
+  }
 }
 
-// O motor do DuckDB (worker e .wasm) vem do jsDelivr. Na primeira visita ele
-// é baixado antes de o service worker assumir a página, e fica só no cache
-// do navegador, que pode ser apagado. Pedido de novo com o service worker já
-// no controle, entra no cache do app: o painel passa a abrir sem internet.
+let banco: Promise<duckdb.AsyncDuckDB> | null = null;
+const views = new Map<string, Promise<void>>();
+
+async function iniciar(): Promise<duckdb.AsyncDuckDB> {
+  // Worker e .wasm do jsDelivr: o .wasm passa do limite de 25 MiB por arquivo
+  // da Cloudflare, e o CDN já entrega comprimido e em cache.
+  const pacote = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  const urlWorker = URL.createObjectURL(new Blob([`importScripts("${pacote.mainWorker}");`], { type: "text/javascript" }));
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), new Worker(urlWorker));
+  await db.instantiate(pacote.mainModule, pacote.pthreadWorker);
+  URL.revokeObjectURL(urlWorker);
+  return db;
+}
+
+const obterBanco = () => (banco ??= iniciar());
+
+/**
+ * O motor do DuckDB (worker e .wasm) vem do jsDelivr. Na primeira visita ele
+ * pode ser baixado antes de o service worker assumir a página, e aí fica só
+ * no cache do navegador, que pode ser apagado. Pedido de novo com o service
+ * worker no controle, entra no cache do app: o site passa a abrir sem internet.
+ */
 export async function guardarMotorNoCache(): Promise<void> {
   if (import.meta.env.DEV) return;
   const pacote = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   await Promise.all([pacote.mainModule, pacote.mainWorker].filter(Boolean).map((url) => fetch(url!)));
 }
 
-async function iniciar(): Promise<duckdb.AsyncDuckDB> {
-  // Worker e .wasm vêm do jsDelivr: o .wasm passa do limite de 25 MiB por
-  // arquivo do Cloudflare Pages, e o CDN entrega comprimido e em cache.
-  // Em desenvolvimento (`npm run dev`), os mesmos arquivos saem do
-  // node_modules pelo servidor do Vite: o site roda sem internet. Por URL, e
-  // não por import, para o build de produção nem enxergar os .wasm.
-  const local = `${location.origin}/node_modules/@duckdb/duckdb-wasm/dist/`;
-  const pacotes: duckdb.DuckDBBundles = import.meta.env.DEV
-    ? {
-        mvp: { mainModule: `${local}duckdb-mvp.wasm`, mainWorker: `${local}duckdb-browser-mvp.worker.js` },
-        eh: { mainModule: `${local}duckdb-eh.wasm`, mainWorker: `${local}duckdb-browser-eh.worker.js` },
-      }
-    : duckdb.getJsDelivrBundles();
-  const pacote = await duckdb.selectBundle(pacotes);
-  const urlWorker = URL.createObjectURL(
-    new Blob([`importScripts("${pacote.mainWorker}");`], { type: "text/javascript" }),
-  );
-  const worker = new Worker(urlWorker);
-  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
-  await db.instantiate(pacote.mainModule, pacote.pthreadWorker);
-  URL.revokeObjectURL(urlWorker);
-  await carregarParquet(db);
-  return db;
-}
-
-// A extensão de Parquet vem da cópia que o build embarca (public/duckdb-ext,
-// ver scripts/preparar_dados.py); se ela faltar ou não servir a esta versão
-// do motor, do servidor oficial. Sem ela, nenhuma tabela abre.
-async function carregarParquet(db: duckdb.AsyncDuckDB) {
-  const con = await db.connect();
-  try {
-    await con.query(`SET custom_extension_repository = '${location.origin}/duckdb-ext'`);
-    await con.query("INSTALL parquet; LOAD parquet;");
-  } catch {
-    await con.query("RESET custom_extension_repository");
-    await con.query("INSTALL parquet; LOAD parquet;");
-  } finally {
-    await con.close();
-  }
-}
-
-function obterBanco() {
-  banco ??= iniciar();
-  return banco;
-}
-
-// Baixa o parquet inteiro (são pequenos) e o expõe como VIEW com o nome da
-// tabela: as consultas escrevem `FROM mapa_uf`, não o caminho do arquivo.
-function garantirTabela(nome: string, arquivo: string): Promise<void> {
-  let pronta = tabelas.get(nome);
+/** schema."tabela" pronto para consulta; baixa o arquivo só na primeira vez. */
+function garantirView(schema: string, repo: string, tabela: string): Promise<void> {
+  const chave = `${schema}.${tabela}`;
+  let pronta = views.get(chave);
   if (!pronta) {
     pronta = (async () => {
-      // A data de geração no endereço: depois de uma Gold nova, o navegador
-      // não reaproveita a cópia antiga de uma tabela junto do código novo.
-      const versao = encodeURIComponent((await obterManifesto()).gerado_em);
-      const [db, resposta] = await Promise.all([obterBanco(), fetch(`/dados/${arquivo}?v=${versao}`)]);
-      if (!resposta.ok) throw new Error(`falha ao baixar ${arquivo}`);
-      await db.registerFileBuffer(arquivo, new Uint8Array(await resposta.arrayBuffer()));
+      const [db, arquivo] = await Promise.all([obterBanco(), baixarTabela(repo, tabela)]);
+      if (!arquivo) throw new TabelaAusente(tabela);
+      const nome = `${schema}__${tabela}.parquet`;
+      await db.registerFileBuffer(nome, new Uint8Array(arquivo));
       const con = await db.connect();
       try {
-        await con.query(`CREATE OR REPLACE VIEW "${nome}" AS SELECT * FROM read_parquet('${arquivo}')`);
+        await con.query(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
+        // As colunas de TI ganham o nome genérico das páginas (ver RENOMEAR).
+        const colunas = (await con.query(`SELECT column_name FROM (DESCRIBE SELECT * FROM read_parquet('${nome}'))`))
+          .toArray()
+          .map((l) => String(l.toJSON().column_name));
+        const trocar = colunas.filter((c) => c in RENOMEAR);
+        const lista = trocar.length ? `* EXCLUDE (${trocar.join(", ")}), ${trocar.map((c) => `${c} AS ${RENOMEAR[c]}`).join(", ")}` : "*";
+        await con.query(`CREATE OR REPLACE VIEW "${schema}"."${tabela}" AS SELECT ${lista} FROM read_parquet('${nome}')`);
       } finally {
         await con.close();
       }
     })();
-    tabelas.set(nome, pronta);
+    // Uma falha de rede não fica guardada: a próxima consulta tenta de novo.
+    pronta.catch((e) => !(e instanceof TabelaAusente) && views.delete(chave));
+    views.set(chave, pronta);
   }
   return pronta;
 }
 
-// BIGINT chega do Arrow como bigint; para gráfico e texto, number basta
-// (os maiores valores daqui são contagens na casa dos milhões).
-function converter(valor: unknown): string | number | boolean | null {
-  if (valor === null || valor === undefined) return null;
-  if (typeof valor === "bigint") return Number(valor);
-  if (typeof valor === "number" || typeof valor === "string" || typeof valor === "boolean") return valor;
-  return String(valor);
+// BIGINT chega do Arrow como bigint; para gráfico e texto, number basta.
+function converter(v: unknown): string | number | boolean | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "bigint") return Number(v);
+  if (typeof v === "number" || typeof v === "string" || typeof v === "boolean") return v;
+  return String(v);
 }
 
-export async function consultar(sql: string): Promise<Linha[]> {
-  const { tabelas: disponiveis } = await obterManifesto();
-  const usadas = Object.entries(disponiveis).filter(([nome]) => new RegExp(`\\b${nome}\\b`).test(sql));
-  await Promise.all(usadas.map(([nome, t]) => garantirTabela(nome, t.arquivo)));
+/** Executa `sql` no schema da área (`schema` = slug da área). */
+export async function consultar(schema: string, repo: string, sql: string): Promise<LinhaSQL[]> {
+  const { tabelas } = await infoGold(repo);
+  // As tabelas citadas na consulta, pelo nome: as que a gold tem e as que
+  // ela não tem (para avisar qual falta, em vez de um erro de SQL).
+  // Nomes definidos no WITH (`WITH est AS (...)`) não são tabelas da gold.
+  const ctes = new Set([...sql.matchAll(/(?:\bWITH|,)\s*([a-z_][a-z0-9_]*)\s+AS\s*\(/gi)].map((m) => m[1].toLowerCase()));
+  const citadas = [...sql.matchAll(/\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)/gi)]
+    .map((m) => m[1].toLowerCase())
+    .filter((t) => !ctes.has(t));
+  const faltando = citadas.find((t) => !tabelas.has(t));
+  if (faltando) throw new TabelaAusente(faltando);
+  await Promise.all([...new Set(citadas)].map((t) => garantirView(schema, repo, t)));
 
   const con = await (await obterBanco()).connect();
   try {
+    await con.query(`SET search_path = '${schema}'`);
     const resultado = await con.query(sql);
     return resultado.toArray().map((linha) => {
       const bruto = linha.toJSON() as Record<string, unknown>;
@@ -125,4 +115,32 @@ export async function consultar(sql: string): Promise<Linha[]> {
   } finally {
     await con.close();
   }
+}
+
+/**
+ * Consulta da página. `null` não consulta (a parte da página que a usa está
+ * escondida). Ao trocar um filtro, o resultado anterior fica na tela até o
+ * novo chegar, sem pulo de layout.
+ */
+export function useConsulta(schema: string, repo: string, sql: string | null): Estado<LinhaSQL[]> & { anterior?: LinhaSQL[] } {
+  const [estado, setEstado] = useState<Estado<LinhaSQL[]> & { anterior?: LinhaSQL[] }>({ tipo: "carregando" });
+  useEffect(() => {
+    if (sql === null) return;
+    let vivo = true;
+    setEstado((e) => ({ tipo: "carregando", anterior: e.tipo === "pronto" ? e.dados : e.anterior }));
+    consultar(schema, repo, sql).then(
+      (linhas) => vivo && setEstado({ tipo: "pronto", dados: linhas }),
+      (e: unknown) =>
+        vivo &&
+        setEstado(
+          e instanceof TabelaAusente
+            ? { tipo: "ausente" }
+            : { tipo: "erro", mensagem: e instanceof Error ? e.message : String(e) },
+        ),
+    );
+    return () => {
+      vivo = false;
+    };
+  }, [schema, repo, sql]);
+  return estado;
 }

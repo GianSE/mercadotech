@@ -1,16 +1,10 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { App } from "./App";
 import "./index.css";
-import App from "./App";
-import { ProvedorFiltro } from "./lib/filtro";
-import { ProvedorTema } from "./lib/tema";
 
-createRoot(document.getElementById("raiz")!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ProvedorTema>
-      <ProvedorFiltro>
-        <App />
-      </ProvedorFiltro>
-    </ProvedorTema>
+    <App />
   </StrictMode>,
 );

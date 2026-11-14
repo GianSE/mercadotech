@@ -1,24 +1,26 @@
 <!doctype html>
-<html lang="pt-BR" data-tema="escuro">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Emprego formal em tecnologia no Brasil, 2007–2026: crescimento, onde está o trabalho, remuneração, equidade e projeção, a partir dos microdados da RAIS e do CAGED." />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#0b0c0f" />
+    <meta name="description" content="Emprego formal em tecnologia no Brasil, 2007–2026: crescimento, onde está o trabalho, qualidade do emprego, equidade e projeção, a partir dos microdados da RAIS e do CAGED." />
     <title>Mercado de TI no Brasil</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- A barra do navegador e do app instalado acompanha o tema do sistema. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeece6" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#01070f" />
     <script>
-      // Antes do primeiro paint, pra não piscar o tema errado.
+      // Tema antes da pintura, para a página não piscar no claro.
       try {
-        var salvo = localStorage.getItem("tema");
-        var claro = window.matchMedia("(prefers-color-scheme: light)").matches;
-        document.documentElement.dataset.tema = salvo || (claro ? "claro" : "escuro");
-      } catch (e) {}
+        const salvo = localStorage.getItem("tema");
+        const escuro = salvo ? salvo === "escuro" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", escuro);
+      } catch {}
     </script>
   </head>
-  <body class="bg-fundo text-tinta antialiased">
-    <div id="raiz"></div>
+  <body>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

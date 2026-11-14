@@ -1,16 +1,16 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // PWA: instalável e funcionando sem internet. O site já embarca a Gold e
-    // consulta no navegador; falta só guardar os arquivos. Tudo o que é do
-    // próprio site (app, dados, extensão de Parquet, mapas) entra no cache na
-    // instalação; o motor do DuckDB, que vem do jsDelivr, no primeiro uso.
+    // PWA: instalável e, depois de visitado, abrindo sem internet. O app (JS,
+    // CSS, mapa do Brasil) entra no cache na instalação. Os dados não vêm no
+    // build: o site os lê do Hugging Face, e cada resposta do Hub fica no
+    // cache conforme é usada — uma página já aberta continua abrindo offline.
     VitePWA({
       // Versão nova espera um clique ("Atualizar"): recarregar sozinho
       // derrubaria uma apresentação no meio.
@@ -24,8 +24,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        background_color: "#f4f4f1",
-        theme_color: "#0b0c0f",
+        background_color: "#eeece6",
+        theme_color: "#001229",
         icons: [
           { src: "/icone-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icone-512.png", sizes: "512x512", type: "image/png" },
@@ -33,18 +33,52 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,json,parquet,wasm}"],
-        // Os maiores arquivos do site: o cubo do CAGED (~5 MB) e a extensão
-        // de Parquet do DuckDB (~3 MB).
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        // Os dados são pedidos com ?v=<data da Gold>. No cache, vale o arquivo:
-        // um deploy com dado novo troca a revisão dele e o cache se renova.
-        ignoreURLParametersMatching: [/^v$/],
+        globPatterns: ["**/*.{js,css,html,svg,png,json,woff2}"],
+        // O maior arquivo do app é o chunk do ECharts (~1 MB).
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "/index.html",
         // Na instalação, o service worker assume a página já aberta: sem isso,
         // a primeira visita inteira passaria por fora dele.
         clientsClaim: true,
         runtimeCaching: [
+          {
+            // Os tiles do OpenStreetMap do mapa da seção Onde, só os que o mapa
+            // pede (nunca baixados em lote, como pede a política de uso do OSM)
+            // e por uma semana.
+            urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "osm-tiles",
+              expiration: { maxEntries: 500, maxAgeSeconds: 7 * 24 * 3600, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // As tabelas da gold, pelo commit de cada uma (ver lib/dados.ts):
+            // o endereço muda quando a tabela muda, então o que está em cache
+            // nunca fica velho.
+            urlPattern: /^https:\/\/huggingface\.co\/datasets\/[^/]+\/[^/]+\/resolve\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "hf-tabelas",
+              // ~35 tabelas da gold do TCC, com folga para as versões antigas.
+              expiration: { maxEntries: 120, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // A lista das tabelas da gold e o commit de cada uma: pela
+            // rede, para ver dado novo assim que publicado; do cache só sem
+            // internet (ou com a rede travada).
+            urlPattern: /^https:\/\/huggingface\.co\/api\/datasets\//,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "hf-listagens",
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 50 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // O motor do DuckDB (worker e .wasm, ~35 MB) vem do jsDelivr com a
             // versão no endereço: o que está em cache nunca fica velho.
@@ -56,26 +90,18 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            // Extensões que o DuckDB baixe sob demanda, também por versão.
+            urlPattern: /^https:\/\/extensions\.duckdb\.org\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "duckdb-extensoes",
+              expiration: { maxEntries: 8 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),
   ],
-  // O DuckDB-WASM carrega o próprio worker e o .wasm do CDN em tempo de
-  // execução; pré-empacotá-lo no dev só atrapalha.
-  optimizeDeps: { exclude: ["@duckdb/duckdb-wasm"] },
-  build: {
-    // O chunk do ECharts (~650 kB, ~217 kB gzip) já vem só com os gráficos
-    // usados; ele fica em cache entre deploys, então o aviso padrão não ajuda.
-    chunkSizeWarningLimit: 700,
-    rollupOptions: {
-      output: {
-        // Bibliotecas grandes em arquivos próprios: mudam pouco e ficam em cache
-        // entre deploys, enquanto o código das seções muda a cada versão.
-        manualChunks(id) {
-          if (/node_modules[\\/](echarts|zrender)[\\/]/.test(id)) return "echarts";
-          if (id.includes("@duckdb")) return "duckdb";
-        },
-      },
-    },
-  },
 });

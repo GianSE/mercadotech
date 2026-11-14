@@ -1,8 +1,11 @@
-// Filtro de território que vale para o site inteiro: escolher estados numa
-// página (ou clicar num estado do mapa) recorta todas as outras. Vazio = Brasil.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { literal } from "./sql";
-import { EVENTO_LIMPAR, gravarParametro, partesHash } from "./url";
+import { gravarParametro, lerParametro } from "./url";
+
+/*
+ * Filtro de território que vale para todas as seções do site: escolher estados
+ * numa seção recorta as outras. Vazio = Brasil. Mora no endereço (?uf=PR,SC).
+ */
 
 export const REGIOES = {
   Norte: ["AC", "AM", "AP", "PA", "RO", "RR", "TO"],
@@ -14,14 +17,20 @@ export const REGIOES = {
 export type Regiao = keyof typeof REGIOES;
 
 export const UFS: string[] = Object.values(REGIOES).flat().sort();
-export const SEM_SP = UFS.filter((u) => u !== "SP");
+
+export const NOMES_UF: Record<string, string> = {
+  AC: "Acre", AL: "Alagoas", AM: "Amazonas", AP: "Amapá", BA: "Bahia", CE: "Ceará", DF: "Distrito Federal",
+  ES: "Espírito Santo", GO: "Goiás", MA: "Maranhão", MG: "Minas Gerais", MS: "Mato Grosso do Sul", MT: "Mato Grosso",
+  PA: "Pará", PB: "Paraíba", PE: "Pernambuco", PI: "Piauí", PR: "Paraná", RJ: "Rio de Janeiro", RN: "Rio Grande do Norte",
+  RO: "Rondônia", RR: "Roraima", RS: "Rio Grande do Sul", SC: "Santa Catarina", SE: "Sergipe", SP: "São Paulo", TO: "Tocantins",
+};
 
 const mesmas = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((u) => b.includes(u));
 
-// Nome curto do recorte, para o botão e para os subtítulos.
+/** Nome curto do recorte, para o botão e os subtítulos. */
 export function rotuloTerritorio(ufs: string[]): string {
   if (!ufs.length || ufs.length === UFS.length) return "Brasil";
-  if (mesmas(ufs, SEM_SP)) return "Brasil sem SP";
+  if (mesmas(ufs, UFS.filter((u) => u !== "SP"))) return "Brasil sem SP";
   const regiao = (Object.keys(REGIOES) as Regiao[]).find((r) => mesmas(ufs, REGIOES[r]));
   if (regiao) return regiao;
   if (ufs.length <= 3) return ufs.join(", ");
@@ -33,82 +42,37 @@ type Filtro = {
   ativo: boolean;
   rotulo: string;
   definir: (ufs: string[]) => void;
-  alternar: (uf: string) => void;
-  limpar: () => void;
-  // Condição SQL sobre a coluna de UF; "TRUE" quando é o Brasil inteiro.
+  /** Condição SQL sobre a coluna de UF; "TRUE" quando é o Brasil inteiro. */
   sql: (coluna?: string) => string;
 };
 
 const Contexto = createContext<Filtro | null>(null);
 
-function lerUfs(texto: string): string[] {
-  const lidas = texto.split(",").filter((u) => UFS.includes(u));
-  return lidas.length === UFS.length ? [] : [...new Set(lidas)].sort();
+function normalizar(ufs: string[]): string[] {
+  const validas = [...new Set(ufs)].filter((u) => UFS.includes(u)).sort();
+  // Todas marcadas é o mesmo que nenhuma: guarda vazio, para "ativo" ser falso.
+  return validas.length === UFS.length ? [] : validas;
 }
 
 export function ProvedorFiltro({ children }: { children: ReactNode }) {
-  // O recorte começa pelo que vier no link (?uf=PR,SC) e volta para ele a
-  // cada mudança, para o endereço sempre reproduzir o que está na tela.
-  const [ufs, setUfs] = useState<string[]>(() => lerUfs(partesHash().params.get("uf") ?? ""));
-  const atuais = useRef(ufs);
-  atuais.current = ufs;
-  useEffect(() => {
-    gravarParametro("uf", ufs.length ? ufs.join(",") : null);
-  }, [ufs]);
-  // Os links entre páginas (#/onde) não carregam o recorte; ele continua
-  // valendo, então volta para o endereço da página nova. Um link que traz o
-  // seu próprio ?uf= (colado com o painel aberto) troca o recorte.
-  useEffect(() => {
-    const aoMudar = () => {
-      const doLink = partesHash().params.get("uf");
-      if (doLink !== null) {
-        const lidas = lerUfs(doLink);
-        if (lidas.join(",") !== atuais.current.join(",")) setUfs(lidas);
-      } else if (atuais.current.length) gravarParametro("uf", atuais.current.join(","));
-    };
-    // Limpar filtros: o território zera já, antes de o endereço mudar.
-    const aoLimpar = () => {
-      atuais.current = [];
-      setUfs([]);
-    };
-    window.addEventListener("hashchange", aoMudar);
-    window.addEventListener(EVENTO_LIMPAR, aoLimpar);
-    return () => {
-      window.removeEventListener("hashchange", aoMudar);
-      window.removeEventListener(EVENTO_LIMPAR, aoLimpar);
-    };
-  }, []);
-
-  // Todas marcadas é o mesmo que nenhuma: guarda vazio, para "ativo" ser falso.
-  const definir = useCallback((novas: string[]) => {
-    const validas = [...new Set(novas)].filter((u) => UFS.includes(u)).sort();
-    setUfs(validas.length === UFS.length ? [] : validas);
-  }, []);
-  const alternar = useCallback(
-    (uf: string) => {
-      if (!UFS.includes(uf)) return;
-      setUfs((atual) => {
-        const novas = atual.includes(uf) ? atual.filter((u) => u !== uf) : [...atual, uf].sort();
-        return novas.length === UFS.length ? [] : novas;
-      });
-    },
-    [],
-  );
-  const limpar = useCallback(() => setUfs([]), []);
-
+  const [ufs, setUfs] = useState<string[]>(() => normalizar((lerParametro("uf") ?? "").split(",")));
+  useEffect(() => gravarParametro("uf", ufs.length ? ufs.join(",") : null), [ufs]);
   const valor = useMemo<Filtro>(
     () => ({
       ufs,
       ativo: ufs.length > 0,
       rotulo: rotuloTerritorio(ufs),
-      definir,
-      alternar,
-      limpar,
+      definir: (novas) => setUfs(normalizar(novas)),
       sql: (coluna = "uf") => (ufs.length ? `${coluna} IN (${ufs.map(literal).join(", ")})` : "TRUE"),
     }),
-    [ufs, definir, alternar, limpar],
+    [ufs],
   );
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
+}
+
+/** O filtro, ou null fora de uma página com filtro (para componentes que só o leem se houver). */
+export function useFiltroOpcional(): Filtro | null {
+  return useContext(Contexto);
 }
 
 export function useFiltro(): Filtro {

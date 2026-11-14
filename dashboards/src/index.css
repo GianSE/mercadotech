@@ -1,188 +1,239 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 /*
- * Design system — "Mercado de TI"
+ * Tema herdado do site do mercadobrasil (GianSE/mercadobrasil), da paleta da
+ * logo de lá (logo/logo-paleta-mercadobrasil/tema.css), em hex para o
+ * Tailwind 4. Claro: off-white quente, bem longe do branco puro, que cansa
+ * menos a vista; o marinho da logo como tinta. Escuro: um marinho quase preto,
+ * bem mais fundo que o da logo. Verde da logo como cor principal, azul nos
+ * destaques. Admissões e saldo positivo usam --sobe (verde); desligamentos e
+ * saldo negativo, --desce (vermelho).
  *
- * Preto e amarelo vêm da identidade da UTFPR: o amarelo é a cor de ação e de
- * destaque da interface (aba ativa, marcador de seção, foco), sempre sobre
- * preto ou com texto preto por cima — amarelo como texto sobre fundo claro não
- * passa contraste. O azul é a cor da tecnologia e é a primeira cor dos DADOS.
- *
- * As séries são só azuis — royal, céu, ciano-petróleo, pervinca, índigo e
- * centáurea —, validadas com scripts/validate_palette.js da skill de dataviz
- * (faixa de luminosidade, croma, separação para daltonismo e para visão
- * normal entre vizinhas). Claro: pior ΔE daltônico 15,0, normal 18,8. Escuro:
- * 14,0 e 17,9. Alguns azuis claros ficam abaixo de 3:1 contra a superfície,
- * por isso todo gráfico tem rótulo direto ou vista em tabela.
- * Mais de 6 séries viram "Outros". Cada modo tem degraus próprios.
- *
- * Verde e vermelho ficam reservados para POLARIDADE (saldo, variação): verde
- * cresce, vermelho encolhe — nunca como "série 7".
+ * As sete séries dos gráficos foram validadas para daltonismo contra o cartão
+ * de cada tema (os gráficos ficam sempre num cartão: #f6f5f0 no claro,
+ * #061120 no escuro) com o validador da skill dataviz: separação CVD >= 8,8
+ * (9,3 no escuro), visão normal >= 19, contraste >= 3:1. No escuro, cada cor
+ * está no teto de luminosidade e de saturação que a validação permite, para
+ * se destacar do marinho. Mesma ordem e mesmos matizes nos dois temas: azul e
+ * verde da marca, rosa, ocre, roxo, verde-água, laranja. Mudou a cor do
+ * cartão, valide de novo.
  */
+:root {
+  --background: #eeece6;
+  --foreground: #001229;          /* o marinho da logo vira o texto, 15,9:1 */
+  --card: #f6f5f0;
+  --card-foreground: #001229;
+  --popover: #f6f5f0;
+  --popover-foreground: #001229;
+  --primary: #0d8241;             /* verde da logo; texto branco sobre ele 4,7:1 */
+  --primary-foreground: #ffffff;
+  --secondary: #e5e2da;
+  --secondary-foreground: #001229;
+  --muted: #e5e2da;
+  --muted-foreground: #56637a;    /* 5,1:1 sobre o fundo, 5,6:1 no cartão */
+  --accent: #e7f1f9;              /* azul bem claro para hover e seleção */
+  --accent-foreground: #01549a;
+  --destructive: #c2362b;
+  --destructive-foreground: #ffffff;
+  --border: #d6d1c6;
+  --input: #d6d1c6;
+  --ring: #0d8241;
+  --radius: 0.625rem;
 
-@custom-variant dark (&:where([data-tema="escuro"], [data-tema="escuro"] *));
+  --chart-1: #015498;
+  --chart-2: #0d8242;
+  --chart-3: #d1497a;
+  --chart-4: #a87900;
+  --chart-5: #7d5da8;
+  --chart-6: #2a9d90;
+  --chart-7: #c7621b;
+  --chart-grade: #d6d1c6;
+  --chart-eixo: #bdb7aa;
+  --chart-rotulo: #56637a;
+  --sobe: #006300;
+  --desce: #c2362b;
 
-:root,
-[data-tema="claro"] {
-  color-scheme: light;
-  --fundo: #f4f4f1;
-  --superficie: #fcfcfb;
-  --superficie-2: #efeee9;
-  --borda: rgb(11 11 11 / 0.1);
-  --tinta: #0b0b0b;
-  --tinta-2: #52514e;
-  --tinta-3: #6b6a65;
-  --grade: #e1e0d9;
-  --eixo: #c3c2b7;
-
-  --acento: #ffc20e;
-  --sobre-acento: #0b0b0b;
-  --marca: #0b0c0f;
-  --sobre-marca: #f0efec;
-
-  /* Categórica validada (CVD e visão normal, no par adjacente) sobre a
-     superfície clara: azul, laranja, verde-água, amarelo, magenta, verde,
-     roxo e vermelho, nesta ordem. A ordem é o que garante a separação. */
-  --serie-1: #2a78d6;
-  --serie-2: #eb6834;
-  --serie-3: #1baf7a;
-  --serie-4: #eda100;
-  --serie-5: #e87ba4;
-  --serie-6: #008300;
-  --serie-7: #6250d6;
-  --serie-8: #e34948;
-
-  --positivo: #17a058;
-  --negativo: #e04646;
-  --neutro: #f0efec;
-
-  --aviso: #fab219;
-  --sucesso-texto: #006300;
+  /* Cores da logo, para usar direto (var(--mb-...)) */
+  --mb-fundo-marca: #001229;
+  --mb-azul: #01549a;
+  --mb-verde: #0d8241;
+  --mb-amarelo: #fac608;          /* só preenchimento: amarelo não serve como texto no claro */
+  --mb-verde-claro: #0d8241;      /* "Brasil" no logo: no claro, o verde puro já tem contraste */
+  --mb-azul-claro: #01549a;
+  --mb-amarelo-texto: #8a6a00;    /* quando precisar de amarelo em texto: 4,8:1 */
+  /* Amarelo da logo sobre fundo claro: um tom mais fechado para o mapa e a barra não sumirem */
+  --mb-mapa-fim: #d4a000;
+  --mb-amarelo-marca: #edb400;
+  --mb-amarelo-marca-base: #d99e00;
 }
 
-[data-tema="escuro"] {
-  color-scheme: dark;
-  --fundo: #0b0c0f;
-  --superficie: #16181d;
-  --superficie-2: #1f2228;
-  --borda: rgb(255 255 255 / 0.1);
-  --tinta: #f0efec;
-  --tinta-2: #c3c2b7;
-  --tinta-3: #9a988f;
-  --grade: #2a2d33;
-  --eixo: #3a3d44;
+.dark {
+  --background: #01070f;          /* marinho quase preto */
+  --foreground: #eef2f6;          /* 18:1 */
+  --card: #061120;
+  --card-foreground: #eef2f6;
+  --popover: #061120;
+  --popover-foreground: #eef2f6;
+  --primary: #3dba6a;             /* 8,1:1 */
+  --primary-foreground: #001229;
+  --secondary: #0b182b;
+  --secondary-foreground: #eef2f6;
+  --muted: #0b182b;
+  --muted-foreground: #94a3b8;    /* 7,9:1 */
+  --accent: #0b182b;
+  --accent-foreground: #5ba3e0;
+  --destructive: #f0705f;
+  --destructive-foreground: #001229;
+  --border: #172539;
+  --input: #172539;
+  --ring: #3dba6a;
 
-  --acento: #ffc20e;
-  --sobre-acento: #0b0b0b;
-  --marca: #000000;
-  --sobre-marca: #f0efec;
+  --chart-1: #2996fd;
+  --chart-2: #08994e;
+  --chart-3: #ed5195;
+  --chart-4: #bd8a05;
+  --chart-5: #ac6ef8;
+  --chart-6: #09aa9d;
+  --chart-7: #e56c00;
+  --chart-grade: #172539;
+  --chart-eixo: #26364f;
+  --chart-rotulo: #94a3b8;
+  --sobe: #3dba6a;
+  --desce: #f0705f;
 
-  /* As mesmas oito cores, em degraus validados para a superfície escura. */
-  --serie-1: #3987e5;
-  --serie-2: #d95926;
-  --serie-3: #199e70;
-  --serie-4: #c98500;
-  --serie-5: #d55181;
-  --serie-6: #008300;
-  --serie-7: #9085e9;
-  --serie-8: #e66767;
-
-  --positivo: #2fbf71;
-  --negativo: #ef6363;
-  --neutro: #383835;
-
-  --aviso: #fab219;
-  --sucesso-texto: #0ca30c;
+  --mb-verde-claro: #3dba6a;
+  --mb-azul-claro: #5ba3e0;
+  --mb-amarelo-texto: #fac608;
+  --mb-mapa-fim: #f9cd0a;
+  --mb-amarelo-marca: #ffca09;
+  --mb-amarelo-marca-base: #f1b106;
 }
 
 @theme inline {
-  --color-fundo: var(--fundo);
-  --color-superficie: var(--superficie);
-  --color-superficie-2: var(--superficie-2);
-  --color-borda: var(--borda);
-  --color-tinta: var(--tinta);
-  --color-tinta-2: var(--tinta-2);
-  --color-tinta-3: var(--tinta-3);
-  --color-grade: var(--grade);
-  --color-acento: var(--acento);
-  --color-sobre-acento: var(--sobre-acento);
-  --color-marca: var(--marca);
-  --color-sobre-marca: var(--sobre-marca);
-  --color-aviso: var(--aviso);
-  --color-serie-1: var(--serie-1);
-  --color-serie-2: var(--serie-2);
-  --color-serie-3: var(--serie-3);
-  --color-serie-4: var(--serie-4);
-  --color-serie-5: var(--serie-5);
-  --color-serie-6: var(--serie-6);
-  --color-serie-7: var(--serie-7);
-  --color-serie-8: var(--serie-8);
-  --color-positivo: var(--positivo);
-  --color-negativo: var(--negativo);
-
-  /* Raios: tudo arredondado, em três degraus — cartão, controle, chip. */
-  --radius-cartao: 1.25rem;
-  --radius-controle: 0.75rem;
-
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sobe: var(--sobe);
+  --color-desce: var(--desce);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 @layer base {
-  html {
-    font-family: var(--font-sans);
+  * {
+    @apply border-border outline-ring/50;
   }
-  :focus-visible {
-    outline: 2px solid var(--acento);
-    outline-offset: 2px;
-  }
-  /* Colunas de números alinham; números soltos (hero, KPI) não. */
-  table {
-    font-variant-numeric: tabular-nums;
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "tnum" 1;
   }
 }
 
-@layer components {
-  /* Rótulo de seção: mono, caixa alta — o "sotaque" de terminal do sistema. */
-  .sobrelinha {
-    @apply font-mono text-[11px] font-semibold tracking-[0.14em] uppercase text-tinta-3;
-  }
-  /* Cartão: superfície com um brilho azul bem fraco no canto, que dá
-     profundidade sem competir com o dado. */
-  .cartao {
-    @apply rounded-[var(--radius-cartao)] border border-borda bg-superficie;
-    background-image: radial-gradient(120% 70% at 0% 0%, rgb(59 130 246 / 0.07), transparent 55%);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -18px rgb(29 91 208 / 0.35);
-  }
-  /* Faixa azul de destaque: o degradê da marca de dados (royal → céu). */
-  .faixa-azul {
-    background-image: linear-gradient(90deg, var(--serie-1), #3fb8f0);
-  }
-  /* Fundo da faixa de marca: grade fina, lembrando papel milimetrado/circuito. */
-  .grade-marca {
-    background-image:
-      linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-  /* Brilho azul sob a grade do cabeçalho preto. */
-  .brilho-marca {
-    background-image:
-      radial-gradient(60% 140% at 85% 0%, rgb(59 130 246 / 0.28), transparent 60%),
-      radial-gradient(40% 120% at 10% 100%, rgb(3 169 169 / 0.14), transparent 60%);
-  }
+/*
+ * O mapa da seção Onde (Leaflet sobre o OpenStreetMap). Os tiles do OSM são
+ * claros; no tema escuro eles se invertem e perdem saturação, para ficarem no
+ * marinho do site sem brigar com as cores dos dados por cima.
+ */
+.mapa-osm {
+  background: var(--muted);
+  font-family: inherit;
+}
+.dark .mapa-osm .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.82) contrast(0.92) saturate(0.45);
+}
+.mapa-osm .leaflet-tooltip {
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+  font-size: 12px;
+}
+.mapa-osm .leaflet-tooltip-top::before,
+.mapa-osm .leaflet-tooltip-bottom::before,
+.mapa-osm .leaflet-tooltip-left::before,
+.mapa-osm .leaflet-tooltip-right::before {
+  display: none;
+}
+.mapa-osm .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--muted-foreground);
+}
+.mapa-osm .leaflet-control-attribution a {
+  color: var(--accent-foreground);
+}
+.mapa-osm .leaflet-bar a {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+.pino-mapa {
+  background: none;
+  border: none;
 }
 
-/* Modo apresentação: um bloco por vez (o resto da página fica escondido pelo
-   App), filtros sem a posição presa ao cabeçalho, que some nesse modo.
-   Relativa e não estática: o desfoque de fundo faz da barra um contexto de
-   empilhamento, e sem posição ela perde o z-index; os cartões que vêm depois
-   (os gráficos são position: relative) cobririam os menus suspensos dela. */
-.apresentando [data-oculto] {
-  display: none !important;
+/* A barra segmentada (components/BarraSegmentada.tsx): cada bloco cresce da
+   esquerda, em cascata, como os outros gráficos ao entrar. */
+.segmento {
+  transform-origin: left;
+  animation: segmento-cresce 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.apresentando [data-filtros] {
-  position: relative;
-  top: auto;
-  z-index: 20;
+@keyframes segmento-cresce {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .segmento { animation: none; }
+}
+
+/* Os minigráficos da página inicial: o traço se desenha da esquerda para a
+   direita, como os outros gráficos, e a bolinha do último ano aparece no fim. */
+.mini-traco {
+  stroke-dasharray: 1;
+  animation: mini-desenha 1000ms ease-out both;
+}
+.mini-area,
+.mini-fim {
+  animation: mini-aparece 400ms ease-out both;
+}
+.mini-area {
+  animation-duration: 1000ms;
+}
+@keyframes mini-desenha {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes mini-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mini-traco,
+  .mini-area,
+  .mini-fim { animation: none; }
 }

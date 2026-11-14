@@ -1,0 +1,40 @@
+name: Python do pipeline
+description: >
+  Python 3.12 com as dependências do pipeline já instaladas. O ambiente
+  (venv) inteiro fica no cache do Actions, com a chave pelo conteúdo dos
+  requirements e pela versão exata do Python: enquanto nenhum dos dois muda,
+  ele é restaurado em segundos e o pip não roda. Mudou um requirements, a
+  primeira execução instala de novo e guarda o ambiente novo.
+
+inputs:
+  requisitos:
+    description: "Arquivo de dependências (requirements-actions.txt ou requirements-modelos.txt)"
+    default: requirements-actions.txt
+
+runs:
+  using: composite
+  steps:
+    - id: python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    # O venv guarda o caminho absoluto do Python que o criou: por isso a versão
+    # exata entra na chave, e o ambiente volta sempre para o mesmo lugar.
+    - id: cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.venv-pipeline
+        key: venv-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ inputs.requisitos }}-${{ hashFiles('requirements-actions.txt', inputs.requisitos) }}
+
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m venv ~/.venv-pipeline
+        ~/.venv-pipeline/bin/pip install --disable-pip-version-check -r "${{ inputs.requisitos }}"
+
+    - shell: bash
+      run: |
+        echo "$HOME/.venv-pipeline/bin" >> "$GITHUB_PATH"
+        echo "VIRTUAL_ENV=$HOME/.venv-pipeline" >> "$GITHUB_ENV"
+        echo "dependências: ${{ steps.cache.outputs.cache-hit == 'true' && 'do cache' || 'instaladas agora' }} (${{ inputs.requisitos }})"

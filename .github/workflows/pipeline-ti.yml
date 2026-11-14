@@ -18,9 +18,9 @@ name: Pipeline TI (orquestrador)
 #                └─ gold-modelos            (as duas silvers + gold-rais,
 #                                            porque nowcast lê
 #                                            rais_estoque_anual já publicado)
-#                        │
-#                        └─ site  (depois de toda a gold: dispara o build do
-#                                  site de dashboards no Cloudflare Pages)
+#
+# O site (dashboards/) não entra na fila: ele lê a Gold direto do Hugging
+# Face, e cada tabela nova aparece nele assim que é publicada, sem rebuild.
 #
 # gold-rais, gold-territorio e gold-caged-consolidado são independentes
 # entre si e rodam em paralelo — cada um publica a própria fatia no
@@ -136,19 +136,3 @@ jobs:
     if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
     uses: ./.github/workflows/gold-modelos-ti.yml
     secrets: inherit
-
-  # O site embarca uma cópia da Gold no build (segurança: abre mesmo com o
-  # Hub fora do ar), então só mostra dado novo depois de reconstruído. O
-  # Cloudflare Pages está ligado ao repositório e faz o build sozinho; aqui
-  # só se chama o Deploy Hook dele, depois que todas as fatias da Gold foram
-  # publicadas. Sem o segredo CLOUDFLARE_DEPLOY_HOOK, o passo é pulado.
-  site:
-    needs: [decidir, gold-rais, gold-territorio, gold-caged-consolidado, gold-modelos]
-    if: needs.decidir.outputs.gold == 'true' && !failure() && !cancelled()
-    runs-on: ubuntu-latest
-    env:
-      HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
-    steps:
-      - name: Dispara o build do site no Cloudflare Pages
-        if: env.HOOK != ''
-        run: curl -fsS -X POST "$HOOK"
