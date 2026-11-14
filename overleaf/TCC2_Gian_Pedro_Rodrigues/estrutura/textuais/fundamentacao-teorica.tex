@@ -59,65 +59,28 @@ Usadas juntas, as duas bases dão uma visão que nenhuma oferece sozinha. A RAIS
 
 O \textit{data lake} surgiu como alternativa ao \textit{data warehouse} tradicional para lidar com grandes volumes de dados heterogêneos \cite{Reis2022}. A distinção principal está em \textit{quando} o esquema é fixado: o \textit{data warehouse} obriga a modelar tudo num esquema rígido antes de gravar (\textit{schema on write}), ao passo que o \textit{data lake} guarda o dado bruto e só o transforma depois (\textit{schema on read}). Essa flexibilidade faz diferença quando os dados de origem chegam em formatos heterogêneos e as regras de transformação podem mudar.
 
-A Arquitetura Medalhão (\textit{Medallion Architecture}), popularizada pelo ecossistema Databricks, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente \cite{MicrosoftMedallion2024}. A \textbf{Bronze} armazena os dados como recebidos da fonte, sem transformação, e serve de fonte de verdade para reprocessamento. A \textbf{Silver} contém os dados limpos, padronizados e filtrados ao domínio de interesse, com os códigos traduzidos por dicionários externos. A \textbf{Gold} guarda os agregados e modelos prontos para consumo por \textit{dashboards} e análises. A separação traz rastreabilidade (\textit{lineage}): um erro em uma camada se corrige reprocessando as seguintes a partir da Bronze, sem baixar de novo os arquivos da fonte \cite{Armbrust2021, Reis2022}.
-
-\label{subsec:parquet}
-
-O Apache Parquet é um formato de armazenamento colunar mantido pela Apache Software Foundation \cite{ApacheParquet2024}. Nos formatos orientados a linha, como CSV ou JSON, todos os campos de um mesmo registro ficam juntos no disco; o Parquet inverte essa lógica e grava em sequência os valores de cada coluna. Uma consulta que usa poucas colunas lê apenas os blocos delas (\textit{column pruning}), e o ganho cresce com tabelas de dezenas de colunas e milhões de registros, como as deste trabalho. A \autoref{fig:parquet-vs-csv} compara as duas disposições.
+A Arquitetura Medalhão (\textit{Medallion Architecture}), popularizada pelo ecossistema Databricks, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente \cite{MicrosoftMedallion2024}. A \textbf{Bronze} armazena os dados como recebidos da fonte, sem transformação, e serve de fonte de verdade para reprocessamento. A \textbf{Silver} contém os dados limpos, padronizados e filtrados ao domínio de interesse, com os códigos traduzidos por dicionários externos. A \textbf{Gold} guarda os agregados e modelos prontos para consumo por \textit{dashboards} e análises. A separação traz rastreabilidade (\textit{lineage}): um erro em uma camada se corrige reprocessando as seguintes a partir da Bronze, sem baixar de novo os arquivos da fonte \cite{Armbrust2021, Reis2022}. A \autoref{fig:medalhao} mostra o fluxo entre as camadas como a documentação da arquitetura o representa.
 
 \begin{figure}[htbp]
     \centering
-    \caption{Armazenamento orientado a linha (CSV) e a coluna (Parquet)}
-    \label{fig:parquet-vs-csv}
-    \begin{tikzpicture}[
-        cel/.style={rectangle, draw=black!45, minimum width=9mm, minimum height=6.5mm, inner sep=0pt, font=\scriptsize},
-        titulo/.style={font=\small\bfseries, anchor=south west, inner sep=0pt},
-        nota/.style={font=\scriptsize\itshape, text=black!70, anchor=south west, inner sep=0pt},
-        chave/.style={decorate, decoration={brace, amplitude=4pt, mirror}, black!60},
-        lido/.style={rectangle, rounded corners=2pt, draw=black!85, line width=1.1pt}
-    ]
-    \definecolor{cAno}{RGB}{190,218,244}
-    \definecolor{cUF}{RGB}{246,218,186}
-    \definecolor{cCBO}{RGB}{214,238,196}
-    \definecolor{cSaldo}{RGB}{244,200,218}
-
-    % CSV: os campos de cada registro em sequência
-    \node[titulo] at (-0.45, 0.75) {CSV: orientado a linha};
-    \node[nota] at (-0.45, 0.42) {os registros inteiros ficam um depois do outro no disco};
-    \foreach \v/\c [count=\i from 0] in {2023/cAno, SP/cUF, 2124/cCBO, 1500/cSaldo,
-                                         2023/cAno, RJ/cUF, 2122/cCBO, 800/cSaldo,
-                                         2023/cAno, PR/cUF, 2124/cCBO, 600/cSaldo}
-        \node[cel, fill=\c] at (\i*0.9, 0) {\v};
-    \foreach \k in {0,1,2} {
-        \pgfmathsetmacro{\a}{4*\k*0.9-0.43}
-        \pgfmathsetmacro{\b}{(4*\k+3)*0.9+0.43}
-        \pgfmathtruncatemacro{\n}{\k+1}
-        \draw[chave] (\a,-0.42) -- (\b,-0.42) node[midway, below=4pt, font=\scriptsize] {registro \n};
-    }
-    \node[font=\scriptsize, text=black!75, anchor=west] at (-0.45,-1.25)
-        {somar o saldo exige percorrer o arquivo inteiro, com os campos que não interessam};
-
-    % Parquet: os valores de cada coluna em sequência
-    \begin{scope}[yshift=-3.0cm]
-    \node[titulo] at (-0.45, 0.75) {Parquet: orientado a coluna};
-    \node[nota] at (-0.45, 0.42) {os valores de cada coluna ficam juntos no disco};
-    \foreach \v/\c [count=\i from 0] in {2023/cAno, 2023/cAno, 2023/cAno,
-                                         SP/cUF, RJ/cUF, PR/cUF,
-                                         2124/cCBO, 2122/cCBO, 2124/cCBO,
-                                         1500/cSaldo, 800/cSaldo, 600/cSaldo}
-        \node[cel, fill=\c] at (\i*0.9, 0) {\v};
-    \foreach \nome [count=\k from 0] in {Ano, UF, CBO, Saldo} {
-        \pgfmathsetmacro{\a}{3*\k*0.9-0.43}
-        \pgfmathsetmacro{\b}{(3*\k+2)*0.9+0.43}
-        \draw[chave] (\a,-0.42) -- (\b,-0.42) node[midway, below=4pt, font=\scriptsize] {coluna \nome};
-    }
-    \node[lido, minimum width=27.6mm, minimum height=8.6mm] at (10*0.9, 0) {};
-    \node[font=\scriptsize, text=black!75, anchor=west] at (-0.45,-1.25)
-        {somar o saldo lê só o trecho contornado; o resto do arquivo não sai do disco};
-    \end{scope}
-    \end{tikzpicture}
+    \caption{Fluxo de dados entre as camadas da Arquitetura Medalhão}
+    \label{fig:medalhao}
+    \includegraphics[width=0.85\textwidth]{figuras/medalhao-microsoft.png}
     \\[4pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{ApacheParquet2024}.
+    Fonte: \citeonline{MicrosoftMedallion2024}.
+\end{figure}
+
+\label{subsec:parquet}
+
+O Apache Parquet é um formato de armazenamento colunar mantido pela Apache Software Foundation \cite{ApacheParquet2024}. Nos formatos orientados a linha, como CSV ou JSON, todos os campos de um mesmo registro ficam juntos no disco; o Parquet inverte essa lógica e grava em sequência os valores de cada coluna. Uma consulta que usa poucas colunas lê apenas os blocos delas (\textit{column pruning}), e o ganho cresce com tabelas de dezenas de colunas e milhões de registros, como as deste trabalho. A \autoref{fig:parquet-layout} mostra a organização do arquivo definida pela especificação: as linhas são divididas em grupos (\textit{row groups}); dentro de cada grupo, cada coluna ocupa um bloco contíguo (\textit{column chunk}), dividido em páginas; e o rodapé (\textit{footer}) guarda o esquema e, para cada bloco, a posição no arquivo e estatísticas como mínimo e máximo.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{Organização de um arquivo Parquet}
+    \label{fig:parquet-layout}
+    \includegraphics[width=0.62\textwidth]{figuras/parquet-layout-apache.png}
+    \\[4pt]
+    Fonte: \citeonline{ParquetFormat2026}.
 \end{figure}
 
 A leitura seletiva vem acompanhada de dois outros benefícios. No \textit{predicate pushdown}, os filtros são avaliados contra as estatísticas de mínimo e máximo guardadas nos metadados de cada bloco, e blocos inteiros são descartados sem leitura; pelos mesmos metadados, contar as linhas de um arquivo não exige ler nenhum dado. E a compressão é mais eficiente: valores de uma mesma coluna têm distribuição parecida, o que favorece algoritmos como Snappy e ZSTD, e o arquivo comprimido é consultado sem importação prévia. O formato aceita ainda particionar os arquivos por colunas como ano e estado, o que permite ao leitor carregar só as partições que casam com os filtros da consulta \cite{ApacheParquet2024}.
@@ -246,13 +209,13 @@ A \autoref{tab:comparativo-relacionados} resume como este TCC se posiciona frent
         \rowcolor{black!8}
         \textbf{Trabalho} & \textbf{Fontes} & \textbf{Período} & \textbf{Recorte} & \textbf{Modelagem preditiva} & \textbf{Reprodu\-tível} \\
         \midrule
-        \citeonline{IPEA2023} & PNAD Contínua, CAGED, RAIS  & Até 2023 (trimestral) & Macroeconômico (todo o mercado) & Não & Não \\
-        \citeonline{Fecomercio2024} & RAIS                     & 2012--2022 & TI (30 ocupações) & Não & Não \\
-        \citeonline{Brasscom2024} & RAIS, CAGED e outras & Anual & Macrossetor TIC & Projeção de déficit & Não (dados fechados) \\
-        \citeonline{Azambuja2016} & RAIS & 2006--2013 & Serviços TIC (CNAE) & Não & Parcial (método descrito) \\
-        \citeonline{Dobner2022} & RAIS & 2012--2018 & Rio Grande do Sul, todos os setores & Não (decomposição salarial) & Parcial (método descrito) \\
+        \citeonline{IPEA2023} & PNAD, CAGED, RAIS  & Até 2023 & Todo o mercado & Não & Não \\
+        \citeonline{Fecomercio2024} & RAIS & 2012--2022 & 30 ocupações de TI & Não & Não \\
+        \citeonline{Brasscom2024} & RAIS, CAGED e outras & Anual & Macrossetor TIC & Projeção de déficit & Não \\
+        \citeonline{Azambuja2016} & RAIS & 2006--2013 & Serviços TIC (CNAE) & Não & Parcial \\
+        \citeonline{Dobner2022} & RAIS & 2012--2018 & Rio Grande do Sul & Não & Parcial \\
         \rowcolor{blue!6}
-        \textbf{Este TCC}               & RAIS + CAGED integradas & 2007--2026 (mensal/anual) & TI por CBO, CNAE e UF & SARIMA validado em origem móvel e \textit{nowcast} do estoque & Sim (código e dados abertos) \\
+        \textbf{Este TCC} & RAIS e CAGED & 2007--2026 & TI por CBO e CNAE & SARIMA e \textit{nowcast} & Sim \\
         \bottomrule
     \end{tabularx}
     \\[4pt]

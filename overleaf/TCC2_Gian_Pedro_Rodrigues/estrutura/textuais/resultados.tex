@@ -58,24 +58,24 @@ A auditoria descrita na \autoref{sec:auditoria} encontrou defeitos na fonte e er
     \footnotesize
     \renewcommand{\arraystretch}{1.1}
     \begin{tabularx}{\textwidth}{%
-        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
-        >{\raggedright\arraybackslash\hsize=1.56\hsize}X
-        >{\raggedright\arraybackslash\hsize=0.82\hsize}X}
+        >{\raggedright\arraybackslash\hsize=0.80\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.35\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.85\hsize}X}
         \toprule
         \rowcolor{black!8}
-        \textbf{Achado} & \textbf{Descrição} & \textbf{Como foi detectado} \\
+        \textbf{Achado} & \textbf{O que acontecia} & \textbf{Como apareceu} \\
         \midrule
-        Conversão de salário mínimo invertida & A partir de 2023, um conjunto de registros da RAIS traz a remuneração em salários mínimos com a operação invertida, produzindo valores implausíveis: 222 registros em 2023, 205 em 2024 e 94 em 2025, contra nenhum nos anos anteriores. & Dividir a remuneração nominal pelo salário mínimo do ano e comparar com o valor declarado. \\
-        Colunas não harmonizadas & A partir de 2023, arquivos do mesmo ano nomeiam o mesmo campo de formas diferentes, e o sufixo \textit{``\_codigo''} aparece em parte das colunas codificadas. & Comparação de esquema entre arquivos da mesma partição. \\
-        Remuneração como texto & Em 2023, sete arquivos trazem a remuneração como texto, e não como número. A verificação por ano não revelava: o esquema agregado do ano mostrava o tipo numérico. & Leitura do esquema \textbf{arquivo por arquivo}. \\
-        Códigos não documentados & O código CBO 211220 tem milhares de vínculos ativos e não consta de nenhum dicionário oficial do MTE. Na RAIS de 2024, seis motivos de desligamento (24, 35, 36, 65, 81 e 82, com 266 vínculos do recorte) também não constam do \textit{layout} oficial. & Tradução sem correspondente no dicionário, com código presente no dado. \\
-        Ingestão parcial de arquivo & Sete pedaços de dois arquivos de 2022 não chegaram à camada tratada: 446.267 vínculos ausentes. & Série anual implausível; depois, verificação pedaço a pedaço contra a Bronze. \\
-        Duplicata de um ano do CAGED antigo & Em 2007, a camada tinha 206.950 linhas a mais, cópias de uma ingestão anterior que dobravam a série mensal do ano e inflavam o saldo acumulado em 26.472 vagas. & Recontagem de todos os anos a partir do dado bruto. \\
-        Extração interrompida no CAGED antigo & Em 21 meses de 2008 a 2014, a descompactação parou no meio sem acusar erro, e o mês entrou com parte das linhas: em outubro de 2009, 348 admissões de TI de 21.534. Faltavam 261 mil admissões e 232 mil desligamentos. & Meses muito abaixo dos vizinhos; depois, tamanho extraído conferido com o declarado no próprio pacote, e coerência com a RAIS (\autoref{sec:coerencia-bases}). \\
-        Arquivos corrompidos na fonte & Dois arquivos do servidor do MTE falham no teste de integridade, com o mesmo resultado em \textit{downloads} repetidos: o CAGED antigo de março de 2011 e os ajustes de outubro de 2010 (\autoref{subsec:perdas}). Não é corrigível com o dado público. & Teste de integridade do pacote compactado. \\
-        Funcionalismo estadual declarado como programador & O governo de Rondônia declara seus servidores sob um único código CBO, que alterna entre programador de sistemas e operador de máquinas-ferramenta: de 40 a 49 mil falsos profissionais de TI (\autoref{subsec:artefato-ro}). & Série anual com quedas e saltos implausíveis; depois, um único órgão como maior grupo de TI do país. \\
-        Erro de método: Kaplan-Meier em corte transversal & A primeira estimativa de permanência no emprego indicou mediana de 48 anos. & Resultado implausível à inspeção. \\
-        Erro de método: mediana agregada por média & A mediana de um conjunto de grupos foi calculada como a média das medianas dos grupos, o que superestimava a mediana e invertia a comparação entre as duas lentes. & O mesmo número, calculado a partir de duas tabelas diferentes, não coincidia. \\
+        Salário mínimo invertido & Remuneração em salários mínimos com a conta invertida, de 2023 em diante (521 registros) & Recálculo pelo mínimo do ano \\
+        Colunas não harmonizadas & O mesmo campo com nomes diferentes em arquivos do mesmo ano, de 2023 em diante & Esquema entre arquivos \\
+        Remuneração como texto & Sete arquivos de 2023, invisíveis no esquema agregado do ano & Esquema arquivo por arquivo \\
+        Códigos não documentados & CBO 211220 e seis motivos de desligamento de 2024 fora dos dicionários oficiais & Tradução sem correspondente \\
+        Ingestão parcial & 446.267 vínculos de 2022 ausentes da camada tratada & Série anual implausível \\
+        Duplicata no CAGED antigo & 206.950 linhas repetidas em 2007, saldo inflado em 26.472 vagas & Recontagem do dado bruto \\
+        Extração interrompida & 21 meses de 2008 a 2014 com parte das linhas, sem erro & Meses abaixo dos vizinhos (\autoref{sec:coerencia-bases}) \\
+        Arquivos corrompidos na fonte & Dois arquivos do MTE, de 2010 e 2011 (\autoref{subsec:perdas}) & Teste de integridade \\
+        Servidores como programadores & Governo de Rondônia: 40 a 49 mil falsos profissionais de TI (\autoref{subsec:artefato-ro}) & Um órgão como maior grupo de TI \\
+        Kaplan-Meier em corte transversal (método) & Permanência mediana de 48 anos & Resultado implausível \\
+        Mediana pela média das medianas (método) & Mediana superestimada e comparação entre lentes invertida & Dois cálculos divergentes \\
         \bottomrule
     \end{tabularx}
     \\[4pt]

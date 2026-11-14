@@ -24,11 +24,11 @@ A pergunta usada para pô-la à prova foi: o crescimento do emprego formal em te
         \rowcolor{black!8}
         \textbf{Pergunta} & \textbf{Resposta} \\
         \midrule
-        1. Quanto cresceu? & 162\% em dezoito anos (5,5\% ao ano), em ondas: queda na recessão de 2015--2016, 38\% de todo o crescimento concentrado em 2021 e 2022 e desaceleração depois. \\
-        2. Onde está o trabalho? & 58\% dos profissionais de TI estão fora de empresas de TI, mas eram 71\% em 2007: o crescimento se concentrou nas empresas de TI, que quadruplicaram seus profissionais. São Paulo concentra 41\% do estoque, mas a conclusão de crescimento não depende dele. \\
-        3. Melhorou em qualidade? & Não em remuneração relativa: a mediana do recorte em salários mínimos ficou estável (3,39 para 3,41), e a dos profissionais de TI caiu cerca de um quinto. Melhorou em estabilidade: o giro anual caiu de mais de 43\% até 2014 para cerca de 38\%. O tempo de emprego oscila com o ciclo, e o risco de desligamento é máximo entre 6 e 12 meses de casa. \\
-        4. Quem ganha menos? & Pessoas negras, com hiato em queda (de 64\% para 38\% entre brancos e pardos) por melhora de acesso. Mulheres, com um hiato que surgiu depois de 2015, chegou a 7,8\% em 2025 e está inteiramente na parcela que as características observáveis não explicam; a participação feminina caiu de 32,5\% para 30,6\%. \\
-        5. Para onde vai? & A previsão de fluxo é útil por cerca de um ano, com intervalo que cruza o zero adiante disso; o SARIMA superou o Prophet. O \textit{nowcast} do estoque corrente errou em média 1,1\% em doze anos retidos e projeta 1,38 milhão de vínculos em 2026, alta de 1,5\%. \\
+        1. Quanto cresceu? & 162\% em dezoito anos, em ondas: queda em 2015--2016 e 38\% do crescimento em 2021 e 2022. \\
+        2. Onde está o trabalho? & 58\% dos profissionais de TI fora de empresas de TI (71\% em 2007): o crescimento se concentrou nelas. \\
+        3. Melhorou em qualidade? & Não em salário relativo, estável em salários mínimos; sim em estabilidade, com o giro de 43\% para 38\%. \\
+        4. Quem ganha menos? & Pessoas negras, com hiato em queda por melhora de acesso; mulheres, com um hiato surgido após 2015, todo na parcela não explicada. \\
+        5. Para onde vai? & Previsão útil por cerca de um ano; \textit{nowcast} com erro médio de 1,1\% e 1,38 milhão de vínculos em 2026. \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
@@ -46,20 +46,20 @@ O \autoref{quadro:objetivos} confronta cada objetivo específico da \autoref{sec
     \footnotesize
     \renewcommand{\arraystretch}{1.25}
     \begin{tabularx}{\textwidth}{%
-        >{\raggedright\arraybackslash\hsize=1.05\hsize}X
-        >{\raggedright\arraybackslash\hsize=1.25\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.00\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.30\hsize}X
         >{\raggedright\arraybackslash\hsize=0.70\hsize}X}
         \toprule
         \rowcolor{black!8}
-        \textbf{Objetivo} & \textbf{Resultado} & \textbf{Onde} \\
+        \textbf{Objetivo} & \textbf{Entregue} & \textbf{Onde} \\
         \midrule
-        \textit{Pipeline} automatizado em camadas & RAIS de 2007 a 2025 e CAGED de 2007 a 2026, em nove etapas encadeadas que reprocessam só os anos com dado novo & \autoref{sec:arquitetura} \\
-        Recorte com as duas lentes & CNAE e CBO preservadas em cada registro, o que sustenta o achado sobre onde está o trabalho de TI & \autoref{sec:recorte}, \autoref{sec:resultado-q2} \\
-        Tradução oficial e auditoria & Código original ao lado da descrição; recorte recontado a partir do dado bruto & \autoref{subsec:dicionarios}, \autoref{sec:reprodutibilidade} \\
-        \textit{Dashboard} sem servidor & Site estático que lê a Gold do Hugging Face com DuckDB-Wasm, uma aba por pergunta & \autoref{sec:apresentacao}, \autoref{sec:dashboard-entregue} \\
-        Previsão e \textit{nowcast} & SARIMA e \textit{nowcast} validados contra estimadores ingênuos e superiores a eles (\autoref{quadro:sintese}) & \autoref{sec:resultado-q5} \\
-        Qualidade do emprego e diferenças salariais & Remuneração, giro e tábua de vida; Oaxaca-Blinder ano a ano por sexo e por raça/cor & \autoref{sec:resultado-q3}, \autoref{sec:resultado-q4} \\
-        Dados abertos & Todas as camadas e agregados publicados em repositórios públicos & \autoref{sec:arquitetura} \\
+        \textit{Pipeline} em camadas & Nove etapas encadeadas e incrementais & \autoref{sec:arquitetura} \\
+        Recorte com as duas lentes & CNAE e CBO em cada registro & \autoref{sec:recorte}, \autoref{sec:resultado-q2} \\
+        Tradução oficial e auditoria & Dicionários com procedência; recontagem sem diferença & \autoref{subsec:dicionarios}, \autoref{sec:reprodutibilidade} \\
+        \textit{Dashboard} sem servidor & Site estático sobre a Gold pública & \autoref{sec:dashboard-entregue} \\
+        Previsão e \textit{nowcast} & Ambos superiores aos estimadores ingênuos & \autoref{sec:resultado-q5} \\
+        Qualidade e salários & Giro, tábua de vida e Oaxaca-Blinder & \autoref{sec:resultado-q3}, \autoref{sec:resultado-q4} \\
+        Dados abertos & Todas as camadas publicadas & \autoref{sec:arquitetura} \\
         \bottomrule
     \end{tabularx}
     \\[4pt]

@@ -12,42 +12,9 @@ O trabalho seguiu o \textit{Cross-Industry Standard Process for Data Mining} (CR
     \centering
     \caption{Fases do ciclo de vida CRISP-DM}
     \label{fig:crispdm-ciclo}
-    \begin{tikzpicture}[scale=0.8, transform shape,
-        every node/.style={font=\footnotesize},
-        fase/.style={ellipse, draw=black!70, thick, fill=blue!8,
-                     minimum width=2.8cm, minimum height=1.0cm, align=center},
-        centro/.style={circle, draw=black!70, thick, fill=orange!20,
-                       minimum size=1.6cm, align=center, font=\small\bfseries},
-        seta/.style={-{Stealth[length=2mm]}, thick, black!70},
-        bidir/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]}, thick, black!70}
-    ]
-
-    % Posicoes em circulo (raio ~4cm)
-    \node[fase] (negocio)  at ( 90:4cm) {Entendimento \\ do Negócio};
-    \node[fase] (dados)    at ( 30:4cm) {Entendimento \\ dos Dados};
-    \node[fase] (prep)     at (-30:4cm) {Preparação \\ dos Dados};
-    \node[fase] (modelo)   at (-90:4cm) {Modelagem};
-    \node[fase] (avaliacao)at (210:4cm) {Avaliação};
-    \node[fase] (implant)  at (150:4cm) {Implantação};
-
-    % Centro
-    \node[centro] (dataset) at (0,0) {Dados};
-
-    % Setas entre fases (sentido horario)
-    \draw[bidir] (negocio)  -- (dados);
-    \draw[seta]  (dados)    -- (prep);
-    \draw[bidir] (prep)     -- (modelo);
-    \draw[seta]  (modelo)   -- (avaliacao);
-    \draw[seta]  (avaliacao)-- (implant);
-    \draw[seta]  (avaliacao) to[bend right=25] (negocio);
-
-    % Seta circular externa indicando iteracao (raio maior que o dos balões)
-    \draw[seta, dashed, black!50]
-        (110:5.8cm) arc[start angle=110, end angle=-245, radius=5.8cm];
-
-    \end{tikzpicture}
+    \includegraphics[width=0.52\textwidth]{figuras/crisp-dm-jensen.png}
     \\[4pt]
-    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
+    Fonte: \citeonline{Jensen2012}, a partir de \citeonline{Chapman2000}; licença CC BY-SA 3.0.
 \end{figure}
 
 A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executadas.
@@ -63,12 +30,12 @@ A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executa
         \rowcolor{black!8}
         \textbf{Fase CRISP-DM} & \textbf{Execução no trabalho} \\
         \midrule
-        \textbf{Entendimento do Negócio}  & Caracterização do mercado de TI brasileiro e formulação das cinco perguntas de pesquisa do \autoref{quadro:perguntas}, que passaram a organizar tanto os resultados quanto a interface. \\
-        \textbf{Entendimento dos Dados}   & Levantamento dos \textit{layouts} de cada ano, extração dos dicionários oficiais a partir das planilhas de \textit{layout} do servidor público e auditoria da tradução dos códigos; identificação dos defeitos de fonte relatados na \autoref{sec:achados-qualidade}. \\
-        \textbf{Preparação dos Dados}     & Construção das camadas Bronze, Silver (restrita ao recorte de TI) e Gold; definição e posterior revisão do recorte de tecnologia; harmonização de nomes de coluna, tipagem de campos numéricos e agrupamento dos arquivos por partição. \\
-        \textbf{Modelagem}                & Modelos SARIMA sobre o saldo mensal; estimador de \textit{nowcast} do estoque; tábua de vida para a permanência no vínculo; decomposição de Oaxaca-Blinder do hiato salarial. \\
-        \textbf{Avaliação}                & Validação de origem móvel com MAE e RMSE contra \textit{baseline} ingênuo sazonal; validação do \textit{nowcast} retendo cada ano de 2014 a 2025; verificação de reprodutibilidade confrontando o dado bruto com a camada publicada. \\
-        \textbf{Implantação}              & Migração do \textit{data lake} e do processamento para a nuvem, com execução automatizada e incremental; implantação do \textit{dashboard} consumindo o próprio \textit{data lake} público; publicação do código-fonte em repositório público. \\
+        \textbf{Entendimento do Negócio}  & Caracterização do mercado de TI e as cinco perguntas de pesquisa (\autoref{quadro:perguntas}). \\
+        \textbf{Entendimento dos Dados}   & \textit{Layouts} de cada ano, dicionários oficiais e defeitos da fonte (\autoref{sec:achados-qualidade}). \\
+        \textbf{Preparação dos Dados}     & Camadas Bronze, Silver e Gold; definição e revisão do recorte de tecnologia. \\
+        \textbf{Modelagem}                & SARIMA, \textit{nowcast} do estoque, tábua de vida e decomposição de Oaxaca-Blinder. \\
+        \textbf{Avaliação}                & Validação contra estimadores ingênuos e recontagem a partir do dado bruto. \\
+        \textbf{Implantação}              & \textit{Pipeline} automatizado em nuvem, \textit{dashboard} e código aberto. \\
         \bottomrule
     \end{tabular}
     \\[4pt]
@@ -92,12 +59,12 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
         \rowcolor{black!8}
         \textbf{Descoberta} & \textbf{Surgiu em} & \textbf{Voltou a} & \textbf{O que mudou} \\
         \midrule
-        Microdados só com códigos; descrições em planilhas de \textit{layout} & Dados & Preparação & Dicionários oficiais extraídos, com procedência (\autoref{subsec:dicionarios}) \\
-        Ocupações de dados fora do recorte; cinco códigos sem aderência & Avaliação & Negócio & Recorte revisto e camada reprocessada (\autoref{subsec:revisao-recorte}) \\
-        Resultados implausíveis: estoque de 2022 abaixo dos vizinhos, um único órgão como maior empregador de programadores, permanência mediana de 48 anos & Avaliação & Preparação ou Modelagem & Defeitos de dado e de método corrigidos e verificações acrescentadas (\autoref{quadro:achados}) \\
-        Intervalo de predição cruza o zero em cerca de um ano & Avaliação & Negócio & Horizonte de 18 meses e \textit{nowcast} do estoque corrente \\
-        São Paulo concentra 41\% do estoque & Avaliação & Negócio & Análise de sensibilidade e filtro de território \\
-        Faltava confronto externo dos totais & Avaliação & Dados & Painel público do MTE (\autoref{sec:validacao-mte}) \\
+        Microdados só com códigos & Dados & Preparação & Dicionários oficiais (\autoref{subsec:dicionarios}) \\
+        Ocupações de dados fora do recorte & Avaliação & Negócio & Recorte revisto (\autoref{subsec:revisao-recorte}) \\
+        Resultados implausíveis & Avaliação & Preparação, Modelagem & Defeitos corrigidos (\autoref{quadro:achados}) \\
+        Intervalo de predição cruza o zero em um ano & Avaliação & Negócio & Horizonte de 18 meses e \textit{nowcast} \\
+        São Paulo com 41\% do estoque & Avaliação & Negócio & Sensibilidade e filtro de território \\
+        Sem confronto externo dos totais & Avaliação & Dados & Painel do MTE (\autoref{sec:validacao-mte}) \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
@@ -447,22 +414,22 @@ Cada ferramenta foi escolhida por um requisito do projeto: processar volumes mai
     \footnotesize
     \renewcommand{\arraystretch}{1.25}
     \begin{tabularx}{\textwidth}{%
-        >{\raggedright\arraybackslash\hsize=0.62\hsize}X
-        >{\raggedright\arraybackslash\hsize=0.88\hsize}X
-        >{\raggedright\arraybackslash\hsize=1.50\hsize}X}
+        >{\raggedright\arraybackslash\hsize=1.15\hsize}X
+        >{\raggedright\arraybackslash\hsize=0.85\hsize}X
+        >{\raggedright\arraybackslash\hsize=1.00\hsize}X}
         \toprule
         \rowcolor{black!8}
-        \textbf{Ferramenta} & \textbf{Uso no trabalho} & \textbf{Alternativa descartada e motivo} \\
+        \textbf{Ferramenta} & \textbf{Uso} & \textbf{Em vez de} \\
         \midrule
-        Python \cite{Python2024} & Linguagem do \textit{pipeline} e dos modelos & Uma linguagem por etapa: Python reúne o motor de consulta, as bibliotecas estatísticas e o acesso ao repositório, e já vem nos executores. \\
-        Apache Parquet \cite{ApacheParquet2024} & Formato de todas as camadas & CSV: seria lido inteiro a cada consulta (\autoref{subsec:parquet}). \\
-        DuckDB \cite{DuckDB2024, Raasveldt2019} & Transformações e agregações & \textit{pandas}: carrega o arquivo inteiro na memória, e um arquivo da RAIS de São Paulo passa de 10~GB; Spark: exigiria um \textit{cluster} \cite{PyArrow2024}. \\
-        Hugging Face Hub \cite{HuggingFaceDatasets2026} & Armazenamento e publicação do \textit{data lake} & \textit{Bucket} privado (S3, MinIO): publicar exigiria uma segunda cópia do dado (\autoref{subsec:repositorios-dados}). \\
-        GitHub Actions \cite{GitHubActions2026} & Execução e orquestração & Airflow: exigiria um servidor permanente (\autoref{subsec:orquestracao}). \\
-        \textit{statsmodels} e Prophet \cite{Seabold2010, Taylor2018} & Modelos estatísticos & Só o Prophet, como na proposta: ele entrou na mesma validação do SARIMA para que a escolha fosse medida, e não presumida. \\
-        React, DuckDB-Wasm e ECharts \cite{React2026, Kohn2022, Li2018} & Interface, consultas e gráficos do \textit{dashboard} & Servidor de aplicação: cada filtro exigiria uma ida e volta pela rede (\autoref{sec:visualizacao}). \\
-        Leaflet e OpenStreetMap \cite{Leaflet2026, OpenStreetMap2026} & Mapa do \textit{dashboard} & Mapa sem base cartográfica: sem cidades e estradas de referência, um município pequeno não se localiza. \\
-        Cloudflare Pages \cite{CloudflarePages2026} & Hospedagem do site & Hospedagem com servidor: custo por visita. \\
+        Python \cite{Python2024} & \textit{Pipeline} e modelos & --- \\
+        Apache Parquet \cite{ApacheParquet2024} & Formato das camadas & CSV, lido inteiro \\
+        DuckDB \cite{DuckDB2024, Raasveldt2019} & Transformações & \textit{pandas}, limitado à memória \\
+        Hugging Face Hub \cite{HuggingFaceDatasets2026} & \textit{Data lake} público & \textit{Bucket} privado \\
+        GitHub Actions \cite{GitHubActions2026} & Orquestração & Airflow, com servidor \\
+        \textit{statsmodels} e Prophet \cite{Seabold2010, Taylor2018} & Modelos & Só o Prophet \\
+        React, DuckDB-Wasm, ECharts \cite{React2026, Kohn2022, Li2018} & \textit{Dashboard} & Servidor de aplicação \\
+        Leaflet e OpenStreetMap \cite{Leaflet2026, OpenStreetMap2026} & Mapa & Mapa sem base \\
+        Cloudflare Pages \cite{CloudflarePages2026} & Hospedagem & Servidor pago por visita \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
@@ -534,13 +501,13 @@ Declarar as mudanças em relação à proposta é parte do método. O \autoref{q
         \rowcolor{black!8}
         \textbf{Proposto no TCC~1} & \textbf{Executado} & \textbf{Motivo} \\
         \midrule
-        Modelo Prophet & Prophet e SARIMA na mesma validação de origem móvel, contra o \textit{baseline} ingênuo sazonal & O SARIMA venceu na validação (\autoref{sec:resultado-q5}). \\
-        Projeção até 2030 & Horizonte de 18 meses & O intervalo de predição cruza o zero em cerca de um ano (\autoref{sec:resultado-q5}). \\
-        Previsão como única modelagem & Previsão, \textit{nowcast}, tábua de vida e decomposição salarial & As perguntas sobre qualidade do emprego e equidade não se respondem com extrapolação de série. \\
-        Publicação apenas do código & Publicação do código e de seis conjuntos de dados abertos, que formam o próprio \textit{data lake} & Primeiro, requisito de implantação: o \textit{dashboard} em nuvem não alcançava o \textit{data lake} local. Depois, consequência da migração para a nuvem. Ver \autoref{sec:publicacao}. \\
-        \textit{Data lake} compatível com a API S3 (MinIO), em infraestrutura local & \textit{Data lake} em repositórios públicos do Hugging Face Hub, com processamento em executores do GitHub Actions, orquestrado por dependência e incremental por ano & Espaço em disco, bloqueio das bibliotecas de modelagem e dependência de execução manual (\autoref{subsec:migracao}). \\
-        Validação contra painéis oficiais & Validação contra painéis oficiais, auditoria automatizada e teste de reprodutibilidade a partir do dado bruto & A auditoria encontrou defeitos na fonte que a comparação de agregados não revelaria, por se cancelarem na soma. \\
-        Recorte por CBO & Recorte pela união de CNAE e CBO, com as duas lentes preservadas & Restringir a ocupações eliminaria do escopo quem trabalha em empresa de TI em função de apoio, e impediria a comparação entre as duas lentes, que se tornou o achado central do trabalho. \\
+        Modelo Prophet & Prophet e SARIMA na mesma validação & O SARIMA venceu (\autoref{sec:resultado-q5}) \\
+        Projeção até 2030 & Horizonte de 18 meses & O intervalo cruza o zero em cerca de um ano \\
+        Previsão como única modelagem & Também \textit{nowcast}, tábua de vida e decomposição salarial & Qualidade e equidade não se respondem com extrapolação \\
+        Publicação só do código & Código e seis conjuntos de dados abertos & O \textit{dashboard} em nuvem não alcançava o \textit{data lake} local (\autoref{sec:publicacao}) \\
+        \textit{Data lake} local (MinIO) & Hugging Face Hub e GitHub Actions & Disco, bloqueio de bibliotecas e execução manual (\autoref{subsec:migracao}) \\
+        Validação contra painéis oficiais & Também auditoria e recontagem do dado bruto & Defeitos que se cancelam na soma escapam aos agregados \\
+        Recorte por CBO & União de CNAE e CBO, com as duas lentes & A comparação entre as lentes virou o achado central \\
         \bottomrule
     \end{tabularx}
     \\[4pt]
