@@ -140,7 +140,7 @@ Na revisão do recorte, entraram os quatro códigos da família 2112 (estatísti
 \section{Arquitetura implementada e ferramentas}
 \label{sec:arquitetura}
 
-A plataforma foi construída primeiro sobre infraestrutura local e migrada, na fase final, para uma arquitetura executada inteiramente em nuvem, pelos motivos expostos ao fim desta seção. A \autoref{fig:fluxo-dado} mostra os componentes da arquitetura final e o caminho do dado entre eles.
+A plataforma foi construída primeiro sobre infraestrutura local e migrada, na fase final, para uma arquitetura executada inteiramente em nuvem, pelos motivos expostos ao fim desta seção. A \autoref{fig:fluxo-dado} mostra o caminho do dado na arquitetura final e o volume em cada etapa, e a \autoref{fig:arquitetura}, as ferramentas de cada camada.
 
 \begin{figure}[htbp]
     \centering
@@ -197,13 +197,235 @@ A plataforma foi construída primeiro sobre infraestrutura local e migrada, na f
 
 O repositório público é o próprio \textit{data lake}: cada camada é um conjunto de dados no Hugging Face Hub (dois da Bronze, um de dicionários, dois da Silver e um da Gold), e cada etapa lê a camada anterior e grava a seguinte nele. O processamento não tem máquina fixa: cada etapa roda em um executor efêmero do GitHub Actions, e nada persiste entre execuções além do que foi gravado no repositório. A Silver traduz só as linhas do recorte, e não o mercado inteiro, que teria volume da ordem da Bronze; analisar outra área exige apenas outra Silver, construída a partir da mesma Bronze.
 
+\begin{figure}[htbp]
+    \centering
+    \caption{Arquitetura implementada}
+    \label{fig:arquitetura}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        every node/.style={font=\small},
+        camada/.style={rectangle, rounded corners=2pt, draw=black!70, thick,
+                       minimum width=14.6cm, minimum height=14mm, align=center},
+        comp/.style={rectangle, rounded corners=2pt, draw=black!60,
+                     text width=3.05cm, minimum height=10.5mm, align=center,
+                     fill=white, font=\footnotesize,
+                     execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+        rotulo/.style={font=\footnotesize\bfseries, anchor=east, align=right},
+        obs/.style={font=\scriptsize\itshape, text=black!70, anchor=north west, inner sep=1pt},
+        seta/.style={-{Stealth[length=2.2mm]}, thick, black!70},
+        bidir/.style={{Stealth[length=2.2mm]}-{Stealth[length=2.2mm]}, thick, black!70},
+        acao/.style={font=\scriptsize\itshape, fill=white, inner sep=1.5pt, align=center}
+    ]
+    % Fontes
+    \node[camada, fill=blue!8] (fontes) at (0, 0) {};
+    \node[rotulo] at ([xshift=-2mm]fontes.west) {Fontes};
+    \node[comp] at (-5.4, 0) {RAIS\\{\scriptsize MTE, servidor FTP}};
+    \node[comp] at (-1.8, 0) {CAGED\\{\scriptsize MTE, servidor FTP}};
+    \node[comp] at ( 1.8, 0) {Planilhas de \textit{layout}\\{\scriptsize MTE}};
+    \node[comp] at ( 5.4, 0) {Municípios\\{\scriptsize IBGE}};
+
+    % Processamento: executores efêmeros do GitHub Actions
+    \node[camada, fill=green!7] (proc) at (0, -3.0) {};
+    \node[rotulo] at ([xshift=-2mm]proc.west) {Processamento};
+    \node[comp] at (-5.4, -3.0) {GitHub Actions\\{\scriptsize \textit{workflows}, agenda semanal}};
+    \node[comp] at (-1.8, -3.0) {DuckDB\\{\scriptsize SQL analítico}};
+    \node[comp] at ( 1.8, -3.0) {\textit{statsmodels}, Prophet\\{\scriptsize SARIMA, \textit{nowcast}}};
+    \node[comp] at ( 5.4, -3.0) {Python\\{\scriptsize tábua de vida, Oaxaca-Blinder}};
+    \node[obs] at ([yshift=-0.5mm]proc.south west) {executores efêmeros, sem disco persistente};
+
+    % Armazenamento e publicação: Hugging Face Hub
+    \node[camada, fill=orange!8, minimum height=18mm] (armaz) at (0, -6.2) {};
+    \node[rotulo] at ([xshift=-2mm]armaz.west) {Armazenamento\\e publicação};
+    \node[comp, fill=orange!20] at (-5.4, -6.2)
+        {Bronze\\{\scriptsize\ttfamily bronze-caged}\\{\scriptsize\ttfamily bronze-rais}};
+    \node[comp, fill=blue!10] at (-1.8, -6.2)
+        {Dicionários\\{\scriptsize\ttfamily mte-dicionarios}};
+    \node[comp, fill=gray!20] at (1.8, -6.2)
+        {Silver de TI\\{\scriptsize\ttfamily silver-caged-ti}\\{\scriptsize\ttfamily silver-rais-ti}};
+    \node[comp, fill=yellow!25] (gold) at (5.4, -6.2)
+        {Gold\\{\scriptsize\ttfamily gold-analise-}\\{\scriptsize\ttfamily mercado-ti}};
+    \node[obs] at ([yshift=-0.5mm]armaz.south west) {Hugging Face Hub: público, versionado por \textit{commit}};
+
+    % Apresentação
+    \node[camada, fill=red!5] (apres) at (0, -9.6) {};
+    \node[rotulo] at ([xshift=-2mm]apres.west) {Apresentação};
+    \node[comp] (cf) at (-5.4, -9.6) {Cloudflare Pages\\{\scriptsize site estático}};
+    \node[comp, text width=4.6cm] (nav) at (-0.3, -9.6) {Navegador de quem visita\\{\scriptsize React, DuckDB-Wasm, ECharts, Leaflet}};
+    \node[comp] (terc) at (5.4, -9.6) {Consulta por terceiros\\{\scriptsize DuckDB, \texttt{hf://}}};
+    \node[obs] at ([yshift=-0.5mm]apres.south west) {sem servidor de aplicação};
+
+    % Setas entre as camadas
+    \draw[seta] (fontes.south) -- node[acao, right=1mm] {\textit{download}} (proc.north);
+    \draw[bidir] (proc.south) -- node[acao, right=1mm] {lê a camada anterior, grava a seguinte} (armaz.north);
+    \draw[seta] (cf.east) -- node[acao, above=0.5mm] {código} (nav.west);
+    \draw[seta] (gold.south) -- ++(0,-0.9) -| node[acao, pos=0.3, above=0.5mm] {Parquet por HTTP} (nav.north);
+    \draw[seta] ([xshift=6mm]gold.south) -- ([xshift=6mm]terc.north);
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize O site é construído pela Cloudflare Pages a cada alteração do código no GitHub; os dados não passam por ela: o navegador pede à Gold só as tabelas da aba aberta e as consulta localmente.}
+    \\[2pt]
+    Fonte: Elaborado pelo autor.
+\end{figure}
+
 \label{subsec:orquestracao-pipeline}
 
 O \textit{pipeline} é dividido em nove etapas, cada uma um \textit{workflow} do GitHub Actions. Um décimo \textit{workflow}, o orquestrador, roda toda semana e encadeia as nove pela dependência real entre elas: uma etapa só começa quando as de que depende terminaram. Ele também pode ser disparado a partir de qualquer camada, e cada etapa pode rodar isoladamente.
 
-O processamento é incremental. As etapas de Bronze e de Silver começam por uma verificação, que compara a origem com o que já está publicado e lista os pares (tabela, ano) pendentes, e processam cada par em um \textit{job} próprio, até quatro em paralelo; o particionamento por ano é o que permite reprocessar um ano sem tocar nos demais. A verificação identifica cada arquivo já ingerido pelo caminho de origem gravado nas linhas, e não pelo nome, porque arquivos grandes da RAIS são divididos em partes na publicação, e, quando ela falha, trata o item como existente: deixar de atualizar um ano é uma falha visível, enquanto ingerir duas vezes duplicaria o dado sem aviso. A Gold, pequena, é reconstruída inteira, dividida em quatro etapas para que a falha de uma não obrigue a refazer as outras.
+O processamento é incremental. As etapas de Bronze e de Silver começam por uma verificação, que compara a origem com o que já está publicado e lista os pares (tabela, ano) pendentes, e processam cada par em um \textit{job} próprio, até quatro em paralelo; o particionamento por ano é o que permite reprocessar um ano sem tocar nos demais. A verificação identifica cada arquivo já ingerido pelo caminho de origem gravado nas linhas, e não pelo nome, porque arquivos grandes da RAIS são divididos em partes na publicação, e, quando ela falha, trata o item como existente: deixar de atualizar um ano é uma falha visível, enquanto ingerir duas vezes duplicaria o dado sem aviso. A Gold, pequena, é reconstruída inteira, dividida em quatro etapas para que a falha de uma não obrigue a refazer as outras. A \autoref{fig:actions} mostra uma execução agendada: a verificação encontrou arquivos novos do CAGED de 2026 e nada pendente na RAIS, e a execução inteira, da decisão à última tabela da Gold, levou cerca de meia hora.
 
-Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o ano (e o mês, nas tabelas mensais) no caminho, como em \nolinkurl{caged_mov/ano_particao=2025/mes_particao=6/}, o que permite ao DuckDB descartar partições pelo caminho, antes de abrir qualquer arquivo. Cada partição é consolidada em um único arquivo, porque sobre HTTP cada objeto custa uma requisição, e a procedência de cada linha fica em colunas de linhagem (arquivo e caminho de origem, data de ingestão), e não no nome do arquivo.
+\begin{figure}[htbp]
+    \centering
+    \caption{Execução agendada do orquestrador no GitHub Actions, em 9 de novembro de 2026}
+    \label{fig:actions}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        job/.style={rectangle, rounded corners=3pt, draw=black!30, fill=white,
+                    text width=3.8cm, minimum height=7.5mm, align=left, font=\small,
+                    inner xsep=2mm,
+                    execute at begin node={\hyphenpenalty=10000\hspace*{4.4mm}}},
+        pulado/.style={text=black!50},
+        matriz/.style={rectangle, rounded corners=3pt, draw=black!30, fill=black!3, inner sep=1.3mm},
+        rotmatriz/.style={font=\scriptsize\ttfamily, text=black!70, anchor=south west, inner sep=1.5pt},
+        etapa/.style={font=\small\bfseries, anchor=east, align=right, text=black!75},
+        liga/.style={black!40, line width=0.7pt}
+    ]
+    \newcommand{\ok}[1]{%
+        \fill[green!50!black] ([xshift=3.4mm]#1.west) circle (1.5mm);
+        \draw[white, line width=0.9pt] ([xshift=2.75mm, yshift=0.05mm]#1.west) -- ([xshift=3.25mm, yshift=-0.5mm]#1.west) -- ([xshift=4.05mm, yshift=0.55mm]#1.west);}
+    \newcommand{\pul}[1]{\draw[black!45, line width=0.7pt] ([xshift=3.4mm]#1.west) circle (1.5mm);}
+    \newcommand{\dur}[1]{\hfill{\scriptsize\textcolor{black!55}{#1}}}
+
+    \node[etapa] at (-2.1,  0.0)  {Decisão};
+    \node[etapa] at (-2.1, -1.4)  {Bronze\\verificação};
+    \node[etapa] at (-2.1, -3.8)  {Bronze\\ingestão};
+    \node[etapa] at (-2.1, -6.2)  {Silver\\verificação};
+    \node[etapa] at (-2.1, -8.4)  {Silver\\tradução};
+    \node[etapa] at (-2.1, -10.8) {Gold};
+
+    \node[job] (dec) at (6.75,0) {decidir\dur{3s}}; \ok{dec}
+    \node[font=\small, text=black!65, anchor=east] at (15.4,0) {agendada (\textit{cron}) · total 30m33s};
+
+    % Bronze: verificação das três fontes e ingestão do que faltava
+    \node[job] (vdi) at (2.25,-1.4)  {dicionario\dur{33s}};    \ok{vdi}
+    \node[job] (vbc) at (6.75,-1.4)  {bronze-caged\dur{2m37s}}; \ok{vbc}
+    \node[job] (vbr) at (11.25,-1.4) {bronze-rais\dur{1m21s}};  \ok{vbr}
+    \node[job] (b1) at (4.50,-3.0) {caged\_mov\dur{4m37s}}; \ok{b1}
+    \node[job] (b2) at (4.50,-3.8) {caged\_exc\dur{39s}};   \ok{b2}
+    \node[job] (b3) at (4.50,-4.6) {caged\_for\dur{1m15s}}; \ok{b3}
+    \node[job, pulado] (b4) at (9.00,-3.0) {nada pendente}; \pul{b4}
+
+    % Silver
+    \node[job] (vsc) at (4.50,-6.2) {silver-caged-ti\dur{15s}}; \ok{vsc}
+    \node[job] (vsr) at (9.00,-6.2) {silver-rais-ti\dur{11s}};  \ok{vsr}
+    \node[job] (t1) at (4.50,-7.6) {caged\_mov\dur{2m12s}}; \ok{t1}
+    \node[job] (t2) at (4.50,-8.4) {caged\_exc\dur{1m46s}}; \ok{t2}
+    \node[job] (t3) at (4.50,-9.2) {caged\_for\dur{1m25s}}; \ok{t3}
+    \node[job, pulado] (t4) at (9.00,-7.6) {nada pendente}; \pul{t4}
+
+    % Gold
+    \node[job] (gc) at (0.00,-10.8) {gold-caged-\\\hspace*{4.4mm}consolidado\dur{11m18s}}; \ok{gc}
+    \node[job] (gr) at (4.50,-10.8) {gold-rais\dur{9m19s}};        \ok{gr}
+    \node[job] (gt) at (9.00,-10.8) {gold-territorio\dur{9m32s}};  \ok{gt}
+    \node[job] (gm) at (13.50,-10.8) {gold-modelos\dur{19m22s}};   \ok{gm}
+
+    \begin{scope}[on background layer]
+        \node[matriz, fit=(b1)(b3)] (mbc) {};
+        \node[matriz, fit=(b4)] (mbr) {};
+        \node[matriz, fit=(t1)(t3)] (msc) {};
+        \node[matriz, fit=(t4)] (msr) {};
+        % ligações por camada, como a interface agrupa
+        \draw[liga] (dec.south) -- (6.75,-0.7) (2.25,-0.7) -- (11.25,-0.7);
+        \foreach \b in {vdi,vbc,vbr} \draw[liga] (\b.north |- 0,-0.7) -- (\b.north);
+        \foreach \a in {vdi,vbc,vbr} \draw[liga] (\a.south) -- (\a.south |- 0,-2.15);
+        \draw[liga] (2.25,-2.15) -- (11.25,-2.15);
+        \foreach \b in {mbc,mbr} \draw[liga] (\b.north |- 0,-2.15) -- (\b.north);
+        \foreach \a in {mbc,mbr} \draw[liga] (\a.south) -- (\a.south |- 0,-5.5);
+        \draw[liga] (4.50,-5.5) -- (9.00,-5.5);
+        \foreach \b in {vsc,vsr} \draw[liga] (\b.north |- 0,-5.5) -- (\b.north);
+        \draw[liga] (vsc.south) -- (msc.north) (vsr.south) -- (msr.north);
+        \draw[liga] (msc.south) -- (4.50,-10.0) (msr.south) -- (9.00,-10.0) (0.00,-10.0) -- (13.50,-10.0);
+        \foreach \b in {gc,gr,gt,gm} \draw[liga] (\b.north |- 0,-10.0) -- (\b.north);
+    \end{scope}
+    \node[rotmatriz, fill=white] at (mbc.north west) {Matrix: atualizar (2026)};
+    \node[rotmatriz, fill=white] at (mbr.north west) {Matrix: atualizar};
+    \node[rotmatriz, fill=white] at (msc.north west) {Matrix: traduzir (2026)};
+    \node[rotmatriz, fill=white] at (msr.north west) {Matrix: traduzir};
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize Círculo cheio: etapa executada; círculo vazio: nada a processar. As ligações seguem o agrupamento por camada da interface do GitHub Actions, mas cada etapa espera só as de que depende: a \texttt{gold-rais} começou dois minutos após o início, com o CAGED ainda na Bronze, e a \texttt{gold-modelos}, que usa o estoque da RAIS, começou quando a \texttt{gold-rais} terminou.}
+    \\[2pt]
+    Fonte: Elaborado pelo autor, a partir da execução registrada no GitHub Actions \cite{GitHubActions2026}.
+\end{figure}
+
+Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o ano (e o mês, nas tabelas mensais) no caminho, como em \nolinkurl{caged_mov/ano_particao=2025/mes_particao=6/}, o que permite ao DuckDB descartar partições pelo caminho, antes de abrir qualquer arquivo. Cada partição é consolidada em um único arquivo, porque sobre HTTP cada objeto custa uma requisição, e a procedência de cada linha fica em colunas de linhagem (arquivo e caminho de origem, data de ingestão), e não no nome do arquivo. A \autoref{fig:leitura-particao} mostra o que o DuckDB lê para somar o saldo de um mês por estado: uma das 81 partições da tabela e, dentro dela, só as duas colunas da consulta, cerca de 3\% do arquivo.
+
+\begin{figure}[htbp]
+    \centering
+    \caption{O que o DuckDB lê de uma tabela particionada da Silver para somar o saldo de junho de 2025 por estado}
+    \label{fig:leitura-particao}
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        consulta/.style={rectangle, rounded corners=2pt, draw=black!60, fill=black!4,
+                         align=left, font=\footnotesize\ttfamily, inner sep=2.5mm},
+        pasta/.style={font=\footnotesize\ttfamily, anchor=west, inner sep=1.2pt},
+        fora/.style={pasta, text=black!40},
+        passo/.style={circle, fill=black!80, text=white, font=\scriptsize\bfseries, inner sep=1.2pt, minimum size=4.2mm},
+        nota/.style={font=\footnotesize, align=left, anchor=west},
+        seta/.style={-{Stealth[length=2mm]}, thick, black!70}
+    ]
+    % a consulta
+    \node[consulta, anchor=north west] (q) at (0, 0)
+        {SELECT uf, sum(saldomovimentacao) AS saldo\\
+         FROM 'hf://datasets/Gianpedro/silver-caged-ti/caged\_mov/**/*.parquet'\\
+         WHERE ano\_particao = 2025 AND mes\_particao = 6\\
+         GROUP BY uf};
+
+    % 1. as partições, pelo caminho
+    \node[passo] (p1) at (0.25, -2.55) {1};
+    \node[nota, font=\footnotesize\bfseries] at (0.55, -2.55) {Partições, pelo caminho};
+    \node[pasta] at (0.1, -3.15) {caged\_mov/};
+    \node[fora]  at (0.5, -3.6)  {ano\_particao=2020/ \dots{} 2024/};
+    \node[pasta] at (0.5, -4.05) {ano\_particao=2025/};
+    \node[fora]  at (0.9, -4.5)  {mes\_particao=1/ \dots{} 5/};
+    \node[pasta, fill=yellow!35, draw=black!70, rounded corners=1.5pt, inner sep=2pt] at (0.9, -4.95) {mes\_particao=6/};
+    \node[pasta, fill=yellow!35, draw=black!70, rounded corners=1.5pt, inner sep=2pt] (arq) at (1.3, -5.4) {caged\_mov\_2025\_6.parquet};
+    \node[fora]  at (0.9, -5.85) {mes\_particao=7/ \dots{} 12/};
+    \node[fora]  at (0.5, -6.3)  {ano\_particao=2026/};
+    \node[nota, text=black!70, font=\scriptsize, align=left] at (0.1, -7.05) {80 das 81 partições descartadas\\antes de qualquer leitura};
+
+    % o arquivo escolhido: rodapé e colunas
+    \begin{scope}[xshift=8.2cm, yshift=-2.55cm]
+    \node[passo] at (0.25, 0) {3};
+    \node[nota, font=\footnotesize\bfseries] at (0.55, 0) {Só as colunas da consulta};
+    \draw[black!55, dashed, rounded corners=3pt] (-1.3,-0.3) rectangle (6.0,-3.65);
+    \node[font=\scriptsize\ttfamily, text=black!60, anchor=north east] at (6.0,-3.68) {caged\_mov\_2025\_6.parquet};
+    % 58 colunas em 2 blocos, desenhadas como 29 faixas por bloco (cada uma vale duas colunas)
+    \foreach \bloco/\y in {1/-0.75, 2/-1.95} {
+        \node[font=\scriptsize, anchor=east, text=black!70] at (-0.05, \y-0.45) {bloco \bloco};
+        \foreach \c in {0,...,28}
+            \draw[black!25, fill=white] (\c*0.2, \y) rectangle ++(0.2,-0.9);
+        \draw[black!80, fill=yellow!55] (2*0.2, \y) rectangle ++(0.2,-0.9);
+        \draw[black!80, fill=yellow!55] (6*0.2, \y) rectangle ++(0.2,-0.9);
+    }
+    \draw[black!70, fill=blue!12] (0,-3.05) rectangle (5.8,-3.45);
+    \node[font=\scriptsize] at (2.9,-3.25) {rodapé: onde fica cada coluna};
+    \node[passo] at (-0.5,-3.25) {2};
+    \node[font=\scriptsize\ttfamily, anchor=south east] at (0.62,-0.72) {uf};
+    \node[font=\scriptsize\ttfamily, anchor=south west] at (1.18,-0.72) {saldomovimentacao};
+    \node[nota, font=\scriptsize, text=black!75] at (-1.3, -4.42) {58 colunas, 73.977 linhas, 1,5~MB. O DuckDB lê o rodapé e depois};
+    \node[nota, font=\scriptsize, text=black!75] at (-1.3, -4.8) {só os trechos das duas colunas, por requisições HTTP parciais:};
+    \node[nota, font=\scriptsize, text=black!75] at (-1.3, -5.18) {cerca de 47~kB, 3\% do arquivo};
+    \end{scope}
+    \draw[seta] (arq.east) -- (7.0, -5.4);
+    \end{tikzpicture}%
+    }
+    \\[4pt]
+    {\footnotesize Cada faixa do arquivo representa duas colunas. Os números são do arquivo de junho de 2025 da tabela \texttt{caged\_mov} no repositório \texttt{silver-caged-ti}; os mínimos e máximos dos dois blocos se sobrepõem, e nenhum bloco é descartado por eles nesta consulta.}
+    \\[2pt]
+    Fonte: Elaborado pelo autor.
+\end{figure}
 
 \label{sec:publicacao}
 \label{subsec:migracao}
