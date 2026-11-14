@@ -138,11 +138,14 @@ FROM read_parquet('hf://datasets/Gianpedro/bronze-caged/dicionarios.parquet')
 WHERE coluna = 'sexo';
 \end{lstlisting}
 
-\chapter{Série anual do estoque e da remuneração}
+\chapter{Tabelas complementares}
 \label{apend:series}
+\label{apend:tabelas}
 
-A tabela a seguir traz os valores exatos da \autoref{fig:estoque-serie}. Ela sai da mesma consulta à camada Gold que gera o gráfico, de modo que figura e tabela não podem divergir.
+A \autoref{tab:estoque-serie} traz os valores exatos da \autoref{fig:estoque-serie}. Ela sai da mesma consulta à camada Gold que gera o gráfico, de modo que figura e tabela não podem divergir. A \autoref{tab:uf} detalha, por unidade federativa, o mapa da \autoref{fig:dashboard-mapa}.
 
 \input{estrutura/tabelas-geradas/tab-estoque-serie.tex}
+
+\input{estrutura/tabelas-geradas/tab-uf.tex}
 
 \end{apendicesenv}
