@@ -56,7 +56,7 @@ O \autoref{quadro:objetivos} confronta cada objetivo específico da \autoref{sec
         \textit{Pipeline} automatizado em camadas & RAIS de 2007 a 2025 e CAGED de 2007 a 2026, em nove etapas encadeadas que reprocessam só os anos com dado novo & \autoref{sec:arquitetura} \\
         Recorte com as duas lentes & CNAE e CBO preservadas em cada registro, o que sustenta o achado sobre onde está o trabalho de TI & \autoref{sec:recorte}, \autoref{sec:resultado-q2} \\
         Tradução oficial e auditoria & Código original ao lado da descrição; recorte recontado a partir do dado bruto & \autoref{subsec:dicionarios}, \autoref{sec:reprodutibilidade} \\
-        \textit{Dashboard} sem servidor & Site estático que lê a Gold do Hugging Face com DuckDB-Wasm, uma aba por pergunta & \autoref{sec:apresentacao} \\
+        \textit{Dashboard} sem servidor & Site estático que lê a Gold do Hugging Face com DuckDB-Wasm, uma aba por pergunta & \autoref{sec:apresentacao}, \autoref{sec:dashboard-entregue} \\
         Previsão e \textit{nowcast} & SARIMA e \textit{nowcast} validados contra estimadores ingênuos e superiores a eles (\autoref{quadro:sintese}) & \autoref{sec:resultado-q5} \\
         Qualidade do emprego e diferenças salariais & Remuneração, giro e tábua de vida; Oaxaca-Blinder ano a ano por sexo e por raça/cor & \autoref{sec:resultado-q3}, \autoref{sec:resultado-q4} \\
         Dados abertos & Todas as camadas e agregados publicados em repositórios públicos & \autoref{sec:arquitetura} \\
@@ -77,7 +77,7 @@ A contribuição sobre a qualidade da fonte não estava prevista. A auditoria en
 \section{Limitações}
 \label{sec:limitacoes-metodo}
 
-A RAIS e o CAGED cobrem só o mercado formal. Ficam fora os trabalhadores por conta própria, os microempreendedores, os contratados como pessoa jurídica, comuns no setor, e os brasileiros que trabalham para empresas estrangeiras, parcela que cresceu com o trabalho remoto: o mercado de tecnologia em que brasileiros atuam é maior que o medido aqui, e as conclusões valem para a parte dele com vínculo formal no país. A CBO, além disso, é atualizada lentamente em relação à criação de ocupações no setor.
+A RAIS e o CAGED cobrem só o mercado formal. Ficam fora os trabalhadores por conta própria, os microempreendedores, os contratados como pessoa jurídica, comuns no setor \cite{IPEA2023}, e os brasileiros que trabalham para empresas estrangeiras, parcela que cresceu com o trabalho remoto: o mercado de tecnologia em que brasileiros atuam é maior que o medido aqui, e as conclusões valem para a parte dele com vínculo formal no país. A CBO, além disso, é atualizada lentamente em relação à criação de ocupações no setor.
 
 A localização de cada vínculo é a do estabelecimento declarante, e não a do trabalho. Municípios com incentivo fiscal aparecem com concentração acima da real, e o trabalho remoto agrava a distorção \cite{Barrero2023}: quem mora em Londrina e trabalha para uma empresa de São Paulo é contado em São Paulo. O dado público não permite corrigir isso.
 

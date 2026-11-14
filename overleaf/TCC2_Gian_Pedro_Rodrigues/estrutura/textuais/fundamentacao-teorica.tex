@@ -3,8 +3,6 @@
 \chapter{Fundamentação Teórica}
 \label{cap:referencial}
 
-Este capítulo apresenta os fundamentos do trabalho, na ordem descrita na introdução, e encerra com os trabalhos relacionados.
-
 \section{Mercado de trabalho em TI: crescimento e desigualdade}
 
 Nas últimas décadas, o setor de TI no Brasil cresceu sem grandes interrupções, puxado pela transformação digital de empresas e órgãos públicos, pelo comércio eletrônico e pelos modelos de negócio centrados em plataformas digitais. Segundo o Relatório Setorial 2024 da BRASSCOM, o macrossetor de Tecnologia da Informação e Comunicação (TIC) responde por 6,5\% do Produto Interno Bruto (PIB) brasileiro e reunia, em 2024, cerca de 2,1 milhões de empregos formais \cite{Brasscom2024}.
@@ -32,9 +30,7 @@ Estudar essas dinâmicas exige fontes com cobertura nacional, série histórica 
 
 A RAIS é um registro administrativo criado pelo Decreto n.º 76.900/1975, de preenchimento anual e obrigatório para todos os estabelecimentos com empregados formais, sejam celetistas, estatutários, avulsos ou outros. A cada ano-base, são declarados os vínculos ativos em 31 de dezembro e os encerrados ao longo do ano, com cargo (CBO), salário de dezembro, carga horária, grau de instrução, gênero, raça/cor, tempo de emprego, município e CNAE do estabelecimento \cite{RAIS2024}. A série existe desde 1985, com boa qualidade a partir dos anos 2000, o que viabiliza análises de longo prazo \cite{RAIS2024, SilvaLima2018}; neste trabalho, é a principal fonte para descrever o estoque de empregos formais em TI.
 
-Os arquivos distribuídos pelo MTE trazem apenas códigos numéricos, sem cabeçalho, em campos de posição fixa definida por arquivos de \textit{layout} que acompanham cada base \cite{RAIS2024}. O tamanho varia muito entre estados e anos: a RAIS do Acre em 2007 tem cerca de 39~MB, e a de São Paulo em 2022 passa de 10~GB. Sem os \textit{layouts} e os dicionários de CBO, CNAE e municípios, os arquivos são ilegíveis.
-
-Por ser uma declaração anual de vínculos formais, a RAIS não enxerga trabalhadores por conta própria, microempreendedores individuais nem autônomos, segmentos que têm crescido no setor de TI \cite{IPEA2023}, e não mostra a sazonalidade dentro do ano, lacuna que o CAGED preenche.
+Os arquivos distribuídos pelo MTE trazem apenas códigos numéricos, sem cabeçalho, em campos de posição fixa definida por arquivos de \textit{layout} que acompanham cada base \cite{RAIS2024}. Por ser uma declaração anual, a RAIS não mostra a sazonalidade dentro do ano, lacuna que o CAGED preenche.
 
 \label{subsec:caged}
 
@@ -53,11 +49,7 @@ Com a divisão em vários arquivos, o saldo de cada competência deixa de sair d
 
 A CBO é o documento oficial que descreve e organiza as ocupações do mercado de trabalho brasileiro, e a base dos campos de cargo da RAIS e do CAGED \cite{CBO2024}. A classificação é hierárquica: grande grupo (1 dígito), subgrupo principal (2 dígitos), subgrupo (3 dígitos), família ocupacional (4 dígitos), que reúne ocupações de tarefas semelhantes, e ocupação (6 dígitos), que descreve o cargo. O código 212405, analista de sistemas (suporte), pertence à família 2124 (analistas de tecnologia da informação), ao subgrupo principal 21 (profissionais das ciências exatas e da engenharia) e ao grande grupo 2 (profissionais das ciências e das artes).
 
-A delimitação do setor de TI neste trabalho acontece no nível de família ocupacional, que reúne ocupações tecnicamente equivalentes em um único código \cite{CBO2024} e foi o nível mais estável ao longo dos 18 anos da série.
-
-A CBO classifica o que o trabalhador faz, mas não diz em que tipo de empresa ele atua. Esse papel cabe à CNAE, mantida pelo IBGE e estruturada em cinco níveis, do mais agregado (Seção, com letras de A a U) ao mais específico (Subclasse, com 7 dígitos) \cite{CNAE2024}. A CNAE permite distinguir quem atua em empresas de tecnologia (Divisão 62, ``Atividades dos serviços de tecnologia da informação'' \cite{CNAE2024}) de quem ocupa funções de TI em bancos, indústria ou comércio: é o cruzamento entre CBO (ocupação) e CNAE (setor) que responde a perguntas como ``quantos analistas de sistemas trabalham em bancos \textit{versus} em empresas de \textit{software}?''.
-
-A tabela de municípios do IBGE traduz os códigos de município e permite agrupar os vínculos por unidade federativa. As três tabelas (CBO, CNAE e municípios) são distribuídas pelo MTE no mesmo servidor FTP das bases principais.
+A CBO classifica o que o trabalhador faz, mas não diz em que tipo de empresa ele atua. Esse papel cabe à CNAE, mantida pelo IBGE e estruturada em cinco níveis, do mais agregado (Seção, com letras de A a U) ao mais específico (Subclasse, com 7 dígitos) \cite{CNAE2024}. A CNAE permite distinguir quem atua em empresas de tecnologia (Divisão 62, ``Atividades dos serviços de tecnologia da informação'' \cite{CNAE2024}) de quem ocupa funções de TI em bancos, indústria ou comércio.
 
 Usadas juntas, as duas bases dão uma visão que nenhuma oferece sozinha. A RAIS é a fotografia anual dos vínculos ativos em 31 de dezembro; o CAGED é o filme mensal das admissões e desligamentos, com a sazonalidade e as rupturas pontuais, como a contração brusca de março de 2020. Uma dá o nível; a outra mostra como ele se move ao longo do ano \cite{RAIS2024, CAGED2024}.
 

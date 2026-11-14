@@ -3,8 +3,6 @@
 \chapter{Materiais e Métodos}
 \label{cap:metodologia}
 
-Este capítulo descreve o método de pesquisa, as fontes de dados, o recorte adotado, a arquitetura implementada, as ferramentas e os modelos aplicados, e declara, na \autoref{sec:revisoes}, as revisões feitas em relação à proposta apresentada no TCC~1.
-
 \section{Método}
 \label{sec:metodo}
 
@@ -214,9 +212,7 @@ A migração para a nuvem não estava prevista: a proposta do TCC~1 previa um \t
 
 \label{sec:apresentacao}
 
-O \textit{dashboard} segue a arquitetura da \autoref{sec:visualizacao}, e os dados não fazem parte dele: o site lê a Gold direto do repositório no Hugging Face, só as tabelas que a aba aberta usa, e as consulta pelo DuckDB-Wasm no navegador, com o mesmo SQL do \textit{pipeline}. Cada tabela é pedida pelo endereço do último \textit{commit} que a alterou; como esse endereço só muda quando a tabela muda, o navegador guarda o arquivo sem prazo de validade, e uma tabela nova aparece no site assim que é publicada, sem reconstruí-lo. Para que o CAGED possa ser filtrado livremente, a Gold o agrega em cubos que guardam a soma e a contagem do salário, e não a média, para que qualquer combinação de filtros produza a média ponderada correta. Como mediana não se soma (\autoref{sec:achados-qualidade}), a Gold guarda também a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo, de onde o site interpola a mediana de qualquer filtro, com erro máximo de 0,05 salário mínimo.
-
-A organização segue o princípio de \citeonline{Shneiderman1996}: uma visão geral reúne os indicadores principais e a resposta curta de cada pergunta, e cada pergunta de pesquisa tem uma aba própria, que abre pela pergunta e por uma resposta em uma frase, calculada dos dados, seguidas dos filtros e dos gráficos; cada gráfico oferece a tabela com os valores exatos e o \textit{download} dos dados em CSV. O mapa desenha os estados e os municípios sobre a base cartográfica do OpenStreetMap \cite{OpenStreetMap2026}, com a biblioteca Leaflet \cite{Leaflet2026}, e permite descer do país ao município. Um filtro de território vale para o site inteiro; os gráficos calculados só para o país (decomposição salarial, sobrevivência e previsão) exibem, com o filtro ligado, um selo que declara que continuam nacionais.
+O \textit{dashboard} segue a arquitetura da \autoref{sec:visualizacao}, e os dados não fazem parte dele: o site lê a Gold direto do repositório no Hugging Face, só as tabelas que a aba aberta usa, e as consulta pelo DuckDB-Wasm no navegador, com o mesmo SQL do \textit{pipeline}. Cada tabela é pedida pelo endereço do último \textit{commit} que a alterou; como esse endereço só muda quando a tabela muda, o navegador guarda o arquivo sem prazo de validade, e uma tabela nova aparece no site assim que é publicada, sem reconstruí-lo. Para que o CAGED possa ser filtrado livremente, a Gold o agrega em cubos que guardam a soma e a contagem do salário, e não a média, para que qualquer combinação de filtros produza a média ponderada correta. Como mediana não se soma (\autoref{sec:achados-qualidade}), a Gold guarda também a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo, de onde o site interpola a mediana de qualquer filtro, com erro máximo de 0,05 salário mínimo. A organização do site e o que ele permite verificar estão na \autoref{sec:dashboard-entregue}.
 
 \label{sec:ferramentas}
 
@@ -254,7 +250,7 @@ Cada ferramenta foi escolhida por um requisito do projeto: processar volumes mai
 \section{Auditoria e reprodutibilidade}
 \label{sec:auditoria}
 
-A validação prevista na proposta (confrontar os agregados com os painéis oficiais) foi complementada por uma rotina de auditoria automatizada, executada sobre a camada construída antes de qualquer análise. Ela aplica três verificações a cada tabela:
+Antes de qualquer análise, uma rotina de auditoria automatizada é executada sobre a camada construída. Ela aplica três verificações a cada tabela:
 
 \begin{itemize}
     \item \textbf{completude}: todo arquivo do servidor público que contém linhas dentro do recorte tem saída na camada tratada. A identidade da origem é o caminho no servidor, registrado em cada linha, e não o nome do arquivo de saída, que muda quando a camada é reparticionada ou consolidada;
