@@ -58,19 +58,19 @@ A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executa
     \label{tab:crispdm-fases}
     \renewcommand{\arraystretch}{1.35}
     \hyphenpenalty=10000 \exhyphenpenalty=10000 % sem quebra de palavra com hífen nesta tabela
-    \begin{tabular}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{11.3cm}}
+    \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}X}
         \toprule
         \rowcolor{black!8}
         \textbf{Fase CRISP-DM} & \textbf{Execução no trabalho} \\
         \midrule
-        \textbf{Entendimento do Negócio}  & Caracterização do mercado de TI e as cinco perguntas de pesquisa (\autoref{quadro:perguntas}). \\
-        \textbf{Entendimento dos Dados}   & \textit{Layouts} de cada ano, dicionários oficiais e defeitos da fonte (\autoref{sec:achados-qualidade}). \\
-        \textbf{Preparação dos Dados}     & Camadas Bronze, Silver e Gold; definição e revisão do recorte de tecnologia. \\
-        \textbf{Modelagem}                & SARIMA, \textit{nowcast} do estoque, tábua de vida e decomposição de Oaxaca-Blinder. \\
-        \textbf{Avaliação}                & Validação contra estimadores ingênuos e recontagem a partir do dado bruto. \\
+        \textbf{Entendimento do Negócio}  & Mercado de TI e as cinco perguntas de pesquisa (\autoref{quadro:perguntas}). \\
+        \textbf{Entendimento dos Dados}   & \textit{Layouts}, dicionários oficiais e defeitos da fonte (\autoref{sec:achados-qualidade}). \\
+        \textbf{Preparação dos Dados}     & Camadas Bronze, Silver e Gold; definição e revisão do recorte. \\
+        \textbf{Modelagem}                & SARIMA, \textit{nowcast} do estoque, tábua de vida e Oaxaca-Blinder. \\
+        \textbf{Avaliação}                & Validação contra estimadores ingênuos e recontagem do dado bruto. \\
         \textbf{Implantação}              & \textit{Pipeline} automatizado em nuvem, \textit{dashboard} e código aberto. \\
         \bottomrule
-    \end{tabular}
+    \end{tabularx}
     \\[4pt]
     {\footnotesize Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.}
 \end{table}
@@ -349,7 +349,7 @@ A migração para a nuvem não constava da proposta do TCC~1, que previa um \tex
 
 \label{sec:apresentacao}
 
-O \textit{dashboard} segue a arquitetura da \autoref{sec:visualizacao}, e os dados não fazem parte dele, já que o site lê a Gold direto do repositório no Hugging Face, só as tabelas que a aba aberta usa, e as consulta pelo DuckDB-Wasm no navegador, com o mesmo SQL do \textit{pipeline}. Cada tabela é pedida pelo endereço do último \textit{commit} que a alterou; como esse endereço só muda quando a tabela muda, o navegador guarda o arquivo sem prazo de validade, e uma tabela nova aparece no site assim que é publicada, sem reconstruí-lo. Para que o CAGED possa ser filtrado livremente, a Gold o agrega em cubos que guardam a soma e a contagem do salário, em vez da média, para que qualquer combinação de filtros produza a média ponderada correta. Como mediana não se soma (\autoref{sec:achados-qualidade}), a Gold guarda também a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo, de onde o site interpola a mediana de qualquer filtro, com erro máximo de 0,05 salário mínimo. A organização do site e o que ele permite verificar estão na \autoref{sec:dashboard-entregue}.
+O \textit{dashboard}, publicado em \url{https://mercadotech.pages.dev}, segue a arquitetura da \autoref{sec:visualizacao}, e os dados não fazem parte dele, já que o site lê a Gold direto do repositório no Hugging Face, só as tabelas que a aba aberta usa, e as consulta pelo DuckDB-Wasm no navegador, com o mesmo SQL do \textit{pipeline}. Cada tabela é pedida pelo endereço do último \textit{commit} que a alterou; como esse endereço só muda quando a tabela muda, o navegador guarda o arquivo sem prazo de validade, e uma tabela nova aparece no site assim que é publicada, sem reconstruí-lo. Para que o CAGED possa ser filtrado livremente, a Gold o agrega em cubos que guardam a soma e a contagem do salário, em vez da média, para que qualquer combinação de filtros produza a média ponderada correta. Como mediana não se soma (\autoref{sec:achados-qualidade}), a Gold guarda também a mediana exata de cada recorte usado neste texto e a distribuição da remuneração em faixas de 0,1 salário mínimo, de onde o site interpola a mediana de qualquer filtro, com erro máximo de 0,05 salário mínimo. A organização do site e o que ele permite verificar estão na \autoref{sec:dashboard-entregue}.
 
 \label{sec:ferramentas}
 
@@ -398,7 +398,7 @@ Antes de qualquer análise, uma rotina de auditoria automatizada é executada so
 As três passaram sem apontamentos na camada final; o que encontraram durante a construção está na \autoref{sec:achados-qualidade}. Uma quarta verificação, na Gold, lista a cada execução toda ocupação de TI que mude dez vezes de tamanho em um município de um ano para o outro, com o tempo médio de casa do grupo: um salto com tempo de casa alto indica pessoas que mudaram de código, e não contratação (\autoref{subsec:artefato-ro}).
 
 \label{sec:reprodutibilidade-metodo}
-A reprodutibilidade foi tratada em quatro níveis: o código está em repositório público; as camadas tratadas são dados abertos, e as análises podem ser refeitas sem executar a ingestão; a correspondência entre o dado bruto e o publicado é verificável por uma consulta (\autoref{sec:reprodutibilidade}); e o \textit{pipeline} inteiro é reexecutável por terceiros a partir de uma cópia do repositório.
+A reprodutibilidade foi tratada em quatro níveis: o código está em repositório público (\url{https://github.com/GianSE/mercadotech}); as camadas são dados abertos, publicados em \url{https://huggingface.co/datasets/Gianpedro/} nos conjuntos \texttt{bronze-\allowbreak rais}, \texttt{bronze-\allowbreak caged}, \texttt{mte-\allowbreak dicionarios}, \texttt{silver-\allowbreak rais-\allowbreak ti}, \texttt{silver-\allowbreak caged-\allowbreak ti} e \texttt{gold-\allowbreak analise-\allowbreak mercado-\allowbreak ti}, e as análises podem ser refeitas sem executar a ingestão; a correspondência entre o dado bruto e o publicado é verificável por uma consulta (\autoref{sec:reprodutibilidade}); e o \textit{pipeline} inteiro é reexecutável por terceiros a partir de uma cópia do repositório.
 
 \section{Modelos aplicados}
 
