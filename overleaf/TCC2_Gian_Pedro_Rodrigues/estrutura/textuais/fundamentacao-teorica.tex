@@ -43,11 +43,7 @@ Por ser uma declaração anual de vínculos formais, a RAIS não enxerga trabalh
 \subsection{CAGED: Cadastro Geral de Empregados e Desempregados}
 \label{subsec:caged}
 
-\subsubsecaobnt{Formato antigo do CAGED (2007--2019)}
-
 O CAGED foi criado pela Lei n.º 4.923/1965 para registrar as admissões e demissões de empregados regidos pela Consolidação das Leis do Trabalho (CLT). No formato vigente até dezembro de 2019, os empregadores declaravam mensalmente cada movimentação, e o MTE publicava um único arquivo de largura fixa (\textit{fixed-width}) por competência, com cerca de 40 campos sobre o trabalhador (idade, gênero, grau de instrução, salário mensal, CBO, tempo de emprego) e o estabelecimento (CNAE, município, porte, subsetor IBGE). Cada linha é uma movimentação, marcada como admissão ou desligamento, e o saldo do mês é a diferença entre as duas \cite{CAGED2024}.
-
-\subsubsecaobnt{Novo CAGED (desde 2020)}
 
 Em janeiro de 2020, o CAGED foi reformulado pela Portaria n.º 1.127/2019, passou a fazer parte do sistema eSocial e recebeu o nome de \textit{Cadastro Geral de Empregados e Desempregados Estoque} (CAGEDEST). Quatro pontos mudam em relação ao formato antigo \cite{CAGED2024}:
 
@@ -60,13 +56,11 @@ Em janeiro de 2020, o CAGED foi reformulado pela Portaria n.º 1.127/2019, passo
 
 Com a divisão em vários arquivos, o saldo de cada competência deixa de sair de uma única fonte: é preciso somar as movimentações de MOV e FOR e descontar as de EXC \cite{CAGED2024}.
 
-\subsection{Tabelas auxiliares e CBO}
+\subsection{Classificações e tabelas auxiliares}
 
 A CBO é o documento oficial que descreve e organiza as ocupações do mercado de trabalho brasileiro, e a base dos campos de cargo da RAIS e do CAGED \cite{CBO2024}. A classificação é hierárquica: grande grupo (1 dígito), subgrupo principal (2 dígitos), subgrupo (3 dígitos), família ocupacional (4 dígitos), que reúne ocupações de tarefas semelhantes, e ocupação (6 dígitos), que descreve o cargo. O código 212405, analista de sistemas (suporte), pertence à família 2124 (analistas de tecnologia da informação), ao subgrupo principal 21 (profissionais das ciências exatas e da engenharia) e ao grande grupo 2 (profissionais das ciências e das artes).
 
 A delimitação do setor de TI neste trabalho acontece no nível de família ocupacional, que reúne ocupações tecnicamente equivalentes em um único código \cite{CBO2024} e foi o nível mais estável ao longo dos 18 anos da série.
-
-\subsection{CNAE e tabela de municípios}
 
 A CBO classifica o que o trabalhador faz, mas não diz em que tipo de empresa ele atua. Esse papel cabe à CNAE, mantida pelo IBGE e estruturada em cinco níveis, do mais agregado (Seção, com letras de A a U) ao mais específico (Subclasse, com 7 dígitos) \cite{CNAE2024}. A CNAE permite distinguir quem atua em empresas de tecnologia (Divisão 62, ``Atividades dos serviços de tecnologia da informação'' \cite{CNAE2024}) de quem ocupa funções de TI em bancos, indústria ou comércio: é o cruzamento entre CBO (ocupação) e CNAE (setor) que responde a perguntas como ``quantos analistas de sistemas trabalham em bancos \textit{versus} em empresas de \textit{software}?''.
 
@@ -83,19 +77,18 @@ O \textit{data lake} surgiu como alternativa ao \textit{data warehouse} tradicio
 
 A Arquitetura Medalhão (\textit{Medallion Architecture}), popularizada pelo ecossistema Databricks, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente \cite{MicrosoftMedallion2024}. A \textbf{Bronze} armazena os dados como recebidos da fonte, sem transformação, e serve de fonte de verdade para reprocessamento. A \textbf{Silver} contém os dados limpos, padronizados e filtrados ao domínio de interesse, com os códigos traduzidos por dicionários externos. A \textbf{Gold} guarda os agregados e modelos prontos para consumo por \textit{dashboards} e análises. A separação traz rastreabilidade (\textit{lineage}): um erro em uma camada se corrige reprocessando as seguintes a partir da Bronze, sem baixar de novo os arquivos da fonte \cite{Armbrust2021, Reis2022}.
 
-\subsection{Apache Parquet e compressão colunar}
+\subsection{Formato colunar e motores \textit{in-process}}
 \label{subsec:parquet}
 
 O Apache Parquet é um formato de armazenamento colunar mantido pela Apache Software Foundation \cite{ApacheParquet2024}. Nos formatos orientados a linha, como CSV ou JSON, todos os campos de um mesmo registro ficam juntos no disco; o Parquet inverte essa lógica e grava em sequência os valores de cada coluna. Uma consulta que usa poucas colunas lê apenas os blocos delas (\textit{column pruning}), e o ganho cresce com tabelas de dezenas de colunas e milhões de registros, como as deste trabalho.
 
 A leitura seletiva vem acompanhada de dois outros benefícios. No \textit{predicate pushdown}, os filtros são avaliados contra as estatísticas de mínimo e máximo guardadas nos metadados de cada bloco, e blocos inteiros são descartados sem leitura; pelos mesmos metadados, contar as linhas de um arquivo não exige ler nenhum dado. E a compressão é mais eficiente: valores de uma mesma coluna têm distribuição parecida, o que favorece algoritmos como Snappy e ZSTD, e o arquivo comprimido é consultado sem importação prévia. O formato aceita ainda particionar os arquivos por colunas como ano e estado, o que permite ao leitor carregar só as partições que casam com os filtros da consulta \cite{ApacheParquet2024}.
 
-\subsection{Motores analíticos \textit{in-process}}
 \label{subsec:motores-in-process}
 
 Os motores de \textit{Online Analytical Processing} (OLAP) tradicionais, como Redshift, BigQuery ou ClickHouse, seguem o modelo cliente-servidor, que cobra seu preço em latência de rede e complexidade de operação. Os motores \textit{in-process} são executados dentro do próprio processo da aplicação, sem servidor separado, e o DuckDB é o principal representante dessa categoria. Ele usa execução vetorizada: em vez de processar uma linha por vez, opera sobre vetores de valores de uma mesma coluna, o que aproveita as instruções vetoriais dos processadores modernos \cite{Raasveldt2019}.
 
-\subsection{Armazenamento de objetos e repositórios de dados versionados}
+\subsection{Repositórios de dados e orquestração em nuvem}
 \label{subsec:repositorios-dados}
 
 Em vez de um \textit{bucket} de armazenamento de objetos, como o S3, este trabalho usa um repositório de dados versionado, o Hugging Face Hub \cite{HuggingFaceDatasets2026}. Cada conjunto de dados é um repositório com histórico de \textit{commits}: um envio cria uma nova versão, e as anteriores continuam recuperáveis. Os arquivos são servidos por HTTP com suporte a requisições parciais, o que permite ao DuckDB lê-los no próprio repositório pelo protocolo \texttt{hf://}, inclusive com padrões de \textit{glob} sobre as partições, sem cópia local \cite{DuckDB2024}.
@@ -104,7 +97,6 @@ A diferença em relação a um \textit{bucket} privado não é de desempenho, ma
 
 Uma propriedade desse modelo tem consequência direta na engenharia: o envio é aditivo. Um \textit{commit} acrescenta ou substitui os arquivos enviados, mas não remove os que deixaram de existir na origem \cite{HuggingFaceDatasets2026}. Se uma camada for reorganizada e seus arquivos renomeados, as versões antigas permanecem, e uma leitura da pasta inteira passa a contá-las junto com as novas.
 
-\subsection{Orquestração por integração contínua}
 \label{subsec:orquestracao}
 
 Um \textit{pipeline} de dados com várias etapas precisa de um orquestrador, que decide quando cada etapa roda e garante que ela só comece depois daquelas de que depende. Essa estrutura é um grafo acíclico dirigido (DAG), em que os nós são as etapas e as arestas, as dependências entre elas \cite{Reis2022}. Ferramentas dedicadas, como o Apache Airflow, implementam esse modelo, mas pressupõem um servidor próprio em funcionamento contínuo.
@@ -139,14 +131,13 @@ A diferenciação sazonal ($D = 1$) é o que torna a família adequada à série
 
 Uma alternativa de outra natureza é o Prophet \cite{Taylor2018}, que trata a série como uma regressão: uma tendência linear por partes, uma sazonalidade descrita por séries de Fourier e, quando houver, efeitos de feriados. Foi desenhado para séries de negócio com lacunas e mudanças de tendência, com poucos parâmetros a calibrar; o principal é a flexibilidade da tendência (\textit{changepoint prior scale}), que controla quanto a inclinação pode mudar. Em vez de diferenciar a série para remover o ciclo anual, como o SARIMA, o Prophet o estima diretamente.
 
-\subsection{Validação de origem móvel}
+\subsection{Validação de origem móvel e métricas}
 \label{subsec:origem-movel}
 
 Avaliar um modelo de série temporal por amostragem aleatória é inválido: embaralhar as observações permite ao modelo treinar com o futuro e prever o passado. A alternativa consagrada é a validação de origem móvel \cite{Tashman2000}, também chamada de validação em janelas expansivas: o modelo é treinado com os dados até um instante $T$, prevê os $h$ períodos seguintes, a origem avança e o procedimento se repete. O erro reportado é a média das dobras.
 
 O \textit{baseline} de comparação precisa ser avaliado nas mesmas dobras e no mesmo horizonte, e uma grade grande de especificações, avaliada em poucas dobras, encontra por acaso o modelo que se sai bem naquelas dobras: é sobreajuste deslocado da amostra de treino para a de validação \cite{Tashman2000, Hyndman2021}. Um \textit{baseline} usual em séries sazonais é o ingênuo sazonal, que prevê para cada mês o valor do mesmo mês do ano anterior \cite{Hyndman2021}; um modelo que não o supera não se justifica.
 
-\subsection{Métricas de avaliação}
 \label{subsec:metricas}
 
 A qualidade das previsões é medida por duas métricas clássicas \cite{Hyndman2021}. O \textit{Mean Absolute Error} (MAE) calcula o erro médio em valores absolutos, na mesma unidade da série. O \textit{Root Mean Squared Error} (RMSE) penaliza os erros de forma quadrática e, por isso, é mais sensível a previsões muito distantes do valor observado:

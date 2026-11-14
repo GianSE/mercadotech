@@ -80,8 +80,6 @@ A seleção de ocupações é feita por família (os quatro primeiros dígitos d
     Fonte: Elaborado pelo autor, com base em \citeonline{CBO2024}.
 \end{quadro}
 
-\section{Códigos observados no estoque}
-
 O \autoref{quadro:cbos} relaciona todos os códigos de seis dígitos efetivamente encontrados no estoque do último ano disponível, com a descrição oficial, a área atribuída e o número de vínculos. O quadro é gerado a partir da camada Gold, e não digitado: qualquer revisão do recorte se reflete nele automaticamente. É assim que se evita o problema descrito na \autoref{sec:achados-qualidade}, em que uma lista mantida à mão passou a divergir do recorte efetivamente aplicado.
 
 \input{estrutura/tabelas-geradas/tab-cbos.tex}
@@ -122,8 +120,6 @@ SELECT cru.linhas AS no_dado_cru, publicado.linhas AS na_camada_publicada,
        cru.linhas - publicado.linhas AS diferenca
 FROM cru, publicado;
 \end{lstlisting}
-
-\section{Reprodutibilidade da RAIS, ano a ano}
 
 Para a RAIS, a verificação percorre todos os arquivos da camada Bronze de cada ano, porque o nome das colunas de atividade econômica e de ocupação muda entre layouts. Para cada arquivo, a contagem aplica o mesmo predicado do \autoref{lst:reprodutibilidade}, sobre as colunas daquele layout; a soma dos arquivos do ano é comparada com o total de linhas da partição correspondente da camada tratada. O procedimento está em \texttt{tasks-python/\_utils/reprodutibilidade\_rais.py}, executável pelo \textit{workflow} ``Reprodutibilidade RAIS'' do repositório, e o resultado é publicado junto da camada Gold, em \texttt{auditoria/reprodutibilidade\_rais.csv}.
 

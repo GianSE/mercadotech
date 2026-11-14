@@ -163,8 +163,7 @@ O estoque passou de 519.271 vínculos em 2007 para 1.361.231 em 2025, cresciment
 
 \input{estrutura/tabelas-geradas/tab-fases.tex}
 
-A expansão até 2014 foi interrompida pela recessão de 2015--2016: entre 2014 e 2017 o setor perdeu 30 mil vínculos, na única fase de queda da série. A retomada a partir de 2017 ganhou velocidade em 2021 e 2022, na aceleração digital que seguiu a pandemia de COVID-19: nesses dois anos o estoque cresceu 19,3\% e 13,6\%, e essa fase sozinha responde por 38\% de todo o crescimento dos dezoito anos. Depois dela o ritmo caiu para 3,7\% ao ano, abaixo da média do período. Esse desenho só aparece depois da correção do artefato de Rondônia (\autoref{subsec:artefato-ro}), que produzia na série movimentos que não aconteceram no mercado.
-
+A expansão até 2014 foi interrompida pela recessão de 2015--2016: entre 2014 e 2017 o setor perdeu 30 mil vínculos, na única fase de queda da série. A retomada a partir de 2017 ganhou velocidade em 2021 e 2022, na aceleração digital que seguiu a pandemia de COVID-19: nesses dois anos o estoque cresceu 19,3\% e 13,6\%, e essa fase sozinha responde por 38\% de todo o crescimento dos dezoito anos. Depois dela o ritmo caiu para 3,7\% ao ano, abaixo da média do período.
 Os números são coerentes com os da literatura (\autoref{sec:relacionados}), com diferenças que o recorte explica. Entre 2012 e 2022, a lente de ocupação deste trabalho cresceu 65\%, contra 95\% medidos pela FECOMERCIOSP para 30 ocupações de tecnologia \cite{Fecomercio2024}: o sentido e a ordem de grandeza coincidem, e a distância é compatível com listas de ocupações diferentes, já que a seleção por família, as exclusões e a inclusão dos estatísticos mudam a base de comparação. Já os 2,1 milhões de empregos que a BRASSCOM atribui ao macrossetor TIC em 2024 \cite{Brasscom2024} superam o 1,31 milhão deste trabalho porque o macrossetor soma às atividades de TI as de telecomunicações e de equipamentos, fora do recorte adotado aqui.
 
 O fluxo mensal do CAGED confirma esse desenho: a série cobre 237 meses, de janeiro de 2007 a setembro de 2026, com saldo acumulado de 705.014 vagas líquidas. A diferença entre esse acumulado e a variação do estoque da RAIS não é erro, mas efeito das diferenças de cobertura e de critério medidas na \autoref{sec:coerencia-bases}, e é o que o \textit{nowcast} da \autoref{sec:resultado-q5} precisa modelar.
@@ -186,13 +185,9 @@ A remuneração acompanhou o movimento. A mediana caiu cerca de um quinto em sal
 
 A terceira linha da tabela mostra o lado oposto da mesma moeda: há um contingente expressivo de pessoas em empresas de TI exercendo outras ocupações, com remuneração mediana de 2,06 salários mínimos, menos da metade das demais. É a heterogeneidade interna das empresas de TIC que \citeonline{Azambuja2016} já apontavam ao comparar seus segmentos. Esse grupo é invisível em qualquer recorte que defina TI apenas pelo setor da empresa, e sua inclusão explica por que a remuneração média do ``setor de TI'' costuma ser menor do que a dos profissionais de TI.
 
-\subsection{Composição por área}
-
 \input{estrutura/tabelas-geradas/tab-areas.tex}
 
 A \autoref{tab:areas} desagrega o estoque pelas áreas de atuação. Desenvolvimento concentra a maior parte dos vínculos; Suporte e Operação vem em seguida, com remuneração mediana muito inferior; e Gestão e Direção, terceira em volume, tem a maior mediana, de 10,15 salários mínimos. A família de Estatística e Ciência de Dados, incorporada na revisão do recorte, é a menor em volume, o que é esperado, dado que entrou para capturar uma ocupação específica, e não um bloco do mercado.
-
-\subsection{Distribuição territorial}
 
 \input{estrutura/tabelas-geradas/tab-uf.tex}
 
@@ -261,8 +256,6 @@ A magnitude desses ganhos é sensível à janela de validação. Como as cinco d
 
 O horizonte útil, porém, é curto, e isso corrige a proposta do TCC~1. A previsão mensal de saldo chega ao fim do primeiro ano com intervalo de predição que cruza o zero: nessa distância, o modelo não distingue saldo positivo de negativo, e uma projeção até 2030 não teria conteúdo informativo. O trabalho reporta, portanto, um horizonte de 18 meses, com os intervalos explícitos. No ciclo do CRISP-DM, foi a Avaliação levando de volta ao Entendimento do Negócio: a pergunta passou a incluir ``quanto há agora'', que o \textit{nowcast} responde.
 
-\subsection{\textit{Nowcast} do estoque}
-
 \input{estrutura/tabelas-geradas/tab-nowcast.tex}
 
 
@@ -270,8 +263,7 @@ A estimação do presente tem resultado bem mais forte. A \autoref{tab:nowcast} 
 
 \input{estrutura/tabelas-geradas/fig-nowcast-anos.tex}
 
-O melhor estimador, a razão mediana histórica entre a variação do estoque e o saldo do CAGED, erra em média 1,1\% (a mediana é de 0,9\%), contra 1,6\% da identidade direta e 5,1\% do estimador ingênuo, que supõe estoque constante. Em onze dos doze anos o erro ficou abaixo de 2,3\%; o maior foi o de 2022, de 2,8\%, ano em que o estoque cresceu mais do que o saldo do CAGED indicava. A razão supera a identidade porque a variação do estoque e o saldo do fluxo não andam de um para um (\autoref{sec:coerencia-bases}), e ela incorpora essa relação histórica. Antes da correção do artefato de Rondônia, os dois piores anos eram 2018 e 2022, atribuídos então à diferença de cobertura entre as bases; eram anos em que o funcionalismo estadual entrou no estoque da RAIS sem passar pelo CAGED, e parte do que parecia limite do método era defeito do dado. Como o saldo usado no teste é o do ano completo, esses erros medem a relação entre fluxo e estoque, e não o uso corrente, em que parte do ano ainda vem da previsão do SARIMA; essa parcela da incerteza entra na margem da projeção.
-
+O melhor estimador, a razão mediana histórica entre a variação do estoque e o saldo do CAGED, erra em média 1,1\% (a mediana é de 0,9\%), contra 1,6\% da identidade direta e 5,1\% do estimador ingênuo, que supõe estoque constante. Em onze dos doze anos o erro ficou abaixo de 2,3\%; o maior foi o de 2022, de 2,8\%, ano em que o estoque cresceu mais do que o saldo do CAGED indicava. A razão supera a identidade porque a variação do estoque e o saldo do fluxo não andam de um para um (\autoref{sec:coerencia-bases}), e ela incorpora essa relação histórica.
 Aplicado ao ano corrente, com nove meses de CAGED publicados, a razão mediana projeta 1.381.173 vínculos em 31 de dezembro de 2026, alta de 1,5\% sobre 2025, com margem que vai de uma queda de 0,3\% a uma alta de 3,2\%. A previsão de fluxo aponta na mesma direção, com saldo esperado de 25,4 mil vagas nos doze meses seguintes e intervalo de $-$7,3 mil a $+$58,6 mil. Os dois resultados confirmam a desaceleração posterior a 2022.
 
 Essa assimetria, previsão de futuro incerta e estimação de presente bem mais precisa, é a mesma que a literatura de \textit{nowcasting} explora para o PIB \cite{Giannone2008, Banbura2013}, aplicada aqui ao emprego, e é o resultado de modelagem mais útil do trabalho: em bases com defasagem de publicação, estimar o que já aconteceu e ainda não foi divulgado rende mais do que prever o que não aconteceu.
