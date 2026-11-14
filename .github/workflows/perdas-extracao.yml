@@ -1,0 +1,104 @@
+name: Perdas na extração
+
+# "Dry run" da Bronze: baixa cada pacote do FTP do MTE, descompacta para um
+# pipe e mede (1) quanto o pacote corrompido na fonte deixa de entregar e
+# (2) quantas linhas do texto legível não chegaram à Bronze. Nada é gravado
+# nas camadas. Um job por dataset e ano, porque o FTP entrega ~650 KB/s por
+# conexão: em sequência seriam ~23 h para os 53 GB; em 20 jobs, uma ou duas.
+# Só sob demanda. O consolidado vai para o resumo da execução e, com
+# "publicar", para auditoria/perdas_extracao.csv na Gold.
+
+on:
+  workflow_dispatch:
+    inputs:
+      datasets:
+        description: "Datasets (rais caged caged_ajustes novo_caged)"
+        default: "rais caged caged_ajustes novo_caged"
+      ano_inicio:
+        description: "Ano inicial"
+        default: "2007"
+      ano_fim:
+        description: "Ano final"
+        default: "2026"
+      publicar:
+        description: "Gravar o consolidado na Gold (auditoria/perdas_extracao.csv)"
+        type: boolean
+        default: false
+
+env:
+  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+  PYTHONUNBUFFERED: "1"
+  HF_HUB_DISABLE_PROGRESS_BARS: "1"
+
+jobs:
+  planejar:
+    runs-on: ubuntu-latest
+    outputs:
+      itens: ${{ steps.plano.outputs.itens }}
+    steps:
+      - id: plano
+        shell: python
+        run: |
+          import json, os
+          # Anos em que cada dataset existe no período do trabalho.
+          vigencia = {"rais": (2007, 2025), "caged": (2007, 2019),
+                      "caged_ajustes": (2007, 2019), "novo_caged": (2020, 2026)}
+          pedidos = "${{ inputs.datasets }}".split()
+          ini, fim = int("${{ inputs.ano_inicio }}"), int("${{ inputs.ano_fim }}")
+          itens = [{"dataset": d, "ano": a} for d in pedidos if d in vigencia
+                   for a in range(max(ini, vigencia[d][0]), min(fim, vigencia[d][1]) + 1)]
+          print(f"{len(itens)} job(s):", itens)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"itens={json.dumps(itens)}\n")
+
+  medir:
+    needs: planejar
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        item: ${{ fromJson(needs.planejar.outputs.itens) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/python
+
+      - name: Mede ${{ matrix.item.dataset }} ${{ matrix.item.ano }}
+        working-directory: tasks-python
+        run: |
+          python _utils/perdas_extracao.py --dataset ${{ matrix.item.dataset }} \
+            --ano-inicio ${{ matrix.item.ano }} --ano-fim ${{ matrix.item.ano }} \
+            --saida "$RUNNER_TEMP/perdas/${{ matrix.item.dataset }}_${{ matrix.item.ano }}.csv"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perdas-${{ matrix.item.dataset }}-${{ matrix.item.ano }}
+          path: ${{ runner.temp }}/perdas/*.csv
+          if-no-files-found: warn
+
+  consolidar:
+    needs: medir
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/python
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: perdas-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/perdas
+
+      - name: Consolida
+        working-directory: tasks-python
+        run: |
+          python _utils/perdas_extracao.py --juntar "$RUNNER_TEMP/perdas/*.csv" \
+            ${{ inputs.publicar && '--publicar' || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perdas-extracao-consolidado
+          path: tasks-python/_staging/perdas_extracao.csv
