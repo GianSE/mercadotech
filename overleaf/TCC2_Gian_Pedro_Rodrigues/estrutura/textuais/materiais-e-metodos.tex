@@ -12,9 +12,42 @@ O trabalho seguiu o \textit{Cross-Industry Standard Process for Data Mining} (CR
     \centering
     \caption{Fases do ciclo de vida CRISP-DM}
     \label{fig:crispdm-ciclo}
-    \includegraphics[width=0.52\textwidth]{figuras/crisp-dm-jensen.png}
+    \begin{tikzpicture}[scale=0.8, transform shape,
+        every node/.style={font=\footnotesize},
+        fase/.style={ellipse, draw=black!70, thick, fill=blue!8,
+                     minimum width=2.8cm, minimum height=1.0cm, align=center},
+        centro/.style={circle, draw=black!70, thick, fill=orange!20,
+                       minimum size=1.6cm, align=center, font=\small\bfseries},
+        seta/.style={-{Stealth[length=2mm]}, thick, black!70},
+        bidir/.style={{Stealth[length=2mm]}-{Stealth[length=2mm]}, thick, black!70}
+    ]
+
+    % Posicoes em circulo (raio ~4cm)
+    \node[fase] (negocio)  at ( 90:4cm) {Entendimento \\ do Negócio};
+    \node[fase] (dados)    at ( 30:4cm) {Entendimento \\ dos Dados};
+    \node[fase] (prep)     at (-30:4cm) {Preparação \\ dos Dados};
+    \node[fase] (modelo)   at (-90:4cm) {Modelagem};
+    \node[fase] (avaliacao)at (210:4cm) {Avaliação};
+    \node[fase] (implant)  at (150:4cm) {Implantação};
+
+    % Centro
+    \node[centro] (dataset) at (0,0) {Dados};
+
+    % Setas entre fases (sentido horario)
+    \draw[bidir] (negocio)  -- (dados);
+    \draw[seta]  (dados)    -- (prep);
+    \draw[bidir] (prep)     -- (modelo);
+    \draw[seta]  (modelo)   -- (avaliacao);
+    \draw[seta]  (avaliacao)-- (implant);
+    \draw[seta]  (avaliacao) to[bend right=25] (negocio);
+
+    % Seta circular externa indicando iteracao (raio maior que o dos balões)
+    \draw[seta, dashed, black!50]
+        (110:5.8cm) arc[start angle=110, end angle=-245, radius=5.8cm];
+
+    \end{tikzpicture}
     \\[4pt]
-    Fonte: \citeonline{Jensen2012}, a partir de \citeonline{Chapman2000}; licença CC BY-SA 3.0.
+    Fonte: Elaborado pelo autor, com base em \citeonline{Chapman2000}.
 \end{figure}
 
 A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executadas.
@@ -391,7 +424,7 @@ Cada tabela das camadas tratadas é particionada no estilo \textit{hive}, com o 
     \\[4pt]
     {\footnotesize Cada faixa do arquivo representa duas colunas. Os números são do arquivo de junho de 2025 da tabela \texttt{caged\_mov} no repositório \texttt{silver-caged-ti}; os mínimos e máximos dos dois blocos se sobrepõem, e nenhum bloco é descartado por eles nesta consulta.}
     \\[2pt]
-    Fonte: Elaborado pelo autor.
+    Fonte: Elaborado pelo autor, com base em \citeonline{MuhleisenRaasveldt2021}.
 \end{figure}
 
 \label{sec:publicacao}
