@@ -51,7 +51,9 @@ def num(v, casas: int = 0) -> str:
     if v is None:
         return "---"
     texto = f"{float(v):,.{casas}f}"
-    return texto.replace(",", "X").replace(".", ",").replace("X", ".")
+    texto = texto.replace(",", "X").replace(".", ",").replace("X", ".")
+    # Sinal de menos tipográfico, como no texto ($-$15,5 mil), e não o hífen.
+    return "$-$" + texto[1:] if texto.startswith("-") else texto
 
 
 def ano(v) -> str:
@@ -210,8 +212,9 @@ tabela("tab-artefato-ro.tex",
        "Servidores do governo de Rondônia declarados como programador de sistemas",
        "tab:artefato-ro", "lrrr",
        ["Ano", "Vínculos ativos do grupo", "Estoque de TI sem o grupo", "Peso do grupo"], linhas,
-       nota="Grupo: Poder Executivo Estadual, Porto Velho, CBO 317110. Peso: parcela do estoque "
-            "de TI que o grupo representaria se não fosse excluído. ")
+       nota="Grupo: Poder Executivo Estadual, Porto Velho, CBO 317110. Só aparecem os anos em que "
+            "o grupo foi declarado com esse código; nos demais, a mesma folha usou outra ocupação. "
+            "Peso: parcela do estoque de TI que o grupo representaria se não fosse excluído. ")
 
 # ------------------------------------------------- estoque e qualidade
 # A mediana vem de rais_mediana (exata, sobre os vínculos). A média ponderada
@@ -391,7 +394,8 @@ tabela("tab-hiato.tex", "Decomposição de Oaxaca-Blinder do hiato salarial",
        "tab:hiato", "llrrr",
        ["Ano", "Comparação", "Hiato bruto", "Parcela explicada (log)",
         "Parcela não explicada (log)"], linhas,
-       nota="Parcelas em logaritmo da remuneração; referência de Neumark. ")
+       nota="Parcelas em logaritmo da remuneração; referência de Neumark. "
+            "Hiato bruto $= e^{E+N} - 1$, com $E$ e $N$ as parcelas explicada e não explicada. ")
 
 # A trajetória do hiato bruto, ano a ano: a tabela acima mostra três pontos, e
 # o hiato de gênero muda de sinal entre eles.
@@ -420,15 +424,21 @@ figura("fig-hiato-serie.tex", f"Hiato salarial bruto por raça/cor e por sexo, {
 # ------------------------------------------------- previsao
 # "Prophet(tendência 0.01)" -> vírgula decimal no texto.
 modelo_tex = lambda m: m.replace("0.", "0,") if m.startswith("Prophet") else m
-linhas = [[f"\\texttt{{{modelo_tex(r[0])}}}", num(r[1]), num(r[2]), num(r[3]), pct(r[4])]
-          for r in con.execute(f"""
+placar = con.execute(f"""
     SELECT modelo, dobras, mae, rmse, \"ganho_vs_naive_%\"
     FROM read_parquet('{G}/previsao_placar.parquet') ORDER BY mae
-""").fetchall()]
+""").fetchall()
+# Em negrito, a vencedora (menor MAE) e o ingênuo sazonal, a referência do ganho.
+destaque = lambda i, r: i == 0 or r[0].startswith("naive")
+linhas = [[(lambda c: f"\\textbf{{{c}}}" if destaque(i, r) else c)(c)
+           for c in [f"\\texttt{{{modelo_tex(r[0])}}}", num(r[1]), num(r[2]), num(r[3]), pct(r[4])]]
+          for i, r in enumerate(placar)]
 tabela("tab-previsao.tex",
        "Desempenho dos modelos na validação de origem móvel",
        "tab:previsao", "lrrrr",
-       ["Modelo", "Dobras", "MAE", "RMSE", "Ganho sobre o ingênuo"], linhas)
+       ["Modelo", "Dobras", "MAE", "RMSE", "Ganho sobre o ingênuo"], linhas,
+       nota="MAE e RMSE em vagas por mês. Em negrito, a especificação vencedora e o ingênuo "
+            "sazonal, referência do ganho. ")
 
 # ------------------------------------------------- nowcast
 # Retrospectiva: cada ano, de 2014 em diante, estimado só com os anteriores. O

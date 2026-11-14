@@ -10,18 +10,18 @@
         \rowcolor{black!8}
         \textbf{Modelo} & \textbf{Dobras} & \textbf{MAE} & \textbf{RMSE} & \textbf{Ganho sobre o ingênuo} \\
         \midrule
-        \texttt{SARIMA(1, 0, 1)(1, 1, 1, 12)} & 5 & 2.822 & 3.475 & 23,2\% \\
+        \textbf{\texttt{SARIMA(1, 0, 1)(1, 1, 1, 12)}} & \textbf{5} & \textbf{2.822} & \textbf{3.475} & \textbf{23,2\%} \\
         \texttt{SARIMA(2, 0, 1)(1, 1, 1, 12)} & 5 & 2.898 & 3.540 & 21,2\% \\
         \texttt{SARIMA(2, 1, 2)(1, 1, 1, 12)} & 5 & 3.587 & 4.342 & 2,4\% \\
         \texttt{SARIMA(1, 1, 1)(0, 1, 1, 12)} & 5 & 3.611 & 4.328 & 1,7\% \\
         \texttt{SARIMA(0, 1, 1)(0, 1, 1, 12)} & 5 & 3.617 & 4.327 & 1,6\% \\
         \texttt{SARIMA(1, 0, 0)(1, 1, 0, 12)} & 5 & 3.631 & 4.951 & 1,2\% \\
-        \texttt{naive sazonal} & 5 & 3.676 & 4.756 & 0,0\% \\
-        \texttt{Prophet(tendência 0,01)} & 5 & 3.691 & 4.506 & -0,4\% \\
-        \texttt{Prophet(tendência 0,05)} & 5 & 3.714 & 4.532 & -1,0\% \\
-        \texttt{Prophet(tendência 0,5)} & 5 & 3.972 & 5.491 & -8,1\% \\
+        \textbf{\texttt{naive sazonal}} & \textbf{5} & \textbf{3.676} & \textbf{4.756} & \textbf{0,0\%} \\
+        \texttt{Prophet(tendência 0,01)} & 5 & 3.691 & 4.506 & $-$0,4\% \\
+        \texttt{Prophet(tendência 0,05)} & 5 & 3.714 & 4.532 & $-$1,0\% \\
+        \texttt{Prophet(tendência 0,5)} & 5 & 3.972 & 5.491 & $-$8,1\% \\
         \bottomrule
     \end{tabular}
     \\[4pt]
-    Fonte: Elaborado pelo autor com dados do CAGED \cite{CAGED2024}.
+    MAE e RMSE em vagas por mês. Em negrito, a especificação vencedora e o ingênuo sazonal, referência do ganho. Fonte: Elaborado pelo autor com dados do CAGED \cite{CAGED2024}.
 \end{table}

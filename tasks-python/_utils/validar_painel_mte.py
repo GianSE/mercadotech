@@ -169,8 +169,15 @@ def main() -> int:
         linhas.append(f"        {ano} & {num(painel)} & {num(trabalho)} & {pct(dif)} & {pct(mediana)} & {pct(minimo)} a {pct(maximo)} \\\\")
     tabela_rais = "\n".join(linhas)
 
+    # O ano do corte, se incompleto, leva asterisco e os meses vão na nota.
+    ano_corte, mes_corte = divmod(int(corte), 100)
+    MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+             "agosto", "setembro", "outubro", "novembro", "dezembro"]
+    nota_corte = (f"* Ano incompleto: janeiro a {MESES[mes_corte - 1]}, última competência do painel. \\\\\n    "
+                  if mes_corte < 12 else "")
     linhas = []
     for ano, ap, at, dp, dt in con.execute("SELECT * FROM cmp_caged").fetchall():
+        ano = f"{ano}*" if ano == ano_corte and mes_corte < 12 else ano
         linhas.append(f"        {ano} & {num(ap)} & {num(at)} & {pct(100.0 * (at - ap) / ap)} & {num(dp)} & {num(dt)} & {pct(100.0 * (dt - dp) / dp)} \\\\")
     tabela_caged = "\n".join(linhas)
 
@@ -212,7 +219,7 @@ def main() -> int:
     \\end{{tabular}}
     \\\\[4pt]
     Nota: o trabalho inclui as declarações fora do prazo e desconta as exclusões, como o painel. \\\\
-    Fonte: Elaborado pelo autor com dados do painel do MTE \\cite{{PainelMTE2026}} e do CAGED \\cite{{CAGED2024}}.
+    {nota_corte}Fonte: Elaborado pelo autor com dados do painel do MTE \\cite{{PainelMTE2026}} e do CAGED \\cite{{CAGED2024}}.
 \\end{{table}}
 """, encoding="utf-8")
     print("✅ tab-validacao-rais.tex e tab-validacao-caged.tex gerados; detalhe em overleaf/validacao/")
