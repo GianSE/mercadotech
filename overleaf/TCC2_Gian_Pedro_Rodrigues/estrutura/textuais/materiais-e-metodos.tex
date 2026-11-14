@@ -58,7 +58,7 @@ A \autoref{tab:crispdm-fases} relaciona cada fase do CRISP-DM às etapas executa
     \label{tab:crispdm-fases}
     \renewcommand{\arraystretch}{1.35}
     \hyphenpenalty=10000 \exhyphenpenalty=10000 % sem quebra de palavra com hífen nesta tabela
-    \begin{tabular}{>{\raggedright\arraybackslash}p{2.7cm}p{11.3cm}}
+    \begin{tabular}{>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{11.3cm}}
         \toprule
         \rowcolor{black!8}
         \textbf{Fase CRISP-DM} & \textbf{Execução no trabalho} \\
@@ -106,9 +106,9 @@ O trabalho não percorreu essas fases uma vez só. A proposta definiu as fontes,
 
 \section{Fontes de dados}
 
-A base do trabalho são os microdados da RAIS e do CAGED, obtidos do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET) do MTE, em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a setembro de 2026. Nesse período, o servidor distribui 880 arquivos compactados; descompactados, são 661~GB de texto, em largura fixa ou CSV, que a Bronze guarda em Apache Parquet com compressão ZSTD em quase um duodécimo do tamanho (\autoref{fig:fluxo-dado}).
+A base do trabalho são os microdados da RAIS e do CAGED, obtidos do servidor FTP público do Programa de Disseminação das Estatísticas do Trabalho (PDET) do MTE, em \nolinkurl{ftp://ftp.mtps.gov.br/pdet/microdados/}, e gravados na camada Bronze sem alteração de conteúdo. As análises cobrem a RAIS de 2007 a 2025 e o CAGED de 2007 a setembro de 2026. Nesse período, o servidor distribui 883 arquivos compactados; descompactados, são 661~GB de texto, em largura fixa ou CSV, que a Bronze guarda em Apache Parquet com compressão ZSTD em quase um duodécimo do tamanho (\autoref{fig:fluxo-dado}).
 
-A RAIS muda de esquema com frequência: no intervalo processado, o número de colunas varia de 47 a 67, à medida que portarias introduziram variáveis novas. A partir de 2023, os nomes de coluna deixam de ser estáveis mesmo dentro de um ano, e arquivos de regiões diferentes nomeiam o mesmo campo de formas diferentes, o que exigiu uma rotina de harmonização com tabela de equivalências explícita.
+A RAIS muda de esquema com frequência: no intervalo processado, o número de colunas varia de 47 a 67, à medida que portarias introduziram variáveis novas. Em 2023, o \textit{layout} também renomeou campos que já existiam (\texttt{sexo\_trabalhador} passou a \texttt{sexo\_codigo}), e arquivos de regiões diferentes chegam a nomear o mesmo campo de formas diferentes. Sem tratamento, a série teria dois nomes para o mesmo campo, um até 2022 e outro depois, e toda consulta que atravessa os anos leria esse campo vazio em uma das partes. Por isso a Silver aplica uma tabela de equivalências (de-para) explícita, que devolve cada nome novo ao nome antigo.
 
 No CAGED, além do formato (\autoref{subsec:caged}), mudam entre as duas gerações o vocabulário dos códigos e a data de referência da movimentação, o que impede tratar a série como uma só sem harmonização. Três tabelas não previstas na proposta foram ingeridas para fechar a série: as movimentações fora do prazo (FOR), as exclusões (EXC) e os ajustes, estes com a competência declarada na linha, e não no nome do arquivo.
 
