@@ -53,13 +53,16 @@ Porque a remuneração é muito assimétrica. Ponto importante: a mediana do tot
 Não. É um limite superior: contém tudo que afeta salário e não está no modelo. O resultado robusto é a estrutura: no gênero, a parcela explicada é negativa; na raça, a maior parte é explicada.
 
 **Por que não Kaplan-Meier para permanência?**
-Foi tentado e deu mediana de 48 anos. O estimador supõe uma coorte acompanhada no tempo, e a RAIS é um corte transversal, que sobre-representa vínculos longos. A tábua de vida de período responde à pergunta que o dado permite: qual o risco de desligamento em cada faixa de tempo de casa naquele ano.
+Foi tentado e deu mediana de 48 anos. O estimador supõe uma coorte acompanhada no tempo, e a RAIS é um corte transversal, que sobre-representa vínculos longos. A tábua de vida de período responde à pergunta que o dado permite: qual o risco de desligamento em cada faixa de tempo de emprego naquele ano.
 
 **Por que o SARIMA e não o Prophet, como estava na proposta?**
 Os dois foram avaliados nas mesmas 5 dobras de origem móvel, contra o mesmo ingênuo sazonal, cada um com uma grade pequena. O melhor SARIMA, (1,0,1)(1,1,1)12, erra 23,2% menos que o ingênuo; nenhuma das três configurações do Prophet o superou: a de tendência mais rígida empatou (−0,4%) e as outras ficaram abaixo (−1,0% e −8,1%). A série é completa e de sazonalidade estável, terreno da diferenciação sazonal do SARIMA; as vantagens do Prophet (lacunas e mudanças de tendência) não se aplicavam. Ressalva que o TCC declara: o ganho do SARIMA é otimista, porque a especificação foi escolhida e avaliada nas mesmas dobras, e varia muito entre as especificações (de 23% a 1%).
 
 **Não dava para ajustar melhor o Prophet?**
 Dava, e seria o erro: com 5 dobras, testar muitas configurações acha por acaso a que se sai bem no teste. A grade do Prophet (3 configurações) é do mesmo tamanho da do SARIMA (6), e a tendência mais flexível piorou o resultado, o que indica que o Prophet lê ruído como mudança de tendência.
+
+**A série é estacionária? Que testes foram feitos?**
+Dois testes complementares, que partem de hipóteses opostas. O Augmented Dickey-Fuller (ADF) rejeita a raiz unitária (p = 0,04), e o de Kwiatkowski-Phillips-Schmidt-Shin (KPSS) não rejeita a estacionariedade (p ≥ 0,10), então os dois apontam para uma série estacionária. A ressalva que o TCC declara: depois de 2020, a média do saldo mais que dobra e o desvio-padrão cresce cerca de metade, sem que se possa separar a troca de definição do CAGED do ciclo da pandemia. A diferenciação sazonal absorve a mudança de nível, mas não a de dispersão (seção 3.6.1).
 
 **Por que o horizonte é de 18 meses e não até 2030?**
 O intervalo de predição cruza o zero ao fim do primeiro ano, ou seja, o modelo não distingue saldo positivo de negativo. Projetar até 2030 daria um número sem conteúdo informativo.
@@ -74,6 +77,9 @@ Foi feita a análise de sensibilidade. SP cresceu 154% e o restante do país 168
 
 **Como acharam o problema de Rondônia?**
 A série tinha movimentos que nenhum mercado explicaria: queda em 2011, em plena expansão, e um salto em 2018. O maior grupo de TI do país, em alguns anos, era um único órgão: o Executivo estadual de Rondônia, com 40 a 49 mil servidores declarados como programador (CBO 317110) em oito anos e com outra ocupação nos demais. O total de servidores do órgão fica estável; só o código muda, o padrão de um valor pré-preenchido no sistema de declaração. Retirá-lo elevou o crescimento de 143% para 162%, inverteu a tendência do hiato de gênero e baixou o erro do nowcast de 2,1% para 1,1% (seção 4.3.1).
+
+**E se houver outro caso como o de Rondônia?**
+Uma verificação procura casos assim a cada construção da Gold (seção 3.5). Para cada ocupação de TI em cada município, ela compara os vínculos de um ano com os do ano anterior e lista os casos em que o número foi multiplicado ou dividido por dez ou mais, desde que um dos dois anos tenha pelo menos 5 mil vínculos. Junto, mostra o tempo médio de emprego do grupo: uma contratação em massa traz gente recém-admitida, e um grupo que surge já com anos de emprego (em Porto Velho, 158 meses em média) indica pessoas que só mudaram de código. Hoje ela só encontra Rondônia. A chave é município e ocupação, sem a natureza jurídica: com ela, uma empresa que passava de LTDA para S.A. levando os empregados aparecia como salto, e a verificação acusava 27 casos, dos quais só um era defeito.
 
 **O Ceará com mediana de 1,40 SM não é estranho?**
 É composição. Há centrais de atendimento classificadas em atividades de TI, então o número não indica um mercado de desenvolvimento mal pago. A localização também é a do estabelecimento, não a do trabalho.
