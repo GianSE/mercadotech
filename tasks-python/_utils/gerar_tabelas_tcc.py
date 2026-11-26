@@ -107,7 +107,8 @@ def tabela(nome: str, caption: str, rotulo: str, colunas: str,
            cabecalho: list[str], linhas: list[list[str]],
            fonte: str | None = None,
            nota: str = "", ambiente: str = "table",
-           tamanho: str = "footnotesize", esticar: float = 1.25) -> None:
+           tamanho: str = "footnotesize", esticar: float = 1.25,
+           grupos: bool = False) -> None:
     """Monta uma tabela ABNT com booktabs e grava o arquivo.
 
     `tamanho` e `esticar` existem para a tabela longa do apêndice: no padrão,
@@ -116,7 +117,12 @@ def tabela(nome: str, caption: str, rotulo: str, colunas: str,
     """
     fonte = fonte or FONTES[nome]
     cab = " & ".join(f"\\textbf{{{c}}}" for c in cabecalho) + " \\\\"
-    corpo = "\n".join("        " + " & ".join(l) + " \\\\" for l in linhas)
+    # Linha com a primeira coluna vazia continua o grupo da anterior; um grupo
+    # novo ganha um traço fino antes, para a divisão não depender só do olho.
+    separador = f"        \\cmidrule{{1-{len(cabecalho)}}}\n"
+    corpo = "\n".join(
+        (separador if i and grupos and l[0] else "") + "        " + " & ".join(l) + " \\\\"
+        for i, l in enumerate(linhas))
     escrever(nome, f"""% Gerado por scripts/gerar_tabelas.py --- não editar à mão.
 \\begin{{{ambiente}}}[htbp]
     \\centering
@@ -388,15 +394,19 @@ tabela("tab-uf.tex", f"As dez unidades federativas com maior estoque de TI em {A
        ["UF", "Vínculos", "Participação", "Remuneração mediana (SM)"], linhas)
 
 # ------------------------------------------------- hiato salarial
-linhas = [[ano(r[0]), r[1], pct(r[2]), num(r[3], 3), num(r[4], 3)] for r in con.execute(f"""
+# A comparação aparece só na primeira linha do grupo: repetida nas nove, a
+# divisão de três em três ficava sutil demais (nota do orientador, 25/11).
+brutas = con.execute(f"""
     SELECT ano, comparacao, hiato_pct, explicada, nao_explicada
     FROM read_parquet('{G}/hiato_serie.parquet')
     WHERE ano IN (2007, 2015, {ANO}) ORDER BY comparacao, ano
-""").fetchall()]
+""").fetchall()
+linhas = [[r[1] if i == 0 or brutas[i - 1][1] != r[1] else "", ano(r[0]), pct(r[2]), num(r[3], 3), num(r[4], 3)]
+          for i, r in enumerate(brutas)]
 tabela("tab-hiato.tex", "Decomposição de Oaxaca-Blinder do hiato salarial",
        "tab:hiato", "llrrr",
-       ["Ano", "Comparação", "Hiato bruto", "Parcela explicada (log)",
-        "Parcela não explicada (log)"], linhas,
+       ["Comparação", "Ano", "Hiato bruto", "Parcela explicada (log)",
+        "Parcela não explicada (log)"], linhas, grupos=True,
        nota="Parcelas em logaritmo da remuneração; referência de Neumark. "
             "Hiato bruto $= e^{E+N} - 1$, com $E$ e $N$ as parcelas explicada e não explicada. ")
 
