@@ -551,9 +551,9 @@ risco = con.execute(f"""
     ORDER BY list_position(['0-6m', '6-12m', '1-2a', '2-3a', '3-5a', '5-10a', '10-20a', '20a+'], tempo_de_casa)
 """).fetchall()
 ano_risco = con.execute(f"SELECT max(ano) FROM read_parquet('{G}/sobrevivencia_risco.parquet')").fetchone()[0]
-tabela("tab-risco.tex", f"Risco de desligamento por tempo de casa em {int(ano_risco)}",
+tabela("tab-risco.tex", f"Risco de desligamento por tempo de emprego em {int(ano_risco)}",
        "tab:risco", "lrrr",
-       ["Tempo de casa", "Vínculos", "Desligamentos", "Risco no ano"],
+       ["Tempo de emprego", "Vínculos", "Desligamentos", "Risco no ano"],
        [[r[0], num(r[1]), num(r[2]), pct(r[3])] for r in risco])
 
 # Coordenada simbólica sem traço (0-6m -> f0_6m); rótulo legível em duas linhas (0–6\\meses).
@@ -565,7 +565,7 @@ barras = "\n".join(
     f"nodes near coords, nodes near coords style={{font=\\scriptsize, /pgf/number format/.cd, use comma, fixed, fixed zerofill, precision=1}}] "
     f"coordinates {{({chave(r[0])},{r[3]:.1f})}};"
     for r in risco)
-figura("fig-risco.tex", f"Risco de desligamento no ano, por tempo de casa, em {int(ano_risco)}",
+figura("fig-risco.tex", f"Risco de desligamento no ano, por tempo de emprego, em {int(ano_risco)}",
        "fig:risco", f"""    \\begin{{tikzpicture}}
     \\begin{{axis}}[{EIXO}, width=0.85\\textwidth, height=6cm, ymin=0, ymax={max(r[3] for r in risco) * 1.18:.0f},
             ylabel={{Desligados no ano (\\%)}}, symbolic x coords={{{",".join(chave(r[0]) for r in risco)}}},

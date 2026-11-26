@@ -3,6 +3,8 @@
 \chapter{Fundamentação Teórica}
 \label{cap:referencial}
 
+O trabalho cruza três campos: a economia do trabalho, que orienta a leitura dos resultados; a engenharia de dados, que sustenta a plataforma; e a estatística, de onde vêm os modelos. Este capítulo apresenta os conceitos de cada um na ordem em que entram no trabalho, das bases de dados aos métodos, e termina com os estudos mais próximos deste.
+
 \section{Mercado de trabalho em TI: crescimento e desigualdade}
 
 Nas últimas décadas, o setor de TI no Brasil cresceu sem grandes interrupções, puxado pela transformação digital de empresas e órgãos públicos, pelo comércio eletrônico e pelos modelos de negócio centrados em plataformas digitais. Segundo o Relatório Setorial 2024 da BRASSCOM, o macrossetor de Tecnologia da Informação e Comunicação (TIC) responde por 6,5\% do Produto Interno Bruto (PIB) brasileiro e reunia, em 2024, cerca de 2,1 milhões de empregos formais \cite{Brasscom2024}.
@@ -20,7 +22,7 @@ Sobre raça, a desigualdade de rendimentos no Brasil é de outra magnitude. Em 2
 
 Sobre a terceirização, \citeonline{AbrahamTaylor1996} mostram que as empresas contratam serviços de fora por três motivos: reduzir custos salariais, ajustar a força de trabalho às oscilações de demanda e ter acesso a competências especializadas que não compensaria manter internamente. Os dois últimos descrevem bem os serviços de tecnologia. Em ocupações de serviços, quem passa a trabalhar para o fornecedor ganha menos. Na Alemanha, trabalhadores terceirizados de limpeza, segurança, alimentação e logística passaram a receber de 10\% a 15\% menos que os não terceirizados em postos equivalentes \cite{GoldschmidtSchmieder2017}, e resultado na mesma direção foi encontrado para faxineiros e vigilantes nos Estados Unidos \cite{DubeKaplan2010}. Se o mesmo vale para ocupações qualificadas, como as de TI, é uma questão em aberto.
 
-Uma ressalva de método acompanha qualquer série de salários: a composição da força de trabalho muda com o ciclo. Na expansão, entram mais trabalhadores de salário baixo e pouco tempo de casa; na recessão, são eles os primeiros a sair. Por isso médias e medianas agregadas podem ficar estáveis enquanto os salários de cada grupo se movem, ou o contrário \cite{Solon1994}. O mesmo vale para o tempo médio de emprego.
+Uma ressalva de método acompanha qualquer série de salários: a composição da força de trabalho muda com o ciclo. Na expansão, entram mais trabalhadores de salário baixo e pouco tempo de emprego; na recessão, são eles os primeiros a sair. Por isso médias e medianas agregadas podem ficar estáveis enquanto os salários de cada grupo se movem, ou o contrário \cite{Solon1994}. O mesmo vale para o tempo médio de emprego.
 
 Por fim, o trabalho remoto que se expandiu com a pandemia não voltou ao nível anterior. Nos Estados Unidos, estabilizou-se em uma fração dos dias trabalhados muitas vezes maior que antes de 2020, concentrada em ocupações de alta qualificação \cite{Barrero2023}. Para quem estuda o emprego por registros administrativos, a consequência é direta: o lugar do empregador e o lugar onde a pessoa vive e trabalha deixam de coincidir.
 
@@ -34,20 +36,20 @@ Os arquivos distribuídos pelo MTE trazem apenas códigos numéricos, sem cabeç
 
 \label{subsec:caged}
 
-O CAGED foi criado pela Lei n.º 4.923/1965 para registrar as admissões e demissões de empregados regidos pela Consolidação das Leis do Trabalho (CLT). No formato vigente até dezembro de 2019, os empregadores declaravam mensalmente cada movimentação, e o MTE publicava um único arquivo de largura fixa (\textit{fixed-width}) por competência, com cerca de 40 campos sobre o trabalhador (idade, gênero, grau de instrução, salário mensal, CBO, tempo de emprego) e o estabelecimento (CNAE, município, porte, subsetor IBGE). Cada linha é uma movimentação, marcada como admissão ou desligamento, e o saldo do mês é a diferença entre as duas \cite{CAGED2024}.
+O CAGED foi criado pela Lei n.º 4.923/1965 para registrar as admissões e demissões de empregados regidos pela Consolidação das Leis do Trabalho (CLT). No formato vigente até dezembro de 2019, os empregadores declaravam mensalmente cada movimentação, e o MTE publicava um único arquivo de largura fixa (\textit{fixed-width}) por competência, com cerca de 40 campos sobre o trabalhador (idade, gênero, grau de instrução, salário mensal, CBO e tempo de emprego) e o estabelecimento (CNAE, município, porte e subsetor IBGE). Cada linha é uma movimentação, marcada como admissão ou desligamento, e o saldo do mês é a diferença entre as duas \cite{CAGED2024}.
 
 Em janeiro de 2020, o CAGED foi reformulado pela Portaria n.º 1.127/2019, passou a fazer parte do sistema eSocial e recebeu o nome de \textit{Cadastro Geral de Empregados e Desempregados Estoque} (CAGEDEST). Quatro pontos mudam em relação ao formato antigo \cite{CAGED2024}:
 
 \begin{itemize}
     \item \textbf{Formato}: CSV compactado (\texttt{.7z}), com separador ponto e vírgula, no lugar do arquivo de largura fixa;
     \item \textbf{Tipos de arquivo}: \textbf{MOV} (declarações regulares) e \textbf{FOR} (fora do prazo), que formam o fluxo principal; \textbf{EXC} (exclusões), que registra as retificações; e \textbf{AJUSTES}, com correções retroativas que remontam a 2010;
-    \item \textbf{Colunas}: variáveis novas (horas contratuais, trabalho intermitente e parcial, categoria do trabalhador) e perda dos campos de regionalização fina, como bairros e distritos;
+    \item \textbf{Colunas}: variáveis novas (horas contratuais, categoria do trabalhador e indicação de trabalho intermitente ou parcial) e perda dos campos de regionalização fina, como bairros e distritos;
     \item \textbf{Codificação}: MOV, FOR e EXC em Latin-1, e AJUSTES em UTF-8, duas codificações no mesmo período, que exigem tratamento explícito no \textit{parser}.
 \end{itemize}
 
 Com a divisão em vários arquivos, o saldo de cada competência deixa de sair de uma única fonte, e é preciso somar as movimentações de MOV e FOR e descontar as de EXC \cite{CAGED2024}.
 
-A CBO é o documento oficial que descreve e organiza as ocupações do mercado de trabalho brasileiro, e a base dos campos de cargo da RAIS e do CAGED \cite{CBO2024}. A classificação é hierárquica: grande grupo (1 dígito), subgrupo principal (2 dígitos), subgrupo (3 dígitos), família ocupacional (4 dígitos), que reúne ocupações de tarefas semelhantes, e ocupação (6 dígitos), que descreve o cargo. O código 212405, analista de sistemas (suporte), pertence à família 2124 (analistas de tecnologia da informação), ao subgrupo principal 21 (profissionais das ciências exatas e da engenharia) e ao grande grupo 2 (profissionais das ciências e das artes).
+A CBO é o documento oficial que descreve e organiza as ocupações do mercado de trabalho brasileiro, e a base dos campos de cargo da RAIS e do CAGED \cite{CBO2024}. A classificação é hierárquica, em cinco níveis: grande grupo (1 dígito), subgrupo principal (2 dígitos), subgrupo (3 dígitos), família ocupacional (4 dígitos) e ocupação (6 dígitos). A família reúne ocupações de tarefas semelhantes, e a ocupação descreve o cargo. O código 212405, analista de sistemas (suporte), pertence à família 2124 (analistas de tecnologia da informação), ao subgrupo principal 21 (profissionais das ciências exatas e da engenharia) e ao grande grupo 2 (profissionais das ciências e das artes).
 
 A CBO classifica o que o trabalhador faz, mas não diz em que tipo de empresa ele atua. Esse papel cabe à CNAE, mantida pelo IBGE e estruturada em cinco níveis, do mais agregado (Seção, com letras de A a U) ao mais específico (Subclasse, com 7 dígitos) \cite{CNAE2024}. A CNAE permite distinguir quem atua em empresas de tecnologia (Divisão 62, ``Atividades dos serviços de tecnologia da informação'' \cite{CNAE2024}) de quem ocupa funções de TI em bancos, indústria ou comércio.
 
@@ -55,12 +57,23 @@ Usadas juntas, as duas bases dão uma visão que nenhuma oferece sozinha. A RAIS
 
 \section{Engenharia de dados e visualização \textit{web}}
 
+Processar dezenas de gigabytes de microdados sem servidor próprio e publicar o resultado depende de uma decisão em cada etapa do caminho do dado. Esta seção apresenta os conceitos por trás dessas decisões: a organização do \textit{data lake} em camadas, o formato colunar dos arquivos, o motor de consulta e o repositório público que os guarda, a orquestração das etapas e a visualização no navegador.
+
 \subsection{\textit{Data lake} e Arquitetura Medalhão}
 \label{subsec:medalhao}
 
 O \textit{data lake} surgiu como alternativa ao \textit{data warehouse} tradicional para lidar com grandes volumes de dados heterogêneos \cite{Reis2022}. A distinção principal está em \textit{quando} o esquema é fixado: o \textit{data warehouse} obriga a modelar tudo num esquema rígido antes de gravar (\textit{schema on write}), ao passo que o \textit{data lake} guarda o dado bruto e só o transforma depois (\textit{schema on read}). Essa flexibilidade faz diferença quando os dados de origem chegam em formatos heterogêneos e as regras de transformação podem mudar.
 
-A Arquitetura Medalhão (\textit{Medallion Architecture}), nome dado pela Databricks a um padrão que independe de plataforma, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente \cite{MicrosoftMedallion2024}. A \textbf{Bronze} armazena os dados como recebidos da fonte, sem transformação, e serve de fonte de verdade para reprocessamento. A \textbf{Silver} contém os dados limpos, padronizados e filtrados ao domínio de interesse, com os códigos traduzidos por dicionários externos. A \textbf{Gold} guarda os agregados e modelos prontos para consumo por \textit{dashboards} e análises. A separação traz rastreabilidade (\textit{lineage}), e um erro em uma camada se corrige reprocessando as seguintes a partir da Bronze, sem baixar de novo os arquivos da fonte \cite{Armbrust2021, Reis2022}. A \autoref{fig:medalhao} mostra o fluxo entre as camadas como a documentação da arquitetura o representa. Neste trabalho, o padrão é aplicado sem nenhum serviço da Databricks: as três camadas são repositórios públicos do Hugging Face Hub, processados pelo GitHub Actions com o DuckDB (\autoref{sec:arquitetura}).
+A Arquitetura Medalhão (\textit{Medallion Architecture}), nome dado pela Databricks a um padrão que independe de plataforma, organiza o \textit{data lake} em camadas sucessivas de qualidade crescente \cite{MicrosoftMedallion2024}: 
+\begin{itemize}
+    \item A camada \textbf{Bronze} armazena os dados como recebidos da fonte, sem transformação, e serve de fonte de verdade para reprocessamento. 
+
+    \item A camada \textbf{Silver} contém os dados limpos, padronizados e filtrados ao domínio de interesse, com os códigos traduzidos por dicionários externos. 
+
+    \item A camada \textbf{Gold} guarda os agregados e modelos prontos para consumo por \textit{dashboards} e análises. 
+\end{itemize}
+
+A separação traz rastreabilidade (\textit{lineage}), e um erro em uma camada se corrige reprocessando as seguintes a partir da Bronze, sem baixar de novo os arquivos da fonte \cite{Armbrust2021, Reis2022}. A \autoref{fig:medalhao} mostra o fluxo entre as camadas como a documentação da arquitetura o representa. Neste trabalho, o padrão é aplicado sem nenhum serviço da Databricks: as três camadas são repositórios públicos do Hugging Face Hub, processados pelo GitHub Actions com o DuckDB (\autoref{sec:arquitetura}).
 
 \begin{figure}[htbp]
     \centering
@@ -90,7 +103,7 @@ A leitura seletiva vem acompanhada de dois outros benefícios. No \textit{predic
 \subsection{DuckDB e repositórios públicos de dados}
 \label{subsec:motores-in-process}
 
-Os motores de \textit{Online Analytical Processing} (OLAP) tradicionais, como Redshift, BigQuery ou ClickHouse, seguem o modelo cliente-servidor, que cobra seu preço em latência de rede e complexidade de operação. Os motores \textit{in-process} são executados dentro do próprio processo da aplicação, sem servidor separado, e o DuckDB é o principal representante dessa categoria. Ele usa execução vetorizada: em vez de processar uma linha por vez, opera sobre vetores de valores de uma mesma coluna, o que aproveita as instruções vetoriais dos processadores modernos \cite{Raasveldt2019}.
+Os motores de \textit{Online Analytical Processing} (OLAP) tradicionais, como Redshift, BigQuery ou ClickHouse, seguem o modelo cliente-servidor, que acrescenta latência de rede e complexidade de operação. Os motores \textit{in-process} são executados dentro do próprio processo da aplicação, sem servidor separado, e o DuckDB é o principal representante dessa categoria. Ele usa execução vetorizada: em vez de processar uma linha por vez, opera sobre vetores de valores de uma mesma coluna, o que aproveita as instruções vetoriais dos processadores modernos \cite{Raasveldt2019}.
 
 \label{subsec:repositorios-dados}
 
@@ -119,6 +132,9 @@ A segunda arquitetura combina três peças. A interface é uma aplicação de p�
 O desenho da interação segue o princípio formulado por \citeonline{Shneiderman1996} para sistemas de busca visual de informação: primeiro a visão geral, depois aproximação e filtro, e os detalhes sob demanda. Em um \textit{dashboard} analítico, isso se traduz em abrir cada tela pela resposta agregada, permitir recortar o dado (por período, território ou grupo) e deixar os valores exatos a um clique de cada gráfico.
 
 \section{Séries temporais, previsão e \textit{nowcasting}}
+\label{subsec:origem-movel}
+\label{subsec:metricas}
+\label{subsec:nowcasting}
 
 Uma série temporal é uma sequência de observações de uma variável coletadas em intervalos regulares \cite{Hyndman2021}, que se costuma decompor em tendência, sazonalidade, ciclo e ruído \cite{Box2015}.
 
@@ -130,17 +146,13 @@ A família \textit{AutoRegressive Integrated Moving Average} (ARIMA), formalizad
 \end{equation}
 em que $(P, D, Q)$ são as ordens sazonais e $m$ é o período, igual a 12 nas séries mensais com ciclo anual.
 
-A diferenciação sazonal ($D = 1$) é o que torna a família adequada à série de saldo de empregos, porque remove o ciclo anual de admissões e desligamentos subtraindo de cada mês o mesmo mês do ano anterior, em lugar de estimar uma forma funcional para esse ciclo \cite{Hyndman2021}. O preço é a perda dos primeiros $m$ pontos da série, o que importa quando o histórico é curto.
+A diferenciação sazonal ($D = 1$) é o que torna a família adequada à série de saldo de empregos, porque remove o ciclo anual de admissões e desligamentos subtraindo de cada mês o mesmo mês do ano anterior, em lugar de estimar uma forma funcional para esse ciclo \cite{Hyndman2021}. A desvantagem é que os primeiros $m$ meses da série não têm um mês do ano anterior para a subtração e ficam de fora do ajuste, perda que pesa quando o histórico é curto.
 
 Uma alternativa de outra natureza é o Prophet \cite{Taylor2018}, que trata a série como uma regressão: uma tendência linear por partes, uma sazonalidade descrita por séries de Fourier e, quando houver, efeitos de feriados. Foi desenhado para séries de negócio com lacunas e mudanças de tendência, com poucos parâmetros a calibrar; o principal é a flexibilidade da tendência (\textit{changepoint prior scale}), que controla quanto a inclinação pode mudar. Em vez de diferenciar a série para remover o ciclo anual, como o SARIMA, o Prophet o estima diretamente.
-
-\label{subsec:origem-movel}
 
 Avaliar um modelo de série temporal por amostragem aleatória é inválido, porque embaralhar as observações permite ao modelo treinar com o futuro e prever o passado. A alternativa consagrada é a validação de origem móvel \cite{Tashman2000}, também chamada de validação em janelas expansivas: o modelo é treinado com os dados até um instante $T$, prevê os $h$ períodos seguintes, a origem avança e o procedimento se repete. O erro reportado é a média das dobras.
 
 O \textit{baseline} de comparação precisa ser avaliado nas mesmas dobras e no mesmo horizonte, e uma grade grande de especificações, avaliada em poucas dobras, encontra por acaso o modelo que se sai bem naquelas dobras, num sobreajuste deslocado da amostra de treino para a de validação \cite{Tashman2000, Hyndman2021}. Um \textit{baseline} usual em séries sazonais é o ingênuo sazonal, que prevê para cada mês o valor do mesmo mês do ano anterior \cite{Hyndman2021}; um modelo que não o supera não se justifica.
-
-\label{subsec:metricas}
 
 A qualidade das previsões é medida por duas métricas clássicas \cite{Hyndman2021}. O \textit{Mean Absolute Error} (MAE) calcula o erro médio em valores absolutos, na mesma unidade da série. O \textit{Root Mean Squared Error} (RMSE) penaliza os erros de forma quadrática e, por isso, é mais sensível a previsões muito distantes do valor observado:
 
@@ -152,11 +164,10 @@ A qualidade das previsões é medida por duas métricas clássicas \cite{Hyndman
 
 onde $y_i$ é o valor observado e $\hat{y}_i$ é o valor previsto pelo modelo para o período $i$.
 
-\label{subsec:nowcasting}
-
 Nem toda pergunta sobre uma série é uma pergunta sobre o futuro. Estatísticas oficiais são publicadas com defasagem, e o valor do período corrente, ou mesmo do já encerrado, costuma ser desconhecido quando a decisão precisa ser tomada. O \textit{nowcasting}, formalizado por \citeonline{Giannone2008} para o PIB, estima esse presente a partir de informações divulgadas antes e com mais frequência que a estatística de interesse. \citeonline{Banbura2013} o definem como a previsão do presente, do passado muito recente e do futuro muito próximo, e mostram que o ganho vem do fluxo de publicação: cada dado que sai antes da estatística oficial reduz a incerteza sobre ela. A RAIS e o CAGED têm exatamente essa relação: o estoque anual é publicado no ano seguinte, e o fluxo mensal, poucas semanas depois de cada mês.
 
 \section{Métodos de decomposição salarial e de sobrevivência}
+\label{subsec:sobrevivencia}
 
 As perguntas sobre qualidade do emprego e equidade não se respondem com extrapolação de série. Esta seção apresenta os dois métodos empregados para elas.
 
@@ -170,11 +181,9 @@ Proposta de forma independente por \citeonline{Oaxaca1973} e \citeonline{Blinder
 \end{equation}
 em que $\bar{X}$ são as médias das características, $\hat{\beta}$ os coeficientes estimados em cada grupo e $\beta^{*}$ o vetor de referência.
 
-A parcela explicada é a diferença atribuível ao fato de os grupos terem características distintas: escolaridade, experiência, ocupação, porte da empresa. A não explicada é a que permanece entre pessoas com características equivalentes, isto é, uma diferença de \textit{retorno} às mesmas características. A escolha de $\beta^{*}$ não é neutra, porque usar os coeficientes de um dos grupos altera a magnitude das parcelas; \citeonline{Neumark1988} propõe os coeficientes da regressão conjunta dos dois grupos, convenção adotada neste trabalho e discutida por \citeonline{Jann2008}.
+A parcela explicada é a diferença atribuível ao fato de os grupos terem características distintas: escolaridade, experiência, ocupação e porte da empresa. A não explicada é a que permanece entre pessoas com características equivalentes, isto é, uma diferença de \textit{retorno} às mesmas características. A escolha de $\beta^{*}$ não é neutra, porque usar os coeficientes de um dos grupos altera a magnitude das parcelas; \citeonline{Neumark1988} propõe os coeficientes da regressão conjunta dos dois grupos, convenção adotada neste trabalho e discutida por \citeonline{Jann2008}.
 
-A parcela não explicada não é medida de discriminação. Ela contém tudo que afeta o salário e não está no modelo: experiência anterior não registrada, interrupções de carreira, negociação, preferências por jornada. É um limite superior para o que a discriminação poderia explicar, e não uma estimativa dela \cite{Jann2008}.
-
-\label{subsec:sobrevivencia}
+A parcela não explicada não é medida de discriminação. Ela contém tudo que afeta o salário e não está no modelo: experiência anterior não registrada, interrupções de carreira, negociação e preferências por jornada. É um limite superior para o que a discriminação poderia explicar, e não uma estimativa dela \cite{Jann2008}.
 
 A permanência em um emprego é um fenômeno de duração, e a análise de sobrevivência se aplica a ele. O estimador de \citeonline{Kaplan1958} é a ferramenta usual quando se acompanha uma coorte ao longo do tempo, tratando como censurados os casos cujo desfecho não foi observado.
 
