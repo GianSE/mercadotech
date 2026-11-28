@@ -21,6 +21,9 @@ Andam juntas (correlação de 0,97), mas em mediana a variação da RAIS é 1,24
 **E o PJ?**
 Fica de fora, e está declarado como limitação: RAIS e CAGED só cobrem o emprego formal (CLT e estatutário). Em TI, a contratação como PJ é comum, então o estoque real do setor é maior.
 
+**Por que só TI, e não o mercado de trabalho inteiro?**
+Porque o recorte é o que permitiu chegar a conclusões. Primeiro, a pergunta de pesquisa (o crescimento veio com salários melhores e mais igualdade?) faz sentido para um setor que cresceu muito; para o mercado inteiro, ela vira "como está o emprego no Brasil", ampla demais para uma resposta. Segundo, os achados mais fortes vieram de investigar números estranhos num setor específico: no mercado inteiro, os 40 a 49 mil servidores de Rondônia somem no meio de dezenas de milhões de vínculos, e o caso não teria aparecido. Terceiro, a validação completa (recontar tudo a partir do bruto e comparar código a código com o painel do MTE) só coube no prazo porque o recorte tem 34 ocupações. A engenharia, por outro lado, não depende do recorte: no mercadobrasil, o mesmo pipeline já roda para outras nove áreas, e cada uma pode virar um estudo próprio, com a sua pergunta, por exemplo, como ficou o emprego na saúde depois da pandemia.
+
 ## Engenharia
 
 **Por que DuckDB e não Spark ou um banco relacional?**
@@ -40,6 +43,9 @@ Foi medido, não presumido (seção 4.3.2). A recontagem dá zero da Bronze em d
 
 **Qual foi o problema de engenharia mais difícil?**
 A ingestão parcial de 2022. A auditoria por arquivo dizia que estava tudo lá, mas faltavam 7 pedaços (446.267 vínculos). Só apareceu porque a série ficou implausível. A lição foi trocar a verificação por arquivo pela verificação por pedaço e passar a recontar a partir do dado bruto.
+
+**O trabalho serve para outras áreas além de TI?**
+Serve, e isso já está feito fora do TCC. No mercadobrasil (github.com/GianSE/mercadobrasil, site em mercadobrasil.gian-pedro-rodrigues.workers.dev), o mesmo pipeline roda para dez áreas: TI, saúde, educação, agronegócio, finanças, indústria, construção civil, logística, comércio e engenharia. Basta trocar a lista de códigos de cada área. Também publiquei no Hugging Face as bases completas traduzidas, silver-rais e silver-caged, com todos os setores. Cuidado: a auditoria do TCC (recontagem a partir do bruto e comparação com o painel do MTE) foi feita no recorte de TI. As outras áreas usam a mesma tradução e o mesmo código, mas não passaram pela mesma validação externa.
 
 ## Métodos
 

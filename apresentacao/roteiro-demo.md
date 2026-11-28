@@ -1,6 +1,6 @@
 # Roteiro da demonstração ao vivo
 
-Entra no lugar da fala do slide 16 (Dashboard). Duração: 3 minutos. Com o slide 9 enxugado, a apresentação inteira fica em torno de 17 a 18 minutos, com folga dentro dos 20.
+Entra no lugar da fala do slide 16 (Dashboard). Duração: 3 minutos. Com as falas novas, a apresentação inteira fica em torno de 15 minutos, com folga dentro dos 20.
 
 ## Antes da banca (15 minutos antes)
 
@@ -16,31 +16,30 @@ Entra no lugar da fala do slide 16 (Dashboard). Duração: 3 minutos. Com o slid
 
 ## A demonstração
 
-**Transição (no slide 16):** "Em vez de descrever o painel, vou mostrar." Troque para o navegador.
+**Transição (no slide 16):** "Agora, em vez de falar do painel, vou mostrar ele funcionando." Troque para o navegador.
 
 **1. Visão geral (30 s), aba 1**
-- "Cada aba abre pela resposta. Aqui estão os indicadores principais: estoque, crescimento desde 2007, a parcela fora do setor de TI e a mediana."
-- Aponte o gráfico de vínculos pelas duas lentes: "As duas lentes do recorte, ano a ano."
+- "Essa é a página inicial. Cada aba do painel responde uma das perguntas, e já abre mostrando a resposta. Aqui em cima estão os números principais, e esse gráfico mostra o mercado crescendo ano a ano."
 
 **2. Onde (60 s), aba 2**
-- "O mapa por estado. São Paulo concentra 41% do estoque."
-- Clique no Ceará, no mapa ou no ranking: "Dá para descer ao município. O Ceará tem a menor mediana do país, e o painel ajudou a achar o motivo: dois terços do estoque de lá são outras ocupações em empresas de TI."
+- "Aqui é o mapa por estado, e dá para ver como São Paulo se destaca."
+- Clique no Ceará, no mapa ou no ranking: "Dá para entrar em qualquer estado e ver os municípios. Foi olhando aqui que eu percebi que o caso do Ceará era diferente e fui investigar."
 - Volte para a visão por estado.
 
 **3. Qualidade sem São Paulo (60 s), aba 3**
-- "Agora com o filtro de território: o Brasil sem São Paulo. O filtro vale para o site inteiro e fica no endereço, então quem recebe o link vê o mesmo recorte."
-- Aponte a mediana: "Sem São Paulo, a mediana caiu no período. É a análise de sensibilidade do TCC, refeita por qualquer pessoa com um clique."
-- Aponte o selo "Brasil inteiro: este gráfico não segue o filtro" no risco de desligamento: "Os modelos são nacionais, e o painel avisa em vez de fingir que respondeu ao filtro."
-- Clique em **Tabela** num gráfico e mostre o botão **CSV**: "Todo gráfico mostra os valores exatos e baixa os dados."
+- "Agora eu tirei São Paulo pelo filtro. O filtro vale para o site inteiro, e fica no próprio link, então se eu mandar esse endereço para alguém, a pessoa vê exatamente isso."
+- Aponte a mediana: "Sem São Paulo, dá para ver o salário caindo. Aquele teste que eu mostrei, qualquer pessoa consegue refazer aqui."
+- Aponte o aviso "Brasil inteiro: este gráfico não segue o filtro" no risco de desligamento: "Quando um gráfico não muda com o filtro, o painel avisa."
+- Clique em **Tabela** num gráfico e mostre o botão **CSV**: "E todo gráfico mostra a tabela com os números e deixa baixar os dados."
 
 **4. Futuro (30 s), aba 4**
-- "A previsão do saldo, com a faixa de 80%, e o estoque estimado para 2026: 1,38 milhão de vínculos."
-- Fechamento: "Nada disso está guardado no site. O navegador lê a camada Gold publicada no Hugging Face com o DuckDB, então, quando o pipeline publica um mês novo, o painel já mostra."
+- "Por último, a previsão e a estimativa para este ano."
+- Fechamento: "E o site não guarda os dados: ele lê direto de onde a plataforma publica. Então, quando sai um mês novo do CAGED, o painel já mostra sozinho."
 
 Volte para os slides, no 17 (Síntese).
 
 ## Se algo der errado
 
 - **Gráfico demorando a carregar:** fale por cima ("está lendo direto do Hugging Face") e siga para a próxima aba. Não espere mais que uns 5 segundos.
-- **Site fora do ar ou internet caiu:** volte ao slide 16 e use a fala de reserva: "O painel tem sete abas: a visão geral, uma por pergunta e o método. Cada uma abre pela resposta, o filtro de território vale para o site inteiro, e cada gráfico mostra a tabela e baixa o CSV. Os dados não ficam no site: o navegador lê a Gold do Hugging Face. O endereço está no slide, e a banca pode abrir depois."
+- **Site fora do ar ou internet caiu:** volte ao slide 16 e use a fala de reserva: "O painel tem uma aba para cada pergunta, e cada uma já abre com a resposta. Dá para filtrar por estado, ver a tabela de qualquer gráfico e baixar os dados. E o site não guarda os dados: ele lê direto do Hugging Face, então sempre mostra a versão mais nova. O endereço está no slide, e vocês podem abrir depois."
 - **Perguntaram algo no meio:** responda e retome da aba em que parou. Se faltar tempo, pule a aba Futuro, porque o slide 15 já mostrou esses números.
